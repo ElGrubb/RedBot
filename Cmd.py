@@ -1,7 +1,7 @@
 import Sys, Conversation
 import Cooldown as CD
 import asyncio, random, datetime, time, discord, json, praw
-import forecastio, os, sys
+import forecastio, os, sys, git, os
 
 # Reddit
 reddit = praw.Reddit('bot1')
@@ -457,6 +457,37 @@ class Admin:
             await channel.send("Successfully Committed a `Full` Restart.")
             restart_data["Restarted"] = False
             Helpers.SaveData(restart_data, type="System")
+
+    @staticmethod
+    async def Update(message):
+        if not await CheckMessage(message, prefix=True, admin=True, start="update"):
+            return
+        if not await Helpers.Confirmation(message, "Update?", deny_text="Update Cancelled", timeout=20):
+            return
+
+        channel = message.channel
+        g = git.cmd.Git(os.getcwd())
+        output = g.pull()
+
+        to_send = "`" + output + "`"
+        await channel.send(output)
+
+        if output == "Already up to date.":
+            return
+
+        await message.add_reaction(Conversation.Emoji["check"])
+        info = {
+            "Restarted": True,
+            "Type": "Update",
+            "Channel_ID": message.channel.id
+        }
+        Helpers.SaveData(info, type="System")
+        await Vars.Bot.logout()
+        os.execv(sys.executable, ['python'] + sys.argv)
+        return
+
+
+
 
 
 class Timer:
@@ -1255,19 +1286,77 @@ class Other:
     @staticmethod
     async def On_Member_Join(member):
         guild = member.guild
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
 
         description = "Account Created at: " + member.created_at.strftime("%H:%M:%S  on  %m-%d-%Y")
         description += "\nJoined Server at: " + datetime.datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
-        description += '\nID: `' + member.id + '`'
+        description += '\nID: `' + str(member.id) + '`'
         if member.bot:
             description += '\nYou are a bot. I do not like being replaced.'
         em = discord.Embed(description=description, colour=0xffffff)
         em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
 
-        await guild.send("Welcome!", embed=em)
+        await default_channel.send("Welcome!", embed=em)
 
-        if guild == Vars.Bot.get_server(Conversation.Server_IDs['Dmakir']):
-            await Cmd.Dmakir_New_Member(member, bot)
+        # if guild == Vars.Bot.get_server(Conversation.Server_IDs['Dmakir']):
+        #     await Cmd.Dmakir_New_Member(member, bot)
+
+    @staticmethod
+    async def On_Member_Remove(member):
+        guild = member.guild
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        reason = False
+        async for entry in guild.audit_logs(limit=1):
+            if str(entry.action) == 'AuditLogAction.kick' and entry.target.id == member.id:
+                reason = "Kicked by " + Sys.FirstCap(entry.user.name)
+            elif str(entry.action) == 'AuditLogAction.ban' and entry.target.id == member.id:
+                reason = "Banned by " + Sys.FirstCap(entry.user.name)
+            else:
+                reason = "Left on their own terms."
+
+        description = "**Reason: **" + reason
+        description += '\n**ID:** `' + str(member.id) + '`'
+
+        # Embed
+        em = discord.Embed(description=description, colour=0xffffff, timestamp=datetime.datetime.now())
+        em.set_author(name=member.name + " left.", icon_url=member.avatar_url)
+        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
+
+        await default_channel.send("Goodbye!", embed=em)
+
+    @staticmethod
+    async def On_Message_Delete(message):
+        delete_from_redbot = False
+        guild = message.guild
+        # If the delete was on a Redbot message and not by an admin
+        async for entry in guild.audit_logs(limit=1):
+            if str(entry.action) == 'AuditLogAction.message_delete':
+                if message.author == Vars.Bot.user and entry.user not in Ranks.Admins:
+                    delete_from_redbot = entry.user.name
+                else:
+                    delete_from_redbot = False
+
+        if delete_from_redbot:
+            if message.content.startswith("Welcome!") or message.content.startswith("Goodbye!"):
+                new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
+                              (delete_from_redbot, datetime.datetime.now())
+                message.content = new_content + message.content
+                await message.channel.send(message.content, embed=message.embeds[0])
+
+            elif message.content.startswith("**Reconstructed**"):
+                content = message.content.split('\n')[1]
+                new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
+                              (delete_from_redbot, datetime.datetime.now())
+                message.content = new_content + content
+                await message.channel.send(message.content, embed=message.embeds[0])
+
 
 
 
@@ -1278,11 +1367,14 @@ class On_React:
         message = reaction.message
         total_users = await reaction.users().flatten()
         if Vars.Bot.user in total_users:  # If bot originally reacted X
-            await message.delete()
+            try:
+                await message.delete()
+            except discord.errors.NotFound:
+                pass
             return
 
         # If bot didn't originally react:
-        if user in Ranks.Admins:
+        if user.id in Ranks.Admins:
             await message.add_reaction(Conversation.Emoji['check'])
             await asyncio.sleep(.4)
             await message.delete()

@@ -23,14 +23,15 @@ class MyClient(discord.Client):
             await Cmd.Admin.Enable(message)
             return
 
-        await Cmd.Other.QuickChat(message)
         await Cmd.test(message)
+
+        # 'SEND' Commands
+        await Cmd.Memes.SendMeme(message)
         await Cmd.Quotes.SendQuote(message)
         await Cmd.Quotes.QuoteCommand(message)
 
-
-        await Cmd.Memes.SendMeme(message)
-
+        # 'OTHER' COMMANDS
+        await Cmd.Other.QuickChat(message)
         await Cmd.Other.YesNo(message)
         await Cmd.Other.Change_Color(message)
         await Cmd.Other.Poll(message)
@@ -43,6 +44,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.Talk(message)
         await Cmd.Admin.Status(message)
         await Cmd.Admin.Restart(message)
+        await Cmd.Admin.Update(message)
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
@@ -52,8 +54,14 @@ class MyClient(discord.Client):
         if reaction.emoji == Conversation.Emoji["x"]:
             await Cmd.On_React.On_X(reaction, user)
 
+    async def on_message_delete(self, message):
+        await Cmd.Other.On_Message_Delete(message)
+
     async def on_member_join(self, member):
         await Cmd.Other.On_Member_Join(member)
+
+    async def on_member_remove(self, member):
+        await Cmd.Other.On_Member_Remove(member)
 
 
 
