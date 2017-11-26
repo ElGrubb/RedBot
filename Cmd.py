@@ -3,8 +3,6 @@ import Cooldown as CD
 import asyncio, random, datetime, time, discord, json, praw
 import forecastio, os, sys, git, os
 
-# Updated!
-
 # Reddit
 reddit = praw.Reddit('bot1')
 
