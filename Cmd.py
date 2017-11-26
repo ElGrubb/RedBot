@@ -12,12 +12,6 @@ lng = -71.046564
 
 
 class Ranks:
-    AdminNames = [
-        'ElGrubb#2774',  # Dom
-        'AlbertoBenitez#1615',  # Alberto
-        'Stevieboy#2126'  # Scangas
-
-    ]
     Admins = [
         239791371110580225,  # Dom
         281866259824508928,  # Berto
