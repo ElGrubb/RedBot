@@ -9,6 +9,9 @@ class MyClient(discord.Client):
         join = 'Logged on as {0}'.format(self.user)
         print(join + "\n" + "="*len(join))
 
+        game = discord.Game(name="Version " + Cmd.Vars.Version)
+        await bot.change_presence(status=discord.Status.online, game=game)
+
         # Check if it just restarted:
         await Cmd.Admin.CheckRestart()
 

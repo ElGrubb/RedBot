@@ -14,7 +14,6 @@ lng = -71.046564
 wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_Key'))
 
 
-
 class Ranks:
     Admins = [
         239791371110580225,  # Dom
@@ -32,6 +31,7 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = time.clock()
+    Version = "4.01"
     
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
