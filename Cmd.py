@@ -454,7 +454,8 @@ class Admin:
 
         if restart_data["Restarted"]:
             channel = Vars.Bot.get_channel(restart_data["Channel_ID"])
-            await channel.send("Successfully Committed a `Full` Restart.")
+            to_send = "Successfully Completed a `Full` " + restart_data["Type"]
+            await channel.send(to_send)
             restart_data["Restarted"] = False
             Helpers.SaveData(restart_data, type="System")
 
