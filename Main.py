@@ -14,6 +14,7 @@ class MyClient(discord.Client):
 
         await Cmd.Memes.CleanMemes()  # Clean Meme Files
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
+        Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
 
     async def on_message(self, message):
         if message.author == bot.user:
@@ -35,6 +36,8 @@ class MyClient(discord.Client):
         await Cmd.Other.YesNo(message)
         await Cmd.Other.Change_Color(message)
         await Cmd.Other.Poll(message)
+        await Cmd.Other.OldWeather(message)
+        await Cmd.Other.Calculate(message)
 
         # ADMIN Commands
         await Cmd.Admin.Delete(message)

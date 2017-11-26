@@ -1,6 +1,6 @@
 import Sys, Conversation
 import asyncio, random, datetime, time, discord, json, praw
-import forecastio, os, sys, git, os
+import forecastio, os, sys, git, wolframalpha
 
 # Reddit
 reddit = praw.Reddit('bot1')
@@ -9,6 +9,10 @@ reddit = praw.Reddit('bot1')
 forecast_api_key = Sys.Read_Personal(data_type='Forecast_Key')
 lat = 42.538690
 lng = -71.046564
+
+# Wolfram Alpha
+wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_Key'))
+
 
 
 class Ranks:
@@ -582,7 +586,7 @@ class Timer:
                 if current_time == '06:30':
                     today = datetime.datetime.now().strftime("%B %d")
                     print("Good Morning! It is " + today)
-                    await Cmd.T_Weather(bot)
+                    await Other.T_Weather()
 
 
 class Quotes:
@@ -1427,8 +1431,205 @@ class Other:
                 message.content = new_content + content
                 await message.channel.send(message.content, embed=message.embeds[0])
 
+    @staticmethod
+    async def OldWeather(message, morning=False):
+        if not await CheckMessage(message, prefix=True, start="Weather"):
+            return
+        forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
+        byHour = forecast.hourly()
+        byCurrent = forecast.currently()
+        byDaily = forecast.daily()
+        response = Sys.Response(Conversation.WeatherResponse)
+        msg = '```md\n# Weather Forcast for Lynnfield:'
+        msg += '\n- Currently ' + str(round(byHour.data[0].temperature)) + ' degrees'
+        if str(round(byHour.data[0].apparentTemperature)) != str(round(byHour.data[0].temperature)):
+            msg += ' but it feels like ' + str(round(byHour.data[0].apparentTemperature))
+        msg += '.\n- It is ' + byCurrent.summary
+        msg += '\n- I predict that there will be ' + byHour.summary
+        msg += '\n# Hourly Forcast:'
+        data = 7 if not morning else 15
+        for i in range(0, data):
+            new_time = the_time = int(time.strftime('%I')) + i
+            if new_time > 12:
+                new_time += -12
+                the_time = new_time
+                new_time = str(new_time) + 'AM' if time.strftime('%p') == 'PM' else str(new_time) + 'PM'
+            else:
+                new_time = str(new_time) + 'PM' if time.strftime('%p') == 'PM' else str(new_time) + 'AM'
+            dot = ' ' if the_time < 10 else ''
+            msg += '\n- ' + dot + new_time + "  -  " + str(round(byHour.data[i].temperature))
+            msg += " degrees  -  " + str(round(byHour.data[i].precipProbability * 100)) + "%"
 
+        msg += '\n# Seven Day Forecast:'
+        byDay = forecast.daily()
+        days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        weekday = int(time.strftime('%w'))
+        msg += '\n *Weekday   Date     Low    High   Precip.*'
+        date = int(time.strftime('%d'))
+        months31 = [1, 3, 5, 7, 8, 10, 12]
+        for i in range(0, 7):
+            day = days[weekday + i] if weekday + i < 7 else days[(weekday + i) - 7]
+            divider = ' ' * (9 - len(day))
+            monthdate = date + i
+            if int(time.strftime('%m')) in months31 and monthdate > 31:
+                monthdate += -31
+            elif int(time.strftime('%m')) == 2 and monthdate > 28:
+                monthdate += -28
+            elif int(time.strftime('%m')) not in months31 and monthdate > 30:
+                monthdate += -30
 
+            monthdate = '0' + str(monthdate) if monthdate < 10 else str(monthdate)
+            msg += '\n- ' + day + divider + ' (' + monthdate + ')' + '  ~  ' + str(round(byDay.data[i].temperatureMin))
+            msg += '  ~  ' + str(round(byDay.data[i].temperatureMax))
+            msg += '  ~  ' + str(round(byDay.data[i].precipProbability * 100)) + '%'
+
+        msg += '\n# Today\'s Facts:'
+        msg += '\n- Cloud Cover: ' + str(round(100 * byCurrent.cloudCover)) + '%'
+        msg += '```'
+        channel = message.channel if not morning else message
+        # Timer tells if the weather comes on a channel or not
+        # em = discord.Embed(title=response, description=msg, colour=0x4286f4)
+        # em.set_author(name='The Weather', icon_url=bot.user.avatar_url)
+
+        await channel.send(response + msg)
+
+    @staticmethod
+    async def T_Weather():
+        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Dmakir'])
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        if default_channel:
+            await Other.OldWeather(default_channel, morning=True)
+
+    @staticmethod
+    async def Calculate(message):
+        if not await CheckMessage(message, prefix="="):
+            return
+
+        if message.content.startswith('='):  # Remove any beginning =
+            message.content = message.content[1:len(message.content)]
+        if message.content.startswith('='):  # If there's a second, return
+            return
+
+        await message.channel.trigger_typing()
+        res = wolfram_client.query(message.content)
+
+        if res['@success'] == 'false':  # If it can't find anything
+            msg = await message.channel.send('Hmmm, I can\'t seem to figure that one out. Try Rephrasing?')
+            return
+
+        # We're looking for input_pod and detail_pod_1
+        input_pod, result_pod, detail_pod_1 = False, False, False
+        for pod in res.pods:
+            if pod['@id'] == 'Input':
+                input_pod = pod
+            elif pod['@title'] == 'Result':
+                result_pod = pod
+            if pod['@position'] == '300':
+                detail_pod_1 = pod
+        if not result_pod:
+            try:
+                result_pod = next(res.results)
+            except:
+                result_pod = None
+                for new_pod in res.pods:
+                    if new_pod['@position'] == '200':
+                        result_pod = new_pod
+                if not result_pod:
+                    msg = await message.channel.send('Hmmm, I can\'t seem to figure that one out. Try Rephrasing?')
+                    return
+        if detail_pod_1 == result_pod:
+            detail_pod_1 = False
+
+        # So now we figure out what to write for each
+        input_text, detail_text, result_text = [], [], []
+        for subpod in input_pod.subpods:  # INPUT POD
+            input_text.append(subpod.plaintext)
+
+        for subpod in result_pod.subpods:
+            result_text.append(subpod.plaintext)
+
+        if detail_pod_1:
+            for subpod in detail_pod_1.subpods:
+                detail_text.append(subpod.plaintext)
+
+        if len(input_text) == 1:
+            input_text = input_text[0]
+        else:
+            temp_text = []
+            for part in input_text:
+                if temp_text:
+                    temp_text += '\n' + part
+                else:
+                    temp_text = part
+            input_text = temp_text
+
+        # Okay so I hate this part but I do it anyway
+        if not result_text[0]:
+            result_text = ''
+        elif len(result_text) == 1:  # Brings down to 1 text if only 1 elin list
+            result_text = result_text[0].split('\n')
+            if len(result_text) == 1:
+                result_text = result_text[0]
+
+        if not detail_text[0]:
+            detail_text = ''
+        elif len(detail_text) == 1:  # Brings down to 1 text if only 1 elin list
+            detail_text = detail_text[0].split('\n')
+            if len(detail_text) == 1:
+                detail_text = detail_text[0]
+
+        # Okay so now we construct the answer
+        to_send = '**Input Interpretation:**  `'  # Begin the message
+        to_send += input_text + '`'
+        to_send += '\n**Result:**  ' if result_text else ''
+        if type(result_text) == list:
+            to_send += '```'
+            for part in result_text:
+                to_send += '\n' + part
+            to_send += '```'
+        elif not result_text:
+            to_send = to_send
+        else:
+            to_send += '`' + result_text + '`'
+
+        # ADD IMAGE
+        image_link = False
+        image_types = ['image', 'plot', 'musicnotation', 'visualrepresentation', 'structurediagram']
+        for pod in res.pods:  # Go through each pod
+            # Go through each pod
+            found = False
+            for prefix in image_types:
+                if prefix.lower() in pod['@id'].lower():
+                    found = True
+            if found:
+                # So if the ID is Image or Plot
+                for subpod in pod.subpods:
+                    # For each subpod, see if its image or picture (different somehow)
+                    if 'img' in subpod:  # Graph / Plot
+                        image_link = subpod['img']['@src']
+                    elif 'imagesource' in subpod:  # Picture
+                        image_link = subpod['imagesource']
+                    else:
+                        image_link = False
+        if image_link:
+            to_send += '\n**Image:** ' + Sys.Shorten_Link(image_link)
+
+        # ADD DETAIL
+        if detail_text:
+            to_send += '\n**Details: **'
+            if type(detail_text) == list:
+                to_send += '```'
+                for part in detail_text:
+                    to_send += '\n' + part
+                to_send += '```'
+            else:
+                to_send += '`' + detail_text + '`'
+
+        await message.channel.send(to_send)
 
 
 class On_React:
