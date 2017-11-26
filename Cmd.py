@@ -32,6 +32,11 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = time.clock()
+    
+    if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
+        Bot_Color = Sys.Colors["RedBot"]
+    elif Sys.Read_Personal(data_type="Bot_Type") == "GoldBot":
+        Bot_Color = Sys.Colors["GoldBot"]
 
     QuickChat_Data = []
     QuickChat_TriggerList = []
@@ -159,7 +164,7 @@ class Helpers:
             if user == message.author and str(reaction.emoji) in [CancelEmoji, ContinueEmoji]:
                 return reaction, user
 
-        em = discord.Embed(title=text, timestamp=datetime.datetime.now(), colour=Sys.Colors["Goldbot"])
+        em = discord.Embed(title=text, timestamp=datetime.datetime.now(), colour=Vars.Bot_Color)
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
 
         # Send message and add emojis
@@ -633,7 +638,7 @@ class Quotes:
         sender_obj = await Vars.Bot.get_user_info(chosen_quote["user_id"])
 
         # Prepare the Embed
-        em = discord.Embed(title=quote, timestamp=date, colour=Sys.Colors["Goldbot"])
+        em = discord.Embed(title=quote, timestamp=date, colour=Vars.Bot_Color)
         em.set_footer(text="Saved Quote", icon_url=message.guild.icon_url)
         em.set_author(name=sender_obj.name, icon_url=sender_obj.avatar_url)
 

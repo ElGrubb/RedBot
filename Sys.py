@@ -137,8 +137,8 @@ def TimeStamp():
 
 
 Colors = {
-    "Redbot": 0xff2600,
-    "Goldbot": 0xFCC101
+    "RedBot": 0xff2600,
+    "GoldBot": 0xFCC101
 }
 
 

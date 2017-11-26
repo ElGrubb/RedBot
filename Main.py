@@ -74,6 +74,11 @@ async def getBot():
 
 bot = MyClient()
 Cmd.Vars.Bot = bot
-token = Sys.Read_Personal(data_type='Golden_Run_Code')
+if Sys.Read_Personal(data_type="Bot_Type") == "GoldBot":
+    token = Sys.Read_Personal(data_type='Golden_Run_Code')
+elif Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
+    token = Sys.Read_Personal(data_type='Run_Code')
+else:
+    token = Sys.Read_Personal(data_type='Run_Code')
 bot.loop.create_task(Cmd.Timer.TimeThread(bot))
 bot.run(token)
