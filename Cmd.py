@@ -475,7 +475,7 @@ class Admin:
         to_send = "`" + output + "`"
         await channel.send(output)
 
-        if output == "Already up to date.":
+        if "Already" in output:
             return
 
         await message.add_reaction(Conversation.Emoji["check"])
