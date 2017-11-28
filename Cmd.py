@@ -1782,7 +1782,7 @@ async def Help(message):
         
         # Add Reaction
         for emoji in emoji_list:
-            await msg.add_reaction(
+            await msg.add_reaction()
     
     
 
