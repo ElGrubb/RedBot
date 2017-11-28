@@ -420,7 +420,7 @@ class Admin:
         sendmsg = "Bot is ONLINE"
         sendmsg += "\n**Speed:** " + str(difference)[5:] + " seconds. "
         sendmsg += "\n**Uptime:** " + Sys.SecMin(round(time.clock() - Vars.start_time))
-        em = discord.Embed(title="Current Status", timestamp=datetime.datetime.now(), colour=Sys.Colors["Goldbot"],
+        em = discord.Embed(title="Current Status", timestamp=datetime.datetime.now(), colour=Vars.Bot_Color,
                            description=sendmsg)
         em.set_author(name=Vars.Bot.user, icon_url=Vars.Bot.user.avatar_url)
 
