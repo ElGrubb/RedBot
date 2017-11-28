@@ -915,8 +915,8 @@ class Memes:
 
         # Function to use to validate a response
         def check(init_reaction, init_user):
-            if reaction.message.id != msg.id:
-                return
+            #if reaction.message.id != msg.id:
+                #return
             if init_reaction.emoji in [info, repeat] and init_user != Vars.Bot.user:
                 return init_reaction, init_user
 
