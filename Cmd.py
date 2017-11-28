@@ -31,7 +31,7 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = time.clock()
-    Version = "4.01"
+    Version = "4.05"
     
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
