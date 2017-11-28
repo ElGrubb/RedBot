@@ -1739,6 +1739,52 @@ async def test(message):
     await message.channel.send(new_msg.reactions[0].emoji)
 
 
+async def Help(message):
+    if not await CheckMessage(message, start="help", prefix=True):
+        return
+    # Has a cycle for the help
+    channel = message.channel
+    
+    # Set up Emojis
+    Big_Back = '\U000023ee'
+    Back =     '\U000025c0'
+    Stop =     '\U000023f9'
+    Next =     '\U000025c0'
+    Big_Next = '\U000023ed'
+    emoji_list = [Big_Back, Back, Stop, Next, Big_Next]
+    
+    Current_Page = 0
+    
+    help_data = Helpers.RetrieveData(data_type="Help_Text")
+    if not help_data:
+        await channel.send("Error Retrieving Data", delete_after=5)
+        return
+    
+    msg = None
+    stop_cycle = False
+    while not stop_cycle:  # While user still wants the help embed
+        title = help_data[current_page]["title"]
+        description = help_data[current_page]["body"]
+        if help_data[current_page]["color"] == 'bot':
+            color = Vars.Bot.color
+        else:
+            color = 0xFFFFFF
+        em = discord.Embed(title=title, timestamp=datetime.datetime.now(), colour=color, description=description)
+        em.set_author(name=Vars.Bot.name, icon_url=Vars.Bot.user.avatar_url)
+        if help_data[current_page]["footer"]:
+            em.set_footer(text=help_data[current_page]["footer"])
+        
+        # Send the embed
+        if msg:
+            msg = await msg.edit(embed=em)
+        elif not msg:
+            msg = await channel.send(embed=em)
+        
+        # Add Reaction
+        for emoji in emoji_list:
+            await msg.add_reaction(
+    
+    
 
 help = [
     {"number": 0,
