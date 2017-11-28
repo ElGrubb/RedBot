@@ -1752,10 +1752,10 @@ async def Help(message):
     Next =     '\U000025c0'
     Big_Next = '\U000023ed'
     emoji_list = [Big_Back, Back, Stop, Next, Big_Next]
+
+    current_page = 0
     
-    Current_Page = 0
-    
-    help_data = Helpers.RetrieveData(data_type="Help_Text")
+    help_data = Helpers.RetrieveData(type="Help_Text")
     if not help_data:
         await channel.send("Error Retrieving Data", delete_after=5)
         return
