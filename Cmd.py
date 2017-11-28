@@ -498,6 +498,68 @@ class Admin:
         os.execv(sys.executable, ['python'] + sys.argv)
         return
 
+    @staticmethod
+    async def SaveDataFromMessage(message):
+        # BROKEN!
+        """
+        Guides through the process of saving data to the remote bot from a discord message.
+        :param message: The message object
+        :return: Nothing, but should save the data.
+        """
+        if not await CheckMessage(message, start="SaveData", prefix=True, admin=True):
+            return
+        channel = message.channel
+
+        currentData = Helpers.RetrieveData()
+
+        if not await Helpers.Confirmation(message, "THIS IS BROKEN. CONTINUE?"):
+            return
+
+        def check(m):
+            # Checks if correct author and channel
+            if m.channel.id == channel.id and m.author.id == message.author.id:
+                return True
+
+        # Asks for data type
+        msg = await channel.send("What type of data would you like to create?")
+        response = await Vars.Bot.wait_for("message", check=check)
+        await channel.delete_messages([msg, response])
+
+        looking_for = Sys.FirstCap(response.content).strip().replace(" ", "_")
+        if looking_for not in currentData:
+            confirmation = await Helpers.Confirmation(message, "Cannot find data type. Continue?", timeout=30)
+            if not confirmation:
+                # If they do not want to continue
+                return
+
+        to_load = ""
+        is_long = await Helpers.Confirmation(message, "Is it longer than 2000?")
+        if not is_long:
+            msg = await channel.send("Please send the json.dumps string.")
+            response = await Vars.Bot.wait_for("message", check=check)
+            await channel.delete_messages([msg, response])
+            to_load = response.content
+
+        else:
+            stop = False
+            total_string = ""
+            while not stop:
+                msg = await channel.send("Send it in pieces. send `done` when done")
+                response = await Vars.Bot.wait_for("message", check=check)
+                await channel.delete_messages([msg, response])
+
+                if response.content.lower() == "done":
+                    to_load = total_string
+                    stop = True
+
+                else:
+                    total_string += response.content.strip()
+
+        new_json = json.loads(to_load)
+
+        Helpers.SaveData(new_json, type=looking_for)
+        msg = await channel.send("Success.")
+
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
@@ -1675,3 +1737,75 @@ async def test(message):
     new_msg = await message.channel.send("Emoji me")
     await new_msg.add_reaction('\U0001f44e')
     await message.channel.send(new_msg.reactions[0].emoji)
+
+
+
+help = [
+    {"number": 0,
+     "color": 'bot',
+     "name": "General",
+     "emoji": '\U0001f3e0',
+     "title": "Hello, I'm RedBot",
+     "body": "I am a Discord bot running `Discord.py[rewrite]`. "
+             "\nMy command prefixes are '`! / ? .`', any work for any command. "
+             "\nCertain commands are restricted for certain people and certain servers."
+             "\n**Invite Code**:"
+             "\nIf you want to invite me, you can go to https://Bit.Ly/RedBot"
+             "\n**Source**:"
+             "\nYou can find all my code on Github at: https://github.com/ElGrubb/RedBot."
+             "\nIf there is any issue at any time, feel free to message `@Dom#2774`.",
+     "footer": "This message will self destruct after a minute of no use"
+     },
+    {"number": 1,
+     "color": 'bot',
+     "name": "ChangeLog",
+     "emoji": '\U0001f1e8',
+     "title": "ChangeLog",
+     "body": "**Version 4.01:**"
+             "\nFixed many errors. "
+             "\nIntroduced /quote command.",
+     "footer": None
+     },
+    {"number": 2,
+     "color": 'White',
+     "name": "Memes",
+     "emoji": '\U00000031',
+     "title": "Memes",
+     "body": "**General Command: **  `/send {type} meme[optional]`"
+             "\n\n**Available Types**:"
+             "\n- Dank\n- Normie\n- Surreal\n- Cringe\n- Hmmm\n- Aww\n- Doggo",
+     "footer": None
+     },
+    {"number": 3,
+     "color": 'White',
+     "name": "Quotes",
+     "emoji": '\U00000032',
+     "title": "Quotes",
+     "body": "**/send Quote**"
+             "\nThis will search through the database and randomly select a quote"
+             "\n\n**How to save a quote**"
+             "\nAdd a \U0001f4ac reaction to the message. If 3 people do, it is saved into the database."
+             "\n\n**/quote @Mention I like RedBot a lot"
+             "\nThis command will start a quote saving mode. Add 3 more reactions to the sent message by me to be saved",
+     "footer": None
+     },
+    {"number": 4,
+     "color": 'White',
+     "name": "Other",
+     "emoji": '\U00000033',
+     "title": "Other",
+     "body": "**/yesno Should we do this**"
+             "\n*Creates a Thumbs up / Thumbs down Poll*"
+             "\n\n**/poll What emoji is the best?**"
+             "\n\U0001f699 Car Emoji"
+             "\n\U0001f955 Carrot Emoji   {...}" 
+             "\n*Creates a poll for the given options. If no emoji is given, it'll default*"
+             "\n\n**/weather**"
+             "\n*Sends Lynnfield Weather*"
+             "\n\n**=5 + 3**"
+             "\n*Start a message with an '=' to search Wolfram Alpha*"
+             "\n\n**/color #EE2222**"
+             "\n*Change your role color*",
+     "footer": "This is the last page. "
+     }
+]

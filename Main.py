@@ -51,6 +51,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.Status(message)
         await Cmd.Admin.Restart(message)
         await Cmd.Admin.Update(message)
+        await Cmd.Admin.SaveDataFromMessage(message)
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
