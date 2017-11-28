@@ -159,18 +159,22 @@ class Helpers:
         CancelEmoji = Conversation.Emoji['x']
         ContinueEmoji = Conversation.Emoji['check']
 
-        def check(reaction, user):  # Will be used to validate answers
-            # Returns if user is initial user and reaction is either of those
-            if user == message.author and str(reaction.emoji) in [CancelEmoji, ContinueEmoji]:
-                return reaction, user
-
         em = discord.Embed(title=text, timestamp=datetime.datetime.now(), colour=Vars.Bot_Color)
-        em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
 
+        em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
         # Send message and add emojis
+
         msg = await message.channel.send(embed=em)
+
         await msg.add_reaction(ContinueEmoji)
         await msg.add_reaction(CancelEmoji)
+
+        def check(reaction, user):  # Will be used to validate answers
+            # Returns if user is initial user and reaction is either of those
+            if reaction.message.id != msg.id:
+                return
+            if user == message.author and str(reaction.emoji) in [CancelEmoji, ContinueEmoji]:
+                return reaction, user
 
         try:
             # Wait for the reaction(s)
@@ -178,7 +182,10 @@ class Helpers:
 
         except asyncio.TimeoutError:
             # If it times out
-            await msg.delete()
+            try:
+                await msg.delete()
+            except discord.errors.NotFound:
+                pass
             await message.channel.send(deny_text, delete_after=5)
             if return_timeout:
                 return "Timed Out"
@@ -187,7 +194,9 @@ class Helpers:
 
         # If they hit the X
         if reaction.emoji == CancelEmoji:
+            print("True")
             await msg.delete()
+            print("True")
             await message.channel.send(deny_text, delete_after=5)
             return False
 
@@ -618,11 +627,6 @@ class Quotes:
 
         # Get Quote Dict
         data = Helpers.RetrieveData(type="Quotes")
-        # if str(message.guild.id) in data:
-        #     data = data[str(message.guild.id)]
-        # else:
-        #     await message.channel.send("No saved quotes for this server! Save some quotes!", delete_after=10)
-        #     return
         chosen_quote = data["info"][data["position"]]
 
         # Update Quote List etc
@@ -661,7 +665,7 @@ class Quotes:
         content = message.clean_content[7:].replace("@" + mention_user.name, '').strip()
 
         # Create Embed
-        em = discord.Embed(title="Quote this?", timestamp=datetime.datetime.now(), colour=Sys.Colors["Goldbot"],
+        em = discord.Embed(title="Quote this?", timestamp=datetime.datetime.now(), colour=Vars.Bot_Color,
                            description="**\"**" + content + "**\"**")
         em.set_author(name=mention_user, icon_url=mention_user.avatar_url)
         em.set_footer(text="10 minute timeout")
@@ -671,7 +675,9 @@ class Quotes:
 
         def check(reaction, user):  # Will be used to validate answers
             # Returns if there are 3 more reactions who aren't this bot
-            if reaction.count >= 2 and reaction.emoji == Conversation.Emoji["quote"]:
+            if reaction.message.id != msg.id:
+                return False
+            if reaction.count >= 4 and reaction.emoji == Conversation.Emoji["quote"]:
                 return reaction, user
             else:
                 return False
@@ -847,6 +853,8 @@ class Memes:
 
         # Function to use to validate a response
         def check(init_reaction, init_user):
+            if reaction.message.id != msg.id:
+                return
             if init_reaction.emoji in [info, repeat] and init_user != Vars.Bot.user:
                 return init_reaction, init_user
 
@@ -1086,7 +1094,7 @@ class Other:
         def check(reaction, user):
             # Makes sure its a Thumb Up, Thumbs down, or Stop Emoji.
             # Otherwise: Removes
-            if user == Vars.Bot.user:
+            if user == Vars.Bot.user or reaction.message.id != new_msg.id:
                 return False
             if reaction.emoji in [ThumbsUp, ThumbsDown, StopEmoji] and reaction.message.id == new_msg.id:
                 return reaction, user

@@ -83,5 +83,6 @@ elif Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
     token = Sys.Read_Personal(data_type='Run_Code')
 else:
     token = Sys.Read_Personal(data_type='Run_Code')
+
 bot.loop.create_task(Cmd.Timer.TimeThread(bot))
 bot.run(token)
