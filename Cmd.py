@@ -931,6 +931,7 @@ class Memes:
             try:
                 # Wait for the reaction(s)
                 reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=40, check=check)
+                await message.channel.send(str(reaction.message.id) + "   " + str(msg.id))
 
             # Timeout
             except asyncio.TimeoutError:
