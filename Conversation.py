@@ -170,8 +170,8 @@ WeatherResponse = [
 ]
 
 Server_IDs = {
-    'Dmakir': '215639569071210496',
-    'PlayGround': '267071439109226496'
+    'Dmakir': 215639569071210496,
+    'PlayGround': 267071439109226496
     # 'CruzFumey': '281863357001367553'
 }
 

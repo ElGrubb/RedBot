@@ -1,6 +1,6 @@
 import Sys, Conversation
 import asyncio, random, datetime, time, discord, json, praw
-import forecastio, os, sys, git, wolframalpha
+import forecastio, os, sys, git, wolframalpha, traceback
 
 # Reddit
 reddit = praw.Reddit('bot1')
@@ -19,7 +19,8 @@ class Ranks:
         239791371110580225,  # Dom
         281866259824508928,  # Berto
         215639561181724672,  # Scangas
-        211271446226403328  # Tracy
+        211271446226403328,  # Tracy
+        266454101766832131   # Louis
     ]
     NoUse = [
         ''
@@ -470,6 +471,10 @@ class Admin:
             restart_data["Restarted"] = False
             Helpers.SaveData(restart_data, type="System")
 
+            if restart_data["Type"] == "Update":
+                await Admin.OnUpdate(restart_data["Channel_ID"])
+
+
     @staticmethod
     async def Update(message):
         if not await CheckMessage(message, prefix=True, admin=True, start="update"):
@@ -560,6 +565,13 @@ class Admin:
         Helpers.SaveData(new_json, type=looking_for)
         msg = await channel.send("Success.")
 
+    @staticmethod
+    async def OnUpdate(channel):
+        bot = Vars.Bot
+        # Save new help_text data
+        Helpers.SaveData(help_text, type="Help_Text")
+        await channel.send("Successfully Migrated Help Text")
+
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
@@ -648,7 +660,7 @@ class Timer:
         return hour + ':' + minute
 
     @staticmethod
-    async def TimeThread(bot):
+    async def TimeThread():
         await asyncio.sleep(10)
         old_time, current_time = None, None
         # while not Vars.Crash:
@@ -735,12 +747,12 @@ class Quotes:
         # Send Message
         msg = await message.channel.send("Create Quote?", embed=em)
 
-        def check(reaction, user):  # Will be used to validate answers
+        def check(init_reaction, init_user):  # Will be used to validate answers
             # Returns if there are 3 more reactions who aren't this bot
-            if reaction.message.id != msg.id:
+            if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                 return False
-            if reaction.count >= 4 and reaction.emoji == Conversation.Emoji["quote"]:
-                return reaction, user
+            if init_reaction.count >= 4 and init_reaction.emoji == Conversation.Emoji["quote"]:
+                return init_reaction, init_user
             else:
                 return False
 
@@ -1508,8 +1520,9 @@ class Other:
 
     @staticmethod
     async def OldWeather(message, morning=False):
-        if not await CheckMessage(message, prefix=True, start="Weather"):
-            return
+        if not morning:
+            if not await CheckMessage(message, prefix=True, start="Weather"):
+                return
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
         byHour = forecast.hourly()
         byCurrent = forecast.currently()
@@ -1728,15 +1741,14 @@ class On_React:
 
 
 
-
-
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
     # await message.author.send("1994920.28408880002")
-    new_msg = await message.channel.send("Emoji me")
-    await new_msg.add_reaction('\U0001f44e')
-    await message.channel.send(new_msg.reactions[0].emoji)
+    # new_msg = await message.channel.send("Emoji me")
+    # await new_msg.add_reaction('\U0001f44e')
+    # await message.channel.send(new_msg.reactions[0].emoji)
+    raise ValueError("HELP ME")
 
 
 async def Help(message):
@@ -1747,15 +1759,16 @@ async def Help(message):
     
     # Set up Emojis
     Big_Back = '\U000023ee'
-    Back =     '\U000025c0'
-    Stop =     '\U000023f9'
-    Next =     '\U000025c0'
+    Back = '\U000025c0'
+    Stop = '\U000023f9'
+    Next = '\U000025b6'
     Big_Next = '\U000023ed'
     emoji_list = [Big_Back, Back, Stop, Next, Big_Next]
 
     current_page = 0
     
-    help_data = Helpers.RetrieveData(type="Help_Text")
+    # help_data = Helpers.RetrieveData(type="Help_Text")
+    help_data = help_text
     if not help_data:
         await channel.send("Error Retrieving Data", delete_after=5)
         return
@@ -1764,29 +1777,76 @@ async def Help(message):
     stop_cycle = False
     while not stop_cycle:  # While user still wants the help embed
         title = help_data[current_page]["title"]
+        description = ""
         description = help_data[current_page]["body"]
         if help_data[current_page]["color"] == 'bot':
-            color = Vars.Bot.color
+            color = Vars.Bot_Color
         else:
             color = 0xFFFFFF
         em = discord.Embed(title=title, timestamp=datetime.datetime.now(), colour=color, description=description)
-        em.set_author(name=Vars.Bot.name, icon_url=Vars.Bot.user.avatar_url)
+        em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
         if help_data[current_page]["footer"]:
             em.set_footer(text=help_data[current_page]["footer"])
         
         # Send the embed
         if msg:
-            msg = await msg.edit(embed=em)
+            await msg.edit(embed=None)
+            await msg.edit(embed=em)
+            msg = await channel.get_message(msg.id)
         elif not msg:
             msg = await channel.send(embed=em)
-        
-        # Add Reaction
-        for emoji in emoji_list:
-            await msg.add_reaction()
-    
-    
+            # Add Reaction
+            for emoji in emoji_list:
+                await msg.add_reaction(emoji)
 
-help = [
+        # Add emoji of what page you're on
+        await msg.add_reaction(help_data[current_page]["emoji"])
+
+        # Check Function
+        async def remove_reaction(init_reaction, init_user):
+            # Can remove a reaction without needing async
+            await init_reaction.message.remove_reaction(init_reaction.emoji, init_user)
+            return
+
+        def check(init_reaction, init_user):
+            if init_reaction.message.id != msg.id:
+                return
+            if init_user.id == Vars.Bot.user.id:
+                return
+            if init_reaction.emoji in emoji_list and init_user.id == message.author.id:
+                return True
+            else:
+                Vars.Bot.loop.create_task(remove_reaction(init_reaction, init_user))
+
+        # Wait for Reaction
+        try:
+            reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=60, check=check)
+
+        except asyncio.TimeoutError:
+            # If timed out
+            await msg.clear_reactions()
+            break
+        await msg.remove_reaction(reaction.emoji, user)
+        await msg.remove_reaction(help_data[current_page]["emoji"], Vars.Bot.user)
+
+        if reaction.emoji == Big_Back:
+            current_page = 0
+        elif reaction.emoji == Back:
+            current_page -= 1
+            if current_page < 0:
+                current_page = len(help_data) - 1
+        elif reaction.emoji == Stop:
+            await msg.clear_reactions()
+            stop_cycle = True
+            break
+        elif reaction.emoji == Next:
+            current_page += 1
+            if current_page >= len(help_data):
+                current_page = 0
+        elif reaction.emoji == Big_Next:
+            current_page = len(help_data) - 1
+
+help_text = [
     {"number": 0,
      "color": 'bot',
      "name": "General",
@@ -1815,7 +1875,7 @@ help = [
     {"number": 2,
      "color": 'White',
      "name": "Memes",
-     "emoji": '\U00000031',
+     "emoji": '\U00000031\U000020e3',
      "title": "Memes",
      "body": "**General Command: **  `/send {type} meme[optional]`"
              "\n\n**Available Types**:"
@@ -1825,20 +1885,20 @@ help = [
     {"number": 3,
      "color": 'White',
      "name": "Quotes",
-     "emoji": '\U00000032',
+     "emoji": '\U00000032\U000020e3',
      "title": "Quotes",
      "body": "**/send Quote**"
              "\nThis will search through the database and randomly select a quote"
              "\n\n**How to save a quote**"
              "\nAdd a \U0001f4ac reaction to the message. If 3 people do, it is saved into the database."
-             "\n\n**/quote @Mention I like RedBot a lot"
+             "\n\n**/quote @Mention I like RedBot a lot**"
              "\nThis command will start a quote saving mode. Add 3 more reactions to the sent message by me to be saved",
      "footer": None
      },
     {"number": 4,
      "color": 'White',
      "name": "Other",
-     "emoji": '\U00000033',
+     "emoji": '\U00000033\U000020e3',
      "title": "Other",
      "body": "**/yesno Should we do this**"
              "\n*Creates a Thumbs up / Thumbs down Poll*"

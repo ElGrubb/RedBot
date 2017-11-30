@@ -1,7 +1,7 @@
 import Sys, Cmd, Conversation
-import discord, random
-
+import discord, random, traceback
 # AdminCmds = Cmd.Admin()
+
 
 class MyClient(discord.Client):
     async def on_ready(self):
@@ -19,6 +19,7 @@ class MyClient(discord.Client):
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
         Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
 
+    # @Cmd.Exception_Handler
     async def on_message(self, message):
         if message.author == bot.user:
             return
@@ -26,32 +27,44 @@ class MyClient(discord.Client):
         if Cmd.Vars.Disabled:
             await Cmd.Admin.Enable(message)
             return
+        try:
+            await Cmd.test(message)
+            await Cmd.Help(message)
 
-        await Cmd.test(message)
+            # 'SEND' Commands
+            await Cmd.Memes.SendMeme(message)
+            await Cmd.Quotes.SendQuote(message)
+            await Cmd.Quotes.QuoteCommand(message)
 
-        # 'SEND' Commands
-        await Cmd.Memes.SendMeme(message)
-        await Cmd.Quotes.SendQuote(message)
-        await Cmd.Quotes.QuoteCommand(message)
+            # 'OTHER' COMMANDS
+            await Cmd.Other.QuickChat(message)
+            await Cmd.Other.YesNo(message)
+            await Cmd.Other.Change_Color(message)
+            await Cmd.Other.Poll(message)
+            await Cmd.Other.OldWeather(message)
+            await Cmd.Other.Calculate(message)
 
-        # 'OTHER' COMMANDS
-        await Cmd.Other.QuickChat(message)
-        await Cmd.Other.YesNo(message)
-        await Cmd.Other.Change_Color(message)
-        await Cmd.Other.Poll(message)
-        await Cmd.Other.OldWeather(message)
-        await Cmd.Other.Calculate(message)
+            # ADMIN Commands
+            await Cmd.Admin.Delete(message)
+            await Cmd.Admin.Stop(message)
+            await Cmd.Admin.LeaveServer(message)
+            await Cmd.Admin.Disable(message)
+            await Cmd.Admin.Talk(message)
+            await Cmd.Admin.Status(message)
+            await Cmd.Admin.Restart(message)
+            await Cmd.Admin.Update(message)
+            await Cmd.Admin.SaveDataFromMessage(message)
 
-        # ADMIN Commands
-        await Cmd.Admin.Delete(message)
-        await Cmd.Admin.Stop(message)
-        await Cmd.Admin.LeaveServer(message)
-        await Cmd.Admin.Disable(message)
-        await Cmd.Admin.Talk(message)
-        await Cmd.Admin.Status(message)
-        await Cmd.Admin.Restart(message)
-        await Cmd.Admin.Update(message)
-        await Cmd.Admin.SaveDataFromMessage(message)
+        except Exception as e:
+            await message.channel.send("**ERROR**: *Oops, I seem to have run into an Exception. Creating Report...*")
+
+
+            to_send = str(traceback.format_exc())
+            to_send = "```py" + to_send + "```"
+            to_send = to_send.replace("C:\\Users\\spong\\Desktop", "")
+            to_send = to_send.replace("C:/Users/spong/Desktop", "")
+            await message.channel.send(to_send)
+            await message.channel.send(bot.get_user(239791371110580225).mention)
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
@@ -85,5 +98,5 @@ elif Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
 else:
     token = Sys.Read_Personal(data_type='Run_Code')
 
-bot.loop.create_task(Cmd.Timer.TimeThread(bot))
+bot.loop.create_task(Cmd.Timer.TimeThread())
 bot.run(token)
