@@ -1751,7 +1751,7 @@ async def test(message):
     # new_msg = await message.channel.send("Emoji me")
     # await new_msg.add_reaction('\U0001f44e')
     # await message.channel.send(new_msg.reactions[0].emoji)
-    raise ValueError("HELP ME")
+    raise ValueError("This is a simulated test of an Exception.")
 
 
 async def Help(message):
