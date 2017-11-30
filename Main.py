@@ -19,7 +19,6 @@ class MyClient(discord.Client):
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
         Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
 
-    # @Cmd.Exception_Handler
     async def on_message(self, message):
         if message.author == bot.user:
             return
@@ -27,44 +26,43 @@ class MyClient(discord.Client):
         if Cmd.Vars.Disabled:
             await Cmd.Admin.Enable(message)
             return
-        try:
-            await Cmd.test(message)
-            await Cmd.Help(message)
 
-            # 'SEND' Commands
-            await Cmd.Memes.SendMeme(message)
-            await Cmd.Quotes.SendQuote(message)
-            await Cmd.Quotes.QuoteCommand(message)
+        await Cmd.test(message)
+        await Cmd.Help(message)
 
-            # 'OTHER' COMMANDS
-            await Cmd.Other.QuickChat(message)
-            await Cmd.Other.YesNo(message)
-            await Cmd.Other.Change_Color(message)
-            await Cmd.Other.Poll(message)
-            await Cmd.Other.OldWeather(message)
-            await Cmd.Other.Calculate(message)
+        # 'SEND' Commands
+        await Cmd.Memes.SendMeme(message)
+        await Cmd.Quotes.SendQuote(message)
+        await Cmd.Quotes.QuoteCommand(message)
 
-            # ADMIN Commands
-            await Cmd.Admin.Delete(message)
-            await Cmd.Admin.Stop(message)
-            await Cmd.Admin.LeaveServer(message)
-            await Cmd.Admin.Disable(message)
-            await Cmd.Admin.Talk(message)
-            await Cmd.Admin.Status(message)
-            await Cmd.Admin.Restart(message)
-            await Cmd.Admin.Update(message)
-            await Cmd.Admin.SaveDataFromMessage(message)
+        # 'OTHER' COMMANDS
+        await Cmd.Other.QuickChat(message)
+        await Cmd.Other.YesNo(message)
+        await Cmd.Other.Change_Color(message)
+        await Cmd.Other.Poll(message)
+        await Cmd.Other.OldWeather(message)
+        await Cmd.Other.Calculate(message)
 
-        except Exception as e:
-            await message.channel.send("**ERROR**: *Oops, I seem to have run into an Exception. Creating Report...*")
+        # ADMIN Commands
+        await Cmd.Admin.Delete(message)
+        await Cmd.Admin.Stop(message)
+        await Cmd.Admin.LeaveServer(message)
+        await Cmd.Admin.Disable(message)
+        await Cmd.Admin.Talk(message)
+        await Cmd.Admin.Status(message)
+        await Cmd.Admin.Restart(message)
+        await Cmd.Admin.Update(message)
+        await Cmd.Admin.SaveDataFromMessage(message)
 
-
-            to_send = str(traceback.format_exc())
-            to_send = "```py" + to_send + "```"
-            to_send = to_send.replace("C:\\Users\\spong\\Desktop", "")
-            to_send = to_send.replace("C:/Users/spong/Desktop", "")
-            await message.channel.send(to_send)
-            await message.channel.send(bot.get_user(239791371110580225).mention)
+    async def on_error(self, event_method, *args, **kwargs):
+        message = args[0]
+        await message.channel.send("**ERROR**: *Oops, I seem to have run into an Exception. Creating Report...*")
+        to_send = str(traceback.format_exc())
+        to_send = "```py" + to_send + "```"
+        to_send = to_send.replace("C:\\Users\\spong\\", "")
+        to_send = to_send.replace("C:/Users/spong/", "").replace("Desktop", "")
+        await message.channel.send(to_send)
+        await message.channel.send(bot.get_user(239791371110580225).mention)
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
