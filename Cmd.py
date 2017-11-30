@@ -338,6 +338,9 @@ class Admin:
     async def Disable(message):
         if not await CheckMessage(message, prefix=True, admin=True, start="Disable"):
             return False
+        if not await Helpers.Confirmation(message, "Disable?", deny_text="Will Stay Enabled."):
+            return
+
         Vars.Disabled = True
         await Vars.Bot.change_presence(game=(discord.Game(name='Offline')), status=discord.Status.do_not_disturb)
         msg = await message.channel.send('Bot Disabled.')
@@ -345,7 +348,7 @@ class Admin:
         await message.channel.delete_messages([msg, message])
 
         # Wait to re-enable
-        await asyncio.sleep(6)
+        await asyncio.sleep(1200)
         if not Vars.Disabled:
             return
 
