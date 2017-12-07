@@ -1816,7 +1816,7 @@ class Other:
 
     @staticmethod
     async def No_Context(message):
-        if not await CheckMessage(message, start="no context", close=True, prefix=True):
+        if not await CheckMessage(message, start="no context", prefix=True):
             return
 
         # Cooldown Shit

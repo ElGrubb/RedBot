@@ -44,7 +44,7 @@ class MyClient(discord.Client):
         await Cmd.Other.Poll(message)
         await Cmd.Other.OldWeather(message)
         await Cmd.Other.Calculate(message)
-        # await Cmd.Other.No_Context(message)
+        await Cmd.Other.No_Context(message)
 
         # ADMIN Commands
         await Cmd.Admin.Delete(message)
