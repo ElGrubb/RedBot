@@ -573,14 +573,14 @@ class Admin:
 
     @staticmethod
     async def OnUpdate(channel):
-        to_add = "\n\n@Dom_ID\n239791371110580225"
-        with open("Personal.txt", "r") as file:
-            lines = file.read()
-            file.close()
-        with open("Personal.txt", "w") as file:
-            file.write(lines + to_add)
-            file.close()
-        await channel.send("Successfully Migrated Help Text")
+        # to_add = "\n\n@Dom_ID\n239791371110580225"
+        # with open("Personal.txt", "r") as file:
+        #     lines = file.read()
+        #     file.close()
+        # with open("Personal.txt", "w") as file:
+        #     file.write(lines + to_add)
+        #     file.close()
+        # await channel.send("Successfully Migrated Help Text")
         pass
 
     @staticmethod
