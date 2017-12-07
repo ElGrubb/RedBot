@@ -12,12 +12,14 @@ class MyClient(discord.Client):
         game = discord.Game(name="v" + Cmd.Vars.Version + "  |  @Dom")
         await bot.change_presence(status=discord.Status.online, game=game)
 
+        Cmd.Vars.Creator = Cmd.Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
+
         # Check if it just restarted:
         await Cmd.Admin.CheckRestart()
 
         await Cmd.Memes.CleanMemes()  # Clean Meme Files
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
-        Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
+        await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
 
     async def on_message(self, message):
         if message.author == bot.user:
@@ -42,6 +44,7 @@ class MyClient(discord.Client):
         await Cmd.Other.Poll(message)
         await Cmd.Other.OldWeather(message)
         await Cmd.Other.Calculate(message)
+        # await Cmd.Other.No_Context(message)
 
         # ADMIN Commands
         await Cmd.Admin.Delete(message)
@@ -53,10 +56,13 @@ class MyClient(discord.Client):
         await Cmd.Admin.Restart(message)
         await Cmd.Admin.Update(message)
         await Cmd.Admin.SaveDataFromMessage(message)
+        await Cmd.Admin.SendData(message)
+        await Cmd.Admin.ChangePersonal(message)
 
     async def on_error(self, event_method, *args, **kwargs):
         message = args[0]
-        await message.channel.send("**ERROR**: *Oops, I seem to have run into an Exception. Creating Report...*")
+        error_text = "**ERROR**: *" + Sys.Response(Conversation.Error_Response).strip() + "*"
+        await message.channel.send(error_text)
         to_send = str(traceback.format_exc())
         to_send = "```py" + to_send + "```"
         to_send = to_send.replace("C:\\Users\\spong\\", "")
@@ -80,6 +86,10 @@ class MyClient(discord.Client):
 
     async def on_member_remove(self, member):
         await Cmd.Other.On_Member_Remove(member)
+
+    async def on_guild_join(self, guild):
+        to_send = "I have just been added to " + guild.name
+        confirmation = await Cmd.Helpers.Confirmation()
 
 
 

@@ -25,6 +25,10 @@ class Ranks:
     NoUse = [
         ''
     ]
+    Bots = [
+        380212294837075969,  # GoldBot
+        267070013096198144   # RedBot
+    ]
 
 
 class Vars:
@@ -32,8 +36,8 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = time.clock()
-    Version = "4.08"
-    
+    Version = "4.09"
+
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
     elif Sys.Read_Personal(data_type="Bot_Type") == "GoldBot":
@@ -41,6 +45,8 @@ class Vars:
 
     QuickChat_Data = []
     QuickChat_TriggerList = []
+
+    Creator = None
 
 
 def CheckPrivilage(message, nec):
@@ -195,9 +201,7 @@ class Helpers:
 
         # If they hit the X
         if reaction.emoji == CancelEmoji:
-            print("True")
             await msg.delete()
-            print("True")
             await message.channel.send(deny_text, delete_after=5)
             return False
 
@@ -477,7 +481,6 @@ class Admin:
             if restart_data["Type"] == "Update":
                 await Admin.OnUpdate(restart_data["Channel_ID"])
 
-
     @staticmethod
     async def Update(message):
         if not await CheckMessage(message, prefix=True, admin=True, start="update"):
@@ -570,11 +573,90 @@ class Admin:
 
     @staticmethod
     async def OnUpdate(channel):
-        # bot = Vars.Bot
-        # # Save new help_text data
-        # Helpers.SaveData(help_text, type="Help_Text")
-        # await channel.send("Successfully Migrated Help Text")
+        to_add = "\n\n@Dom_ID\n239791371110580225"
+        with open("Personal.txt", "r") as file:
+            lines = file.read()
+            file.close()
+        with open("Personal.txt", "w") as file:
+            file.write(lines + to_add)
+            file.close()
+        await channel.send("Successfully Migrated Help Text")
         pass
+
+    @staticmethod
+    async def SendData(message):
+        if not await CheckMessage(message, start="download data", prefix=True, admin=True):
+            return
+
+        content = message.content[1:].replace("download data", "").strip()
+        data = Helpers.RetrieveData()
+        if content:
+            if content not in data:
+                await message.channel.send("could not find data type. Types are:")
+                error_string = ""
+                for key in data:
+                    error_string = error_string + key + "    "
+                await message.channel.send(error_string)
+                return
+            else:
+                data = data[content]
+
+        if not await Helpers.Confirmation(message, "Send data?"):
+            return
+
+        pretty_print = await Helpers.Confirmation(message, "Do you want it to be pretty print?")
+
+        # Prepare data
+        if pretty_print:
+            send_string = json.dumps(data, indent=2)
+        else:
+            send_string = json.dumps(data)
+
+        def Split_Text(start, looking_for):
+            """
+            Splits a good text at the closets item to the starting index
+            :param start:  A number, the length of the string
+            :param looking_for:  What are we looking for to split it at?
+            :return:  first_string, second_string without the looking_for inbetween
+            """
+
+        while len(send_string) >= 2000:
+            await message.channel.send(send_string[0:2000])
+            send_string = send_string[2000:]
+        if len(send_string) >= 0:
+            await message.channel.send(send_string)
+
+    @staticmethod
+    async def ChangePersonal(message):
+        if not await CheckMessage(message, start="change personal", prefix=True, admin=True):
+            return
+        if message.author != Vars.Creator:
+            return
+
+        content = message.content[16:].strip()
+
+        if not await Helpers.Confirmation(message, "Add " + content + " To Personal? Cannot be reversed."):
+            return
+
+        content = content.split(":")
+        if type(content) != list:
+            await message.channel.send("Use this format:  `Key: Value`")
+            return
+        while len(content) > 2:
+            content[1] = content[1] + ":" + content[2]
+            del content[2]
+
+        to_add = "\n\n" + content[0] + "\n" + content[1]
+
+        with open("Personal.txt", "r") as file:
+            lines = file.read()
+            file.close()
+        with open("Personal.txt", "w") as file:
+            file.write(lines + to_add)
+            file.close()
+
+        await message.delete()
+        await message.channel.send("Success. ", delete_after=20)
 
 
 class Cooldown:
@@ -593,7 +675,7 @@ class Cooldown:
         return int(datetime.datetime.now().timestamp())
 
     @staticmethod
-    def SetUpCooldown():
+    async def SetUpCooldown():
         for meme_type in Cooldown.meme_types:
             Cooldown.data[meme_type] = {}
 
@@ -634,6 +716,8 @@ class Cooldown:
         now = Cooldown.TimeStamp()
         user = int(user.id)
         guild = int(guild.id)
+
+        Cooldown.data = Cooldown.data  # Doesn't work without this line...
 
         # Runs when a command is fired.
         if user not in Cooldown.data[meme_type]:  # Adds person to database
@@ -1001,7 +1085,6 @@ class Memes:
                     temp_list.append(link_group)
                 else:
                     pass
-                    # print(timestamp - int(link_group[0]), timestamp, int(link_group[0]))
             data_dict[server] = temp_list
 
         # Removes server if there's no data
@@ -1055,6 +1138,13 @@ class Other:
 
         # Get message down to hex code
         message.content = message.content[1:].lower().replace('color', '').strip().replace("#", "")
+
+        # If they just want their own color
+        if message.content == "info":
+            member = message.guild.get_member(message.author.id)
+            await message.channel.send("Your current color is " + str(member.color))
+            return
+
 
         # Go through the roles in the guild to see if it exists
         role_exists = False
@@ -1128,7 +1218,6 @@ class Other:
                 if hier_role in message.author.roles:
                     if hier_role.color != '#000000':
                         highest_role = hier_role.position
-                        print(highest_role, hier_role)
                         break
             if highest_role != 0:
                 await color_role.edit(position=highest_role)
@@ -1364,7 +1453,6 @@ class Other:
                 response_list.append("  ")
 
         embed = msg.embeds[0].to_dict()
-        print(embed)
         old_description = embed['description'].split('\n')
         new_description = ""
         for i in range(0, len(old_description)):
@@ -1410,6 +1498,9 @@ class Other:
 
     @staticmethod
     async def QuickChat(message):
+        if message.author.id in Ranks.Bots:
+            return
+
         chat_function = False
         for total_data in Vars.QuickChat_Data:
             if total_data["trigger"].lower() in message.content.lower():
@@ -1723,16 +1814,69 @@ class Other:
 
         await message.channel.send(to_send)
 
+    @staticmethod
+    async def No_Context(message):
+        if not await CheckMessage(message, start="no context", close=True, prefix=True):
+            return
+
+        # Cooldown Shit
+        cd_notice = Cooldown.CheckCooldown("nocontext", message.author, message.guild)
+        if type(cd_notice) == int:
+            msg = await message.channel.send('Cooldown Active, please wait: `' + Sys.SecMin(cd_notice) + '`')
+            await asyncio.sleep(5)
+            await message.channel.delete_messages([msg, message])
+            return
+        symbols = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+        # Set up variables for guild and creation time
+        guild = message.guild
+        guild_created_at = guild.created_at
+        # Get default channel
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        # Uses creation timestmap
+        created_timestamp = time.mktime(guild_created_at.timetuple())
+        now_timestamp = time.mktime(datetime.datetime.now().timetuple())
+        difference = now_timestamp - created_timestamp
+
+        # Find random time from creation to now
+        rand_difference = random.uniform(0, 1) * difference
+        new_time = datetime.datetime.fromtimestamp(rand_difference + created_timestamp)
+
+        # Find message
+        new_message, msg = False, False
+        async for part in default_channel.history(before=new_time, limit=400):
+            if not part.author.bot and part.content != "":
+                if part.content.lower()[0] in symbols and "http" not in part.content.lower():
+                    new_message = part
+                    break
+
+        if new_message.author.color:
+            em = discord.Embed(title=new_message.content, colour=new_message.author.color,
+                               timestamp=new_message.created_at)
+            em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
+        else:
+            em = discord.Embed(title=new_message.content, timestamp=new_message.created_at)
+            em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
+        msg = await message.channel.send(embed=em)
+
 
 class On_React:
     @staticmethod
     async def On_X(reaction, user):
+        if user.id in Ranks.Bots:
+            return
+
         message = reaction.message
         total_users = await reaction.users().flatten()
         if Vars.Bot.user in total_users:  # If bot originally reacted X
             try:
                 await message.delete()
-            except discord.errors.NotFound:
+                return
+            except Exception:
                 pass
             return
 
@@ -1759,7 +1903,7 @@ async def Help(message):
         return
     # Has a cycle for the help
     channel = message.channel
-    
+
     # Set up Emojis
     Big_Back = '\U000023ee'
     Back = '\U000025c0'
@@ -1769,12 +1913,12 @@ async def Help(message):
     emoji_list = [Big_Back, Back, Stop, Next, Big_Next]
 
     current_page = 0
-    
+
     help_data = Helpers.RetrieveData(type="Help_Text")
     if not help_data:
         await channel.send("Error Retrieving Data", delete_after=5)
         return
-    
+
     msg = None
     stop_cycle = False
     while not stop_cycle:  # While user still wants the help embed
@@ -1789,7 +1933,7 @@ async def Help(message):
         em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
         if help_data[current_page]["footer"]:
             em.set_footer(text=help_data[current_page]["footer"])
-        
+
         # Send the embed
         if msg:
             await msg.edit(embed=None)

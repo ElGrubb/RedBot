@@ -169,6 +169,24 @@ WeatherResponse = [
     "\U0001f302"
 ]
 
+Error_Response = [
+    "Seems like I ran into some sort of problem. Creating Report...",
+    "Uh oh, I broke. Creating Report...",
+    "Something went wrong, in a major way. Whoops. Here's the info",
+    "Real news, I hit an error. Ouch",
+    "OUCH, that hurt. Anyone want to help?",
+    "Beaming down information now:",
+    "Paging Dom, I hit some sort of error",
+    "Recovered after `1` Error. That hurt.",
+    "What a day. Jeez",
+    "Everyone has errors, move along please.",
+    "If you look for too long you get hypnotized",
+    "Ran into a tree, wait...",
+    "Even bots need rest days",
+    "It's been a long day, but about as long as every other day.",
+    "Sorry!"
+]
+
 Server_IDs = {
     'Dmakir': 215639569071210496,
     'PlayGround': 267071439109226496
