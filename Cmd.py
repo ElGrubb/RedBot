@@ -456,7 +456,7 @@ class Admin:
         # Set up so it knows that it has restarted
         info = {
             "Restarted": True,
-            "Type": "Command",
+            "Type": "Restart",
             "Channel_ID": message.channel.id
         }
         Helpers.SaveData(info, type="System")
