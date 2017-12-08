@@ -61,6 +61,7 @@ class MyClient(discord.Client):
 
     async def on_error(self, event_method, *args, **kwargs):
         message = args[0]
+        print(type(message))
         error_text = "**ERROR**: *" + Sys.Response(Conversation.Error_Response).strip() + "*"
         await message.channel.send(error_text)
         to_send = str(traceback.format_exc())

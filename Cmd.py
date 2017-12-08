@@ -1854,12 +1854,12 @@ class Other:
                     new_message = part
                     break
 
-        if new_message.author.color:
+        if new_message.author in message.guild.members:
             em = discord.Embed(title=new_message.content, colour=new_message.author.color,
                                timestamp=new_message.created_at)
             em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
         else:
-            em = discord.Embed(title=new_message.content, timestamp=new_message.created_at)
+            em = discord.Embed(title=new_message.content, timestamp=new_message.created_at, color=Vars.Bot_Color)
             em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
         msg = await message.channel.send(embed=em)
 
