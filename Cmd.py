@@ -336,7 +336,7 @@ class Admin:
         if confirmation:
             current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
-            await message.guild.leave  # Leaves
+            await message.guild.leave()  # Leaves
 
     @staticmethod
     async def Disable(message):
