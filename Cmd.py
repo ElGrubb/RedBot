@@ -283,6 +283,10 @@ class Admin:
         content = message.content.lower().replace("delete", "")
         content = content[1:].strip()
 
+        # If they just typed /delete:
+        if not content:
+            content = 1
+        
         # Makes sure that it is a proper integer in the message
         try:
             content = int(content)
