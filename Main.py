@@ -8,12 +8,10 @@ class MyClient(discord.Client):
         print("Admin Code: " + str(Cmd.Vars.AdminCode))
         join = 'Logged on as {0}'.format(self.user)
         print(join + "\n" + "="*len(join))
-
         game = discord.Game(name="v" + Cmd.Vars.Version + "  |  @Dom")
         await bot.change_presence(status=discord.Status.online, game=game)
 
         Cmd.Vars.Creator = Cmd.Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
-
         # Check if it just restarted:
         await Cmd.Admin.CheckRestart()
 
@@ -60,16 +58,21 @@ class MyClient(discord.Client):
         await Cmd.Admin.ChangePersonal(message)
 
     async def on_error(self, event_method, *args, **kwargs):
-        message = args[0]
-        print(type(message))
+        argument = args[0]
+        # argument could be reaction, or message
+        if type(argument) == discord.reaction.Reaction:
+            channel = argument.message.channel
+        elif type(argument) == discord.message.Message:
+            channel = argument.channel
+
         error_text = "**ERROR**: *" + Sys.Response(Conversation.Error_Response).strip() + "*"
-        await message.channel.send(error_text)
+        await channel.send(error_text)
         to_send = str(traceback.format_exc())
         to_send = "```py" + to_send + "```"
         to_send = to_send.replace("C:\\Users\\spong\\", "")
         to_send = to_send.replace("C:/Users/spong/", "").replace("Desktop", "")
-        await message.channel.send(to_send)
-        await message.channel.send(bot.get_user(239791371110580225).mention)
+        await channel.send(to_send)
+        await channel.send(bot.get_user(239791371110580225).mention)
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
@@ -90,7 +93,17 @@ class MyClient(discord.Client):
 
     async def on_guild_join(self, guild):
         to_send = "I have just been added to " + guild.name
-        confirmation = await Cmd.Helpers.Confirmation()
+        initial_message = await Cmd.Vars.Creator.send(to_send)
+        confirmation = await Cmd.Helpers.Confirmation(Cmd.Vars.Creator, "Should I?", deny_text="Okay, leaving")
+
+        if confirmation == False:
+            await guild.leave()
+            await initial_message.delete()
+            await Cmd.Vars.Creator.send("I have officially left " + guild.name)
+
+    async def on_guild_remove(self, guild):
+        creator = Cmd.Vars.Creator
+        await creator.send("I have officially left " + guild.name)
 
 
 

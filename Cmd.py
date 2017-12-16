@@ -17,7 +17,6 @@ wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_
 class Ranks:
     Admins = [
         239791371110580225,  # Dom
-        281866259824508928,  # Berto
         215639561181724672,  # Scangas
         211271446226403328,  # Tracy
         266454101766832131   # Louis
@@ -162,6 +161,17 @@ class Helpers:
         :param timeout: How long to wait for a conclusion
         :return: Returns True if Yes, False if No, and None if timed out. 
         """
+        if type(message) == discord.message.Message:
+            author = message.author
+            channel = message.channel
+            guild = message.guild
+            is_message = True
+        elif type(message) == discord.user.User:
+            author = message
+            channel = message
+            guild = message
+            is_message = False
+
         # Establish two emojis
         CancelEmoji = Conversation.Emoji['x']
         ContinueEmoji = Conversation.Emoji['check']
@@ -171,7 +181,7 @@ class Helpers:
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
         # Send message and add emojis
 
-        msg = await message.channel.send(embed=em)
+        msg = await channel.send(embed=em)
 
         await msg.add_reaction(ContinueEmoji)
         await msg.add_reaction(CancelEmoji)
@@ -180,7 +190,7 @@ class Helpers:
             # Returns if user is initial user and reaction is either of those
             if reaction.message.id != msg.id:
                 return
-            if user == message.author and str(reaction.emoji) in [CancelEmoji, ContinueEmoji]:
+            if user == author and str(reaction.emoji) in [CancelEmoji, ContinueEmoji]:
                 return reaction, user
 
         try:
@@ -193,7 +203,7 @@ class Helpers:
                 await msg.delete()
             except discord.errors.NotFound:
                 pass
-            await message.channel.send(deny_text, delete_after=5)
+            await channel.send(deny_text, delete_after=5)
             if return_timeout:
                 return "Timed Out"
             else:
@@ -202,16 +212,17 @@ class Helpers:
         # If they hit the X
         if reaction.emoji == CancelEmoji:
             await msg.delete()
-            await message.channel.send(deny_text, delete_after=5)
+            await channel.send(deny_text, delete_after=5)
             return False
 
         # If they hit the check
         elif reaction.emoji == ContinueEmoji:
             await msg.delete()
             if not deleted_original_message:
-                await message.add_reaction(ContinueEmoji)
+                if is_message:
+                    await message.add_reaction(ContinueEmoji)
             if yes_text:
-                await message.channel.send(yes_text, delete_after=5)
+                await channel.send(yes_text, delete_after=5)
             return True
 
     @staticmethod
@@ -383,52 +394,90 @@ class Admin:
         await message.channel.delete_messages([msg, message])
 
     @staticmethod
-    async def Talk(message):  # TODO REDO
+    async def Talk(message):
         if not await CheckMessage(message, start="Talk", prefix=True, admin=True):
             return
-        msg = message.content[5:].strip()
-        guild, channel = message.guild, message.channel
-        real_msg = []
-        # If there are server / channel modifiers
-        if '*' in message.content:
-            split_content = message.content.split(' ')
-            for part in split_content:
-                # For each modifier
-                if "%%" in part:  # Used to represent a space
-                    part = part.replace("%%", ' ')
+        """
+        /talk server=server serverino, channel=hotel_lobby, Hello
+        """
+        server, channel = None, None
+        content = message.content[5:].strip()
 
-                # For the server modifier:
-                if part.startswith('*'):
-                    if not part[1:len(part)].startswith('*'):  # Server
-                        # As long as its not two *, that means channel
-                        for bot_guild in Vars.Bot.guilds:
-                            # For each server the bot can see
-                            if part[1:len(part)] in bot_guild.name:
-                                # If the snippit given is in that servers name, set guild equal to it
-                                guild = bot_guild
-                                break
+        async def Ask(given_type, message, given_guild=None, ):
+            """
+            :param given_type: Either Server or Channel (no caps0
+            :param message: original message
+            :return: object of server
+            """
+            items_to_use = {}
+            bot = Vars.Bot
+            if given_type == "server":
+                guild_list = bot.guilds  # list of all guilds
+                for item in guild_list:  # Condense list into dict of name: object
+                    items_to_use[item.name] = item
+            elif given_type == "channel":
+                channel_list = given_guild.channels  # list of all guilds
+                for item in channel_list:  # Condense list into dict of name: object
+                    if type(item) == discord.channel.TextChannel:
+                        items_to_use[item.name] = item
+            else:
+                raise ValueError("Need to specify 'channel' or 'server'")
 
-                    # For the channel
-                    if part.startswith('**'):
-                        if not guild:
-                            guild = message.guild
-                        for bot_channel in guild.channels:
-                            if part[2:len(part)] in bot_channel.name:
-                                channel = bot_channel
-                                break
-                    else:
-                        channel = message.channel
-                else:
-                    real_msg.append(part)
-        if real_msg:
-            sentence = ''
-            for part in real_msg:
-                sentence += part + ' '
-            msg = sentence[5:].strip()
+            ask_string = ""
+            counter = -1
+            ask_list = []
+            for key in items_to_use:
+                counter += 1
+                if ask_string:
+                    ask_string += "\n"
+                ask_string += str(counter) + ": " + key
+                ask_list.append(key)
 
-        msg = Sys.FirstCap(msg)
+            ask_message = await message.channel.send("Which " + given_type + " would you like to send to?\n" + ask_string)
+            def Check(m):
+                # Checks for response from user
+                if m.channel == message.channel and m.author == message.author:
+                    return True
 
-        await channel.send(msg)
+            try:
+                response_message = await bot.wait_for('message', check=Check, timeout=5)
+            except asyncio.TimeoutError:
+                await message.channel.send("Timed out", delete_after=10)
+                await ask_message.delete()
+                await message.add_reaction(Conversation.Emoji["x"])
+                return
+
+            # Now that we have a response:
+            for name in items_to_use:
+                if response_message.content.lower() in name.lower():
+                    found = items_to_use[name]
+                    await ask_message.delete()
+                    return found
+
+            # If it cannot find it:
+            response = response_message.content
+            try:
+                num = int(response.strip())
+                return items_to_use[ask_list[num]]  # num in ask list gives the name assigned to each num
+            except:
+                await message.channel.send("Cannot find " + response_message.content + " in the list. Try again?")
+                return None
+
+        guild = await Ask("server", message)
+        if guild:
+            channel = await Ask('channel', message, given_guild=guild)
+        if guild and channel:
+            await channel.send(content)
+            await message.channel.send("Successfully sent message")
+            return
+        # if "server=" in content:
+        #     # If user defined server in the message's content:
+        #     server_name, channel_name = "", ""
+        #     split_content = content.split(",")
+        #     for part in split_content:
+        #         # For each part in the message (remember the syntax!)
+        #         if part.strip().startswith("server="):
+        #             server_name = part
 
     @staticmethod
     async def Status(message):
@@ -440,7 +489,7 @@ class Admin:
 
         sendmsg = "Bot is ONLINE"
         sendmsg += "\n**Speed:** " + str(difference)[5:] + " seconds. "
-        sendmsg += "\n**Uptime:** " + Sys.SecMin(round(time.clock() - Vars.start_time))
+        sendmsg += "\n**Uptime:** " + Sys.SecMin(int(time.clock()))
         em = discord.Embed(title="Current Status", timestamp=datetime.datetime.now(), colour=Vars.Bot_Color,
                            description=sendmsg)
         em.set_author(name=Vars.Bot.user, icon_url=Vars.Bot.user.avatar_url)
@@ -938,6 +987,24 @@ class Memes:
             await message.add_reaction(Conversation.Emoji["x"])
             return
 
+        await channel.trigger_typing()
+
+        # Remove everything but the type of meme to send
+        content = content[1:]
+        content = content[0:len(content) - 1] if content[-1].strip().lower() == 's' else content # Remove trailing "s"
+        content = content.replace('send', '').strip()  # Remove send
+
+        # Make sure content is in subs
+        if content not in Memes.subs:
+            possible_subs = "`"  # list of all possible send types
+            for key in Memes.subs:
+                if possible_subs is not "`":
+                    possible_subs += ", " + Sys.FirstCap(key)
+                else:
+                    possible_subs += Sys.FirstCap(key)
+            possible_subs += "`"
+            await channel.send("\"" + content + "\" is not a valid type. Possible types are:\n" + possible_subs)
+            return
         # CoolDown Shit
         if not is_repeat:
             cd_notice = Cooldown.CheckCooldown("meme", message.author, message.guild)
@@ -946,14 +1013,7 @@ class Memes:
                 await message.add_reaction(Conversation.Emoji["x"])
                 return
 
-        await channel.trigger_typing()
-
-        # Remove everything but the type of meme to send
-        content = content[1:]
-        content = content[0:len(content) - 1] if content[-1].strip().lower() == 's' else content # Remove trailing "s"
-        content = content.replace('send', '').strip() # Remove send
         subreddit = reddit.subreddit(Memes.subs[content])
-
         # Creates list 'urls' that has all sent urls
         url_list = []
         data = Helpers.RetrieveData(type="Memes")
@@ -1360,7 +1420,7 @@ class Other:
                     for letter in part:
                         counter += 1
                         emoji += letter
-                        if letter == ">":  break
+                        if letter == ">": break
                     part = part[counter + 1:].strip()
 
                 sections_list.append([part, emoji])
@@ -1413,7 +1473,7 @@ class Other:
                 return reaction, user
             elif reaction.emoji == stop_emoji:
                 originAuthor = message.author  # Original Author
-                if user == originAuthor:
+                if user == originAuthor or user == Vars.Creator:
                     return reaction, user
                 else:
                     return False
@@ -1595,6 +1655,9 @@ class Other:
     async def On_Message_Delete(message):
         delete_from_redbot = False
         guild = message.guild
+        if str(message.channel).startswith("Direct Message"):
+            return
+
         # If the delete was on a Redbot message and not by an admin
         async for entry in guild.audit_logs(limit=1):
             if str(entry.action) == 'AuditLogAction.message_delete':

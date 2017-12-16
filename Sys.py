@@ -258,7 +258,6 @@ def Response(type, message=None):
     except:
         return ''
     if message:
-        print(randnumber)
         return type[randnumber].format(message)
     else:
         return type[randnumber]
