@@ -34,7 +34,7 @@ class Vars:
     AdminCode = random.randint(0, 4000)
     Bot = None
     Disabled = False
-    start_time = time.clock()
+    start_time = None
     Version = "4.09"
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
@@ -487,9 +487,13 @@ class Admin:
         recievedTime = datetime.datetime.utcnow()
         difference = recievedTime - sentTime
 
+        now = datetime.datetime.now()
+        delta = now - Vars.start_time
+        delta = delta.total_seconds()
+
         sendmsg = "Bot is ONLINE"
         sendmsg += "\n**Speed:** " + str(difference)[5:] + " seconds. "
-        sendmsg += "\n**Uptime:** " + Sys.SecMin(int(time.clock()))
+        sendmsg += "\n**Uptime:** " + Sys.SecMin(int(delta))
         em = discord.Embed(title="Current Status", timestamp=datetime.datetime.now(), colour=Vars.Bot_Color,
                            description=sendmsg)
         em.set_author(name=Vars.Bot.user, icon_url=Vars.Bot.user.avatar_url)

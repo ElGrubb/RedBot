@@ -1,5 +1,5 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback
+import discord, random, traceback, datetime
 # AdminCmds = Cmd.Admin()
 
 
@@ -18,6 +18,7 @@ class MyClient(discord.Client):
         await Cmd.Memes.CleanMemes()  # Clean Meme Files
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
         await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
+        Cmd.Vars.start_time = datetime.datetime.now()
 
     async def on_message(self, message):
         if message.author == bot.user:
