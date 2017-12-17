@@ -17,7 +17,7 @@ wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_
 class Ranks:
     Admins = [
         239791371110580225,  # Dom
-        215639561181724672,  # Scangas
+        # 215639561181724672,  # Scangas
         211271446226403328,  # Tracy
         266454101766832131   # Louis
     ]
