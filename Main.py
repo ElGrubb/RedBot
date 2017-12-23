@@ -18,11 +18,10 @@ class MyClient(discord.Client):
         await Cmd.Memes.CleanMemes()  # Clean Meme Files
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
         await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
-        Cmd.Vars.start_time = datetime.datetime.now()
+        Cmd.Vars.start_time = datetime.datetime.now() + datetime.timedelta(hours=5)
 
         if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
-            em = discord.Embed(title="I have just started", timestamp=datetime.datetime.now() +
-                                                                      datetime.timedelta(hours=5), color=Cmd.Vars.Bot_Color)
+            em = discord.Embed(title="I have just started", timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
             await Cmd.Vars.Creator.send(embed=em)
 
     async def on_message(self, message):
@@ -62,7 +61,6 @@ class MyClient(discord.Client):
         await Cmd.Admin.SaveDataFromMessage(message)
         await Cmd.Admin.SendData(message)
         await Cmd.Admin.ChangePersonal(message)
-
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
