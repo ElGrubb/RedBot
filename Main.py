@@ -20,7 +20,7 @@ class MyClient(discord.Client):
         await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
         Cmd.Vars.start_time = datetime.datetime.now()
 
-        if Sys.Read_Personal(data_type="Bot_Type") == "GoldBot":
+        if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
             em = discord.Embed(title="I have just started", timestamp=datetime.datetime.now() +
                                                                       datetime.timedelta(hours=5), color=Cmd.Vars.Bot_Color)
             await Cmd.Vars.Creator.send(embed=em)
