@@ -278,6 +278,53 @@ class Helpers:
             file.write(to_save)
         return True
 
+    @staticmethod
+    async def AskQuestion(prompt, channel=None, timeout=30, sender=False, integer_answer=False, answers=None):
+        """Ran when needed, prompts for question"""
+        if not channel:
+            raise ConnectionError("Need to specify some sort of channel")
+
+        def check(m):
+            if sender:
+                if sender != m.author:
+                    return False
+            if integer_answer:
+                try:
+                    int(m.content.strip())
+                except:
+                    return False
+            if answers:
+                if m.content.strip().lower() not in answers:
+                    Vars.Bot.loop.create_task(ifAnswers(m))
+                    return False
+            return True
+
+        async def ifAnswers(m):
+            """
+            If the function is given a list of possible answers
+            :param m: the message object
+            :return: nothing. Sends message. 
+            """
+            possible_answers = ""
+            for answer in answers:
+                if possible_answers:
+                    possible_answers += ", `" + Sys.FirstCap(answer) + "`"
+                if not possible_answers:
+                    possible_answers = "`" + Sys.FirstCap(answer) + "`"
+            await m.channel.send("Not a valid response. Responses are: \n" + possible_answers, delete_after=60)
+
+        msg = await channel.send(prompt)
+        await msg.add_reaction(Conversation.Emoji['circle'])
+
+        try:
+            response = await Vars.Bot.wait_for('message', check=check, timeout=timeout)
+            await msg.clear_reactions()
+            return response
+        except asyncio.TimeoutError:
+            await msg.clear_reactions()
+            await channel.send("Timed out.", delete_after=10)
+            return None
+
 
 class Admin:
     @staticmethod
@@ -402,6 +449,11 @@ class Admin:
         """
         server, channel = None, None
         content = message.content[5:].strip()
+        if "-delay" in content:
+            delay = True
+            content = content.replace('-delay', "").strip()
+        else:
+            delay = False
 
         async def Ask(given_type, message, given_guild=None, ):
             """
@@ -434,13 +486,14 @@ class Admin:
                 ask_list.append(key)
 
             ask_message = await message.channel.send("Which " + given_type + " would you like to send to?\n" + ask_string)
+
             def Check(m):
                 # Checks for response from user
                 if m.channel == message.channel and m.author == message.author:
                     return True
 
             try:
-                response_message = await bot.wait_for('message', check=Check, timeout=5)
+                response_message = await bot.wait_for('message', check=Check, timeout=15)
             except asyncio.TimeoutError:
                 await message.channel.send("Timed out", delete_after=10)
                 await ask_message.delete()
@@ -467,6 +520,10 @@ class Admin:
         if guild:
             channel = await Ask('channel', message, given_guild=guild)
         if guild and channel:
+            if delay:
+                response = await Helpers.Confirmation(message, "Click when ready", timeout=120)
+                if not response:
+                    return
             await channel.send(content)
             await message.channel.send("Successfully sent message")
             return
@@ -1962,11 +2019,11 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    # await message.author.send("1994920.28408880002")
-    # new_msg = await message.channel.send("Emoji me")
-    # await new_msg.add_reaction('\U0001f44e')
-    # await message.channel.send(new_msg.reactions[0].emoji)
-    raise ValueError("This is a simulated test of an Exception.")
+    response = await Helpers.AskQuestion("Please Respond Something", message.channel, sender=message.author, answers=["iiii", 'thank', 'cow'])
+    if not response:
+        return
+    elif response.content == "iiii":
+        await message.channel.send("iiii")
 
 
 async def Help(message):
@@ -2062,3 +2119,4 @@ async def Help(message):
                 current_page = 0
         elif reaction.emoji == Big_Next:
             current_page = len(help_data) - 1
+

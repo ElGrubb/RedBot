@@ -20,6 +20,11 @@ class MyClient(discord.Client):
         await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
         Cmd.Vars.start_time = datetime.datetime.now()
 
+        if Sys.Read_Personal(data_type="Bot_Type") == "GoldBot":
+            em = discord.Embed(title="I have just started", timestamp=datetime.datetime.now() +
+                                                                      datetime.timedelta(hours=5), color=Cmd.Vars.Bot_Color)
+            await Cmd.Vars.Creator.send(embed=em)
+
     async def on_message(self, message):
         if message.author == bot.user:
             return
@@ -57,6 +62,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.SaveDataFromMessage(message)
         await Cmd.Admin.SendData(message)
         await Cmd.Admin.ChangePersonal(message)
+
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
@@ -105,7 +111,6 @@ class MyClient(discord.Client):
     async def on_guild_remove(self, guild):
         creator = Cmd.Vars.Creator
         await creator.send("I have officially left " + guild.name)
-
 
 
 async def getBot():
