@@ -59,6 +59,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.SaveDataFromMessage(message)
         await Cmd.Admin.SendData(message)
         await Cmd.Admin.ChangePersonal(message)
+        await Cmd.Admin.Broadcast(message)
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]

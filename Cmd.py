@@ -781,6 +781,21 @@ class Admin:
         await message.delete()
         await message.channel.send("Success. ", delete_after=20)
 
+    @staticmethod
+    async def Broadcast(message):
+        if not await CheckMessage(message, admin=True, prefix=True, start="broadcast"):
+            return
+
+        if not await Helpers.Confirmation(message, "Are you sure you want to broadcast?"):
+            return
+
+        message.content = message.content[1:].replace("broadcast","").strip()
+
+        await Helpers.MessageAdmins(message.content)
+
+
+
+
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
@@ -2036,6 +2051,8 @@ async def test(message):
     #     return
     # elif response.content == "iiii":
     #     await message.channel.send("iiii")
+    if not await Helpers.Confirmation(message, "Are you sure?"):
+        return
     await Helpers.MessageAdmins("49271947408 1840 - 19\n4444 (124.82 + i)\n\n\nEnd.")
 
 
