@@ -1,7 +1,5 @@
 import Sys, Cmd, Conversation
 import discord, random, traceback, datetime
-# AdminCmds = Cmd.Admin()
-
 
 class MyClient(discord.Client):
     async def on_ready(self):

@@ -17,7 +17,7 @@ wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_
 class Ranks:
     Admins = [
         239791371110580225,  # Dom
-        # 215639561181724672,  # Scangas
+        215639561181724672,  # Scangas
         211271446226403328,  # Tracy
         266454101766832131   # Louis
     ]
@@ -324,6 +324,15 @@ class Helpers:
             await msg.clear_reactions()
             await channel.send("Timed out.", delete_after=10)
             return None
+
+    @staticmethod
+    async def MessageAdmins(prompt):
+        Admin_List = []
+        for admin in Ranks.Admins:
+            Admin_List.append(Vars.Bot.get_user(admin))
+
+        for admin in Admin_List:
+            await admin.send(prompt)
 
 
 class Admin:
@@ -1160,7 +1169,10 @@ class Memes:
             # Timeout
             except asyncio.TimeoutError:
                 continue_on = False  # Don't continue
-                await msg.clear_reactions()
+                try:
+                    await msg.clear_reactions()
+                except discord.errors.NotFound:
+                    pass
                 return
 
             # If a reaction is added:
@@ -2017,13 +2029,15 @@ class On_React:
 
 
 async def test(message):
-    if not await CheckMessage(message, prefix=True, start="test", admin=True):
+    if not await CheckMessage(message, prefix=True, start="secret message", admin=True):
         return
-    response = await Helpers.AskQuestion("Please Respond Something", message.channel, sender=message.author, answers=["iiii", 'thank', 'cow'])
-    if not response:
-        return
-    elif response.content == "iiii":
-        await message.channel.send("iiii")
+    # response = await Helpers.AskQuestion("Please Respond Something", message.channel, sender=message.author, answers=["iiii", 'thank', 'cow'])
+    # if not response:
+    #     return
+    # elif response.content == "iiii":
+    #     await message.channel.send("iiii")
+    await Helpers.MessageAdmins("49271947408 1840 - 19\n4444 (124.82 + i)\n\n\nEnd.")
+
 
 
 async def Help(message):
