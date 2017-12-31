@@ -1,5 +1,6 @@
 import Sys, Conversation
 import asyncio, random, datetime, time, discord, json, praw
+from datetime import datetime, timedelta
 import forecastio, os, sys, git, wolframalpha, traceback
 
 # Reddit
@@ -48,14 +49,64 @@ class Vars:
     Creator = None
 
 
-def CheckPrivilage(message, nec):
+async def CheckPrivilage(channel, nec, return_all=False):
     # Checks the guild to see which privileges the bot has
     # nec is a list of the privileges it requires
-    """
-    "Send Messages"
-    "Edit Messages"
-    "React Messages"
-    "Delete Messages"
+    if type(nec) == str:
+        nec = [nec.strip()]
+
+    bot_user = channel.guild.get_member(Vars.Bot.user.id)
+
+    # Create list of permissions
+    Perm_Dict = {}
+    for permission in bot_user.permissions_in(channel):
+        Perm_Dict[permission[0]] = permission[1]
+
+    for item in nec:  # For each required in the command
+        if item not in Perm_Dict:  # If its a nonexistant permission
+            raise KeyError("Permission not normal one")
+
+    if return_all and len(nec) > 1:
+        to_return = {}
+        for item in nec:
+            to_return[item] = Perm_Dict[item]
+        return to_return
+    elif return_all and len(nec) == 1:
+        return Perm_Dict[nec[0]]
+
+    for item in nec:  # For each required in the command
+        if not Perm_Dict[item]:  # If the bot doesn't have it:
+            return False
+    return True
+    """ Here are the possible ones you can have:
+    add_reactions
+    administrator
+    attach_files
+    ban_members
+    change_nickname
+    connect
+    create_instant_invite
+    deafen_members
+    embed_links
+    external_emojis
+    kick_members
+    manage_channels
+    manage_emojis
+    manage_guild
+    manage_messages
+    manage_nicknames
+    manage_roles
+    manage_webhooks
+    mention_everyone
+    move_members
+    mute_members
+    read_message_history
+    read_messages
+    send_messages
+    send_tts_messages
+    speak
+    use_voice_activation
+    view_audit_log
     """
 
 
@@ -176,7 +227,7 @@ class Helpers:
         CancelEmoji = Conversation.Emoji['x']
         ContinueEmoji = Conversation.Emoji['check']
 
-        em = discord.Embed(title=text, timestamp=datetime.datetime.now(), colour=Vars.Bot_Color)
+        em = discord.Embed(title=text, timestamp=datetime.now(), colour=Vars.Bot_Color)
 
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
         # Send message and add emojis
@@ -326,13 +377,17 @@ class Helpers:
             return None
 
     @staticmethod
-    async def MessageAdmins(prompt):
+    async def MessageAdmins(prompt, embed=None):
         Admin_List = []
         for admin in Ranks.Admins:
             Admin_List.append(Vars.Bot.get_user(admin))
 
         for admin in Admin_List:
-            await admin.send(prompt)
+            print("Messaged " + admin.name)
+            if embed:
+                await admin.send(prompt, embed=embed)
+            else:
+                await admin.send(prompt)
 
 
 class Admin:
@@ -405,7 +460,7 @@ class Admin:
         text = "Leave " + message.guild.name + "?"  # Says "Leave Red Playground?"
         confirmation = await Helpers.Confirmation(message, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
-            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
             await message.guild.leave()  # Leaves
 
@@ -550,17 +605,17 @@ class Admin:
         if not await CheckMessage(message, prefix=True, start="status", admin=True):
             return
         sentTime = message.created_at
-        recievedTime = datetime.datetime.utcnow()
+        recievedTime = datetime.utcnow()
         difference = recievedTime - sentTime
 
-        now = datetime.datetime.now()
+        now = datetime.now()
         delta = now - Vars.start_time
         delta = delta.total_seconds()
 
         sendmsg = "Bot is ONLINE"
         sendmsg += "\n**Speed:** " + str(difference)[5:] + " seconds. "
         sendmsg += "\n**Uptime:** " + Sys.SecMin(int(delta))
-        em = discord.Embed(title="Current Status", timestamp=datetime.datetime.now(), colour=Vars.Bot_Color,
+        em = discord.Embed(title="Current Status", timestamp=datetime.now(), colour=Vars.Bot_Color,
                            description=sendmsg)
         em.set_author(name=Vars.Bot.user, icon_url=Vars.Bot.user.avatar_url)
 
@@ -794,9 +849,6 @@ class Admin:
         await Helpers.MessageAdmins(message.content)
 
 
-
-
-
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
     data = {}
@@ -809,7 +861,6 @@ class Cooldown:
 
     @staticmethod
     def TimeStamp():
-        import datetime
         return int(datetime.datetime.now().timestamp())
 
     @staticmethod
@@ -898,7 +949,7 @@ class Timer:
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
                 if current_time == '06:30':
-                    today = datetime.datetime.now().strftime("%B %d")
+                    today = datetime.now().strftime("%B %d")
                     print("Good Morning! It is " + today)
                     await Other.T_Weather()
 
@@ -937,7 +988,7 @@ class Quotes:
         Helpers.SaveData(data, type="Quotes")
 
         # Modify the Data a bit
-        date = datetime.datetime.fromtimestamp(chosen_quote["date"])
+        date = datetime.fromtimestamp(chosen_quote["date"])
         quote = "**\"**" + chosen_quote["quote"] + "**\"**"
         sender_obj = await Vars.Bot.get_user_info(chosen_quote["user_id"])
 
@@ -965,7 +1016,7 @@ class Quotes:
         content = message.clean_content[7:].replace("@" + mention_user.name, '').strip()
 
         # Create Embed
-        em = discord.Embed(title="Quote this?", timestamp=datetime.datetime.now(), colour=Vars.Bot_Color,
+        em = discord.Embed(title="Quote this?", timestamp=datetime.now(), colour=Vars.Bot_Color,
                            description="**\"**" + content + "**\"**")
         em.set_author(name=mention_user, icon_url=mention_user.avatar_url)
         em.set_footer(text="10 minute timeout")
@@ -1016,7 +1067,7 @@ class Quotes:
 
     @staticmethod
     async def NoteQuote(quote=None, user=None):
-        date = datetime.datetime.now()
+        date = datetime.now()
         timestamp = time.mktime(date.timetuple())
         quote = quote.strip()
         user_name = str(user)
@@ -1139,7 +1190,7 @@ class Memes:
 
         # Embed
         if is_image:
-            em = discord.Embed(title=found_meme.title, timestamp=datetime.datetime.now())
+            em = discord.Embed(title=found_meme.title, timestamp=datetime.now())
             em.set_image(url=link)
             em.set_footer(text="Sent " + Sys.FirstCap(content))
             msg = await channel.send(embed=em)
@@ -1700,17 +1751,32 @@ class Other:
         default_channel = channel_list[0]
 
         description = "Account Created at: " + member.created_at.strftime("%H:%M:%S  on  %m-%d-%Y")
-        description += "\nJoined Server at: " + datetime.datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
+        description += "\nJoined Server at: " + datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
         description += '\nID: `' + str(member.id) + '`'
         if member.bot:
             description += '\nYou are a bot. I do not like being replaced.'
         em = discord.Embed(description=description, colour=0xffffff)
         em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
+        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
 
-        await default_channel.send("Welcome!", embed=em)
+        permissions = await CheckPrivilage(default_channel, ["send_messages", "change_nickname"], return_all=True)
 
-        # if guild == Vars.Bot.get_server(Conversation.Server_IDs['Dmakir']):
-        #     await Cmd.Dmakir_New_Member(member, bot)
+        # Add to audit log
+        if permissions["change_nickname"]:
+            bot_member = guild.get_member(Vars.Bot.user.id)
+            old_name = bot_member.name
+            await bot_member.edit(nick="Thinking...", reason=member.name + " left.")
+            await bot_member.edit(nick=old_name)
+
+        # Send the message
+        if permissions['send_messages']:
+            await default_channel.send("Welcome!", embed=em)
+        else:
+            for channel in guild.text_channels:
+                if await CheckPrivilage(channel, "send_messages"):
+                    await channel.send("Welcome!", embed=em)
+                    return
+            await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nWelcome!", embed=em)
 
     @staticmethod
     async def On_Member_Remove(member):
@@ -1720,24 +1786,43 @@ class Other:
             channel_list.append(channel)
         default_channel = channel_list[0]
 
-        reason = False
-        async for entry in guild.audit_logs(limit=1):
-            if str(entry.action) == 'AuditLogAction.kick' and entry.target.id == member.id:
-                reason = "Kicked by " + Sys.FirstCap(entry.user.name)
-            elif str(entry.action) == 'AuditLogAction.ban' and entry.target.id == member.id:
-                reason = "Banned by " + Sys.FirstCap(entry.user.name)
-            else:
-                reason = "Left on their own terms."
+        permissions = await CheckPrivilage(default_channel, ["view_audit_log", "send_messages", "change_nickname"], return_all=True)
+        if permissions["view_audit_log"]:
+            reason = False
+            async for entry in guild.audit_logs(limit=1):
+                if str(entry.action) == 'AuditLogAction.kick' and entry.target.id == member.id:
+                    reason = "Kicked by " + Sys.FirstCap(entry.user.name)
+                elif str(entry.action) == 'AuditLogAction.ban' and entry.target.id == member.id:
+                    reason = "Banned by " + Sys.FirstCap(entry.user.name)
+                else:
+                    reason = "Left on their own terms."
+        else:
+            reason = "[*Unable to read Audit Log*]"
 
         description = "**Reason: **" + reason
         description += '\n**ID:** `' + str(member.id) + '`'
 
         # Embed
-        em = discord.Embed(description=description, colour=0xffffff, timestamp=datetime.datetime.now())
+        em = discord.Embed(description=description, colour=0xffffff, timestamp=datetime.now())
         em.set_author(name=member.name + " left.", icon_url=member.avatar_url)
         em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
 
-        await default_channel.send("Goodbye!", embed=em)
+        # Add to audit log
+        if permissions["change_nickname"]:
+            bot_member = guild.get_member(Vars.Bot.user.id)
+            old_name = bot_member.name
+            await bot_member.edit(nick="Thinking...", reason=member.name + " left.")
+            await bot_member.edit(nick=old_name)
+
+        # Send the message
+        if permissions['send_messages']:
+            await default_channel.send("Goodbye!", embed=em)
+        else:
+            for channel in guild.text_channels:
+                if await CheckPrivilage(channel, "send_messages"):
+                    await channel.send("Goodbye!", embed=em)
+                    return
+            await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nGoodbye!", embed=em)
 
     @staticmethod
     async def On_Message_Delete(message):
@@ -1746,27 +1831,65 @@ class Other:
         if str(message.channel).startswith("Direct Message"):
             return
 
-        # If the delete was on a Redbot message and not by an admin
-        async for entry in guild.audit_logs(limit=1):
-            if str(entry.action) == 'AuditLogAction.message_delete':
-                if message.author == Vars.Bot.user and entry.user not in Ranks.Admins:
-                    delete_from_redbot = entry.user.name
-                else:
-                    delete_from_redbot = False
+        created_at = time.mktime(message.created_at.timetuple())
+        now_time = time.mktime(datetime.utcnow().timetuple())
+        secondsDiff = (now_time - created_at)
+        maxSeconds = 60 * 60 * 4  # 4 hours
+
+        recent_from_bot = False
+        if maxSeconds > secondsDiff:  # If the message was sent less than 4 hours ago
+            if message.author == Vars.Bot.user:
+                recent_from_bot = True
+            else:
+                return
+
+        permissions = await CheckPrivilage(message.channel, ["send_messages", "view_audit_log"], return_all=True)
+        if permissions['view_audit_log']:
+            # If the delete was on a RedBot message and not by an admin
+            async for entry in guild.audit_logs(limit=1):
+                if str(entry.action) == 'AuditLogAction.message_delete':
+                    if message.author == Vars.Bot.user and entry.user not in Ranks.Admins:
+                        delete_from_redbot = entry.user.name
+                    else:
+                        delete_from_redbot = False
+        else:  # if it can't see the audit log
+            if recent_from_bot:
+                delete_from_redbot = "`Unknown`"
+            else:
+                delete_from_redbot = False
+
+        async def Attempt_To_Send(message, content, embed):
+            """Ran if it cannot send the message"""
+            guild = message.guild
+            channel = message.channel
+            sent = False
+            for channel in guild.text_channels:
+                if await CheckPrivilage(channel, "send_messages"):
+                    await channel.send(content, embed=embed)
+                    sent = True
+                    break
+            if not sent:
+                await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\n" + content, embed=embed)
 
         if delete_from_redbot:
             if message.content.startswith("Welcome!") or message.content.startswith("Goodbye!"):
                 new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
-                              (delete_from_redbot, datetime.datetime.now())
+                              (delete_from_redbot, datetime.now())
                 message.content = new_content + message.content
-                await message.channel.send(message.content, embed=message.embeds[0])
+                if permissions['send_messages']:
+                    await message.channel.send(message.content, embed=message.embeds[0])
+                else:
+                    await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
             elif message.content.startswith("**Reconstructed**"):
                 content = message.content.split('\n')[1]
                 new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
-                              (delete_from_redbot, datetime.datetime.now())
+                              (delete_from_redbot, datetime.now())
                 message.content = new_content + content
-                await message.channel.send(message.content, embed=message.embeds[0])
+                if permissions['send_messages']:
+                    await message.channel.send(message.content, embed=message.embeds[0])
+                else:
+                    await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
     @staticmethod
     async def OldWeather(message, morning=False):
@@ -1994,12 +2117,12 @@ class Other:
 
         # Uses creation timestmap
         created_timestamp = time.mktime(guild_created_at.timetuple())
-        now_timestamp = time.mktime(datetime.datetime.now().timetuple())
+        now_timestamp = time.mktime(datetime.now().timetuple())
         difference = now_timestamp - created_timestamp
 
         # Find random time from creation to now
         rand_difference = random.uniform(0, 1) * difference
-        new_time = datetime.datetime.fromtimestamp(rand_difference + created_timestamp)
+        new_time = datetime.fromtimestamp(rand_difference + created_timestamp)
 
         # Find message
         new_message, msg = False, False
@@ -2044,16 +2167,12 @@ class On_React:
 
 
 async def test(message):
-    if not await CheckMessage(message, prefix=True, start="secret message", admin=True):
+    if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    # response = await Helpers.AskQuestion("Please Respond Something", message.channel, sender=message.author, answers=["iiii", 'thank', 'cow'])
-    # if not response:
-    #     return
-    # elif response.content == "iiii":
-    #     await message.channel.send("iiii")
-    if not await Helpers.Confirmation(message, "Are you sure?"):
-        return
-    await Helpers.MessageAdmins("49271947408 1840 - 19\n4444 (124.82 + i)\n\n\nEnd.")
+    permission = await CheckPrivilage(message.channel, "change_nickname", return_all=True)
+
+    print(permission)
+
 
 
 
@@ -2088,7 +2207,7 @@ async def Help(message):
             color = Vars.Bot_Color
         else:
             color = 0xFFFFFF
-        em = discord.Embed(title=title, timestamp=datetime.datetime.now(), colour=color, description=description)
+        em = discord.Embed(title=title, timestamp=datetime.now(), colour=color, description=description)
         em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
         if help_data[current_page]["footer"]:
             em.set_footer(text=help_data[current_page]["footer"])
