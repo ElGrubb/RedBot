@@ -61,6 +61,8 @@ class MyClient(discord.Client):
         await Cmd.Admin.ChangePersonal(message)
         await Cmd.Admin.Broadcast(message)
 
+        await Cmd.NewYears(message)
+
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
         # argument could be reaction, or message

@@ -1,5 +1,5 @@
 import Sys, Conversation
-import asyncio, random, datetime, time, discord, json, praw
+import asyncio, random, time, discord, json, praw
 from datetime import datetime, timedelta
 import forecastio, os, sys, git, wolframalpha, traceback
 
@@ -408,7 +408,7 @@ class Admin:
         # If they just typed /delete:
         if not content:
             content = 1
-        
+
         # Makes sure that it is a proper integer in the message
         try:
             content = int(content)
@@ -861,7 +861,7 @@ class Cooldown:
 
     @staticmethod
     def TimeStamp():
-        return int(datetime.datetime.now().timestamp())
+        return int(datetime.now().timestamp())
 
     @staticmethod
     async def SetUpCooldown():
@@ -2269,4 +2269,56 @@ async def Help(message):
                 current_page = 0
         elif reaction.emoji == Big_Next:
             current_page = len(help_data) - 1
+
+
+async def NewYears(message):
+    if not await CheckMessage(message, start="new years", prefix=True, admin=True):
+        return
+    msg = await message.channel.send("Counting down...")
+    if "-final" in message.content:
+        final = "This message will stay up until the new year!"
+    else:
+        final = None
+    dt = datetime.strptime("01/01/18 00:00", "%d/%m/%y %H:%M")
+    dt = time.mktime(dt.timetuple())
+    now = time.mktime(datetime.now().timetuple())
+    loops = 0
+    while dt > now:
+        now = time.mktime(datetime.now().timetuple())
+        seconds = dt - now
+
+        m, s = divmod(seconds, 60)
+        h, m = divmod(m, 60)
+
+        # format string
+        if h:
+            string = "%d Hours, %d Minutes, %d Seconds Until Next Year!" % (h, m, s)
+        elif m:
+            string = "%d Minutes, %d Seconds Until Next Year!" % (m, s)
+        else:
+            string = "%d Seconds Until Next Year!" % (s)
+
+        # string = str(int(seconds)) + " seconds"
+
+        em = discord.Embed(title="**New Years Countdown**", timestamp=datetime.now(), colour=Vars.Bot_Color,
+                           description=string)
+        em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
+        if not final:
+            em.set_footer(text="This will self-delete two minutes after sent", icon_url=message.guild.icon_url)
+        if not msg:
+            break
+
+        await msg.edit(embed=em, content=final)
+
+        loops += 1
+
+        if h and loops > 60 * 2 and not final:
+            await msg.delete()
+            return
+        if h and m:
+            await asyncio.sleep(2)
+        elif not h and not m:
+            await asyncio.sleep(.5)
+    if now >= dt:
+        await msg.edit(content="@everyone Happy New Years!")
 
