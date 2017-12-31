@@ -2304,7 +2304,7 @@ async def NewYears(message):
                            description=string)
         em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
         if not final:
-            em.set_footer(text="This will self-delete two minutes after sent", icon_url=message.guild.icon_url)
+            em.set_footer(text="This will self-delete a few minutes after sent", icon_url=message.guild.icon_url)
         if not msg:
             break
 
@@ -2312,7 +2312,7 @@ async def NewYears(message):
 
         loops += 1
 
-        if h and loops > 60 * 2 and not final:
+        if h and loops > 60 and not final:
             await msg.delete()
             return
         if h and m:
