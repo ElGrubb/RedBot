@@ -49,7 +49,7 @@ class Vars:
     Creator = None
 
 
-async def CheckPrivilage(channel, nec, return_all=False):
+async def CheckPermissions(channel, nec, return_all=False):
     # Checks the guild to see which privileges the bot has
     # nec is a list of the privileges it requires
     if type(nec) == str:
@@ -1759,7 +1759,7 @@ class Other:
         em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
         em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
 
-        permissions = await CheckPrivilage(default_channel, ["send_messages", "change_nickname"], return_all=True)
+        permissions = await CheckPermissions(default_channel, ["send_messages", "change_nickname"], return_all=True)
 
         # Add to audit log
         if permissions["change_nickname"]:
@@ -1773,7 +1773,7 @@ class Other:
             await default_channel.send("Welcome!", embed=em)
         else:
             for channel in guild.text_channels:
-                if await CheckPrivilage(channel, "send_messages"):
+                if await CheckPermissions(channel, "send_messages"):
                     await channel.send("Welcome!", embed=em)
                     return
             await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nWelcome!", embed=em)
@@ -1786,7 +1786,7 @@ class Other:
             channel_list.append(channel)
         default_channel = channel_list[0]
 
-        permissions = await CheckPrivilage(default_channel, ["view_audit_log", "send_messages", "change_nickname"], return_all=True)
+        permissions = await CheckPermissions(default_channel, ["view_audit_log", "send_messages", "change_nickname"], return_all=True)
         if permissions["view_audit_log"]:
             reason = False
             async for entry in guild.audit_logs(limit=1):
@@ -1819,7 +1819,7 @@ class Other:
             await default_channel.send("Goodbye!", embed=em)
         else:
             for channel in guild.text_channels:
-                if await CheckPrivilage(channel, "send_messages"):
+                if await CheckPermissions(channel, "send_messages"):
                     await channel.send("Goodbye!", embed=em)
                     return
             await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nGoodbye!", embed=em)
@@ -1843,7 +1843,7 @@ class Other:
             else:
                 return
 
-        permissions = await CheckPrivilage(message.channel, ["send_messages", "view_audit_log"], return_all=True)
+        permissions = await CheckPermissions(message.channel, ["send_messages", "view_audit_log"], return_all=True)
         if permissions['view_audit_log']:
             # If the delete was on a RedBot message and not by an admin
             async for entry in guild.audit_logs(limit=1):
@@ -1864,7 +1864,7 @@ class Other:
             channel = message.channel
             sent = False
             for channel in guild.text_channels:
-                if await CheckPrivilage(channel, "send_messages"):
+                if await CheckPermissions(channel, "send_messages"):
                     await channel.send(content, embed=embed)
                     sent = True
                     break
@@ -2169,7 +2169,7 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    permission = await CheckPrivilage(message.channel, "change_nickname", return_all=True)
+    permission = await CheckPermissions(message.channel, "change_nickname", return_all=True)
 
     print(permission)
 
