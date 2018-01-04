@@ -46,6 +46,7 @@ class MyClient(discord.Client):
         await Cmd.Other.OldWeather(message)
         await Cmd.Other.Calculate(message)
         await Cmd.Other.No_Context(message)
+        await Cmd.Other.ChatLinkShorten(message)
 
         # ADMIN Commands
         await Cmd.Admin.Delete(message)
@@ -60,7 +61,6 @@ class MyClient(discord.Client):
         await Cmd.Admin.SendData(message)
         await Cmd.Admin.ChangePersonal(message)
         await Cmd.Admin.Broadcast(message)
-
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
@@ -84,7 +84,7 @@ class MyClient(discord.Client):
             return
         if reaction.emoji == Conversation.Emoji["quote"]:
             await Cmd.Quotes.OnQuoteReaction(reaction, user)
-        if reaction.emoji == Conversation.Emoji["x"]:
+        if reaction.emoji == Conversation.Emoji["delete_x"]:
             await Cmd.On_React.On_X(reaction, user)
 
     async def on_message_delete(self, message):

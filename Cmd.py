@@ -110,7 +110,8 @@ async def CheckPermissions(channel, nec, return_all=False):
     """
 
 
-async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=None, guild=None, sender=None, admin=None):
+async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=None, guild=None, sender=None, admin=None,
+                       include=None):
     """
     Checks through the contents of a message and params to see if its good to run the function
     :param message:     The message object
@@ -121,6 +122,7 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
     :param guild:       Specific guild? Should be guild ID
     :param sender:      Specific user? Should be user ID
     :param admin:       Should they be an 'admin'
+    :param include:     Something that should be inside the message
     :return:            Returns True if message passes, False if not. 
     """
     totalPossibleCorrect = 0  # Has how many features this can have correct
@@ -183,6 +185,12 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
         if message.author.id in Ranks.Admins:
             numberCorrect += 1
 
+    # Include
+    if include:  # If there's a certain phrase the message should start with
+        totalPossibleCorrect += 1
+        if include.lower() in content.lower():
+            numberCorrect += 1
+
     if numberCorrect == totalPossibleCorrect:
         Vars.Bot.loop.create_task(loadingSign(message))
         return True
@@ -201,8 +209,8 @@ async def loadingSign(message):
 
 class Helpers:
     @staticmethod
-    async def Confirmation(message, text, yes_text=None, deny_text="Action Cancelled.", timeout=60,
-                           return_timeout=False, deleted_original_message=False):
+    async def Confirmation(message, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
+                           return_timeout=False, deleted_original_message=False, mention=None):
         """
         Sends a confirmation for a command
         :param message: The message object
@@ -210,6 +218,7 @@ class Helpers:
         :param yes_text: If you want a confirmed message to play for 4 seconds
         :param deny_text: If you want a message to play when x is hit. 
         :param timeout: How long to wait for a conclusion
+        :param mention: If the bot should mention the player in the beginning
         :return: Returns True if Yes, False if No, and None if timed out. 
         """
         if type(message) == discord.message.Message:
@@ -222,17 +231,24 @@ class Helpers:
             channel = message
             guild = message
             is_message = False
+        else:
+            raise TypeError("Should never be called.")
 
         # Establish two emojis
         CancelEmoji = Conversation.Emoji['x']
         ContinueEmoji = Conversation.Emoji['check']
+
+        if mention:
+            before_message = mention.mention
+        else:
+            before_message = None
 
         em = discord.Embed(title=text, timestamp=datetime.now(), colour=Vars.Bot_Color)
 
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
         # Send message and add emojis
 
-        msg = await channel.send(embed=em)
+        msg = await channel.send(before_message, embed=em)
 
         await msg.add_reaction(ContinueEmoji)
         await msg.add_reaction(CancelEmoji)
@@ -2140,6 +2156,45 @@ class Other:
             em = discord.Embed(title=new_message.content, timestamp=new_message.created_at, color=Vars.Bot_Color)
             em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
         msg = await message.channel.send(embed=em)
+
+    @staticmethod
+    async def ChatLinkShorten(message):
+        if not await CheckMessage(message, include="http", prefix=False):
+            return
+        string = message.content.strip()
+
+        if " " in string:  # If there's a space in the message, IE more text
+            original_string = string
+            new_string = ""
+            string = string.split(" ")  # make string into a list
+            for part in string:  # For each section
+                if part.startswith("http"):  # if its the link
+                    new_string = part
+                    break
+            if not new_string:
+                return
+            string = new_string
+
+            more_content = original_string.replace(new_string, "").strip()
+        else:
+            more_content = False
+
+        if len(string) < 50:
+            return
+
+        confirmation = await Helpers.Confirmation(message, "Would you like to shorten that link?", deny_text="Okay.",
+                                                  timeout=40, mention=message.author)
+        if not confirmation:
+            return
+
+        shortened_string = Sys.Shorten_Link(string)
+        text = "**Shortened Link from " + message.author.name + ":  **" + shortened_string
+        if type(more_content) == str and more_content:
+            text += "\n**\" **" + more_content + " **\"**"
+            await message.add_reaction(Conversation.Emoji["x"])
+        await message.delete()
+
+        await message.channel.send(text)
 
 
 class On_React:

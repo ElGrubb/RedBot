@@ -18,7 +18,6 @@ Hellos = [
     'Communism is key, {0.author.mention}, don\'t you see?'
 ]
 
-# Hellos = ['Hello {0.author.mention}. HowAreYou().split(r={iii.run})']
 # GOODBYES
 Goodbyes = [
     'Shutting down... \nBeep Boop... \nGoodbye!',
@@ -101,6 +100,7 @@ Emoji = {
     'hmmm': '\U0001f914',
     'check': '\U00002705',
     'x': '\U0000274c',
+    'delete_x': '\U00002716',
     'stop': '\U0001f6d1'
 }
 
