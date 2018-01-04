@@ -1,5 +1,6 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback, datetime
+import discord, random, traceback
+from datetime import datetime, timedelta
 
 class MyClient(discord.Client):
     async def on_ready(self):
@@ -16,7 +17,7 @@ class MyClient(discord.Client):
         await Cmd.Memes.CleanMemes()  # Clean Meme Files
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
         await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
-        Cmd.Vars.start_time = datetime.datetime.now() + datetime.timedelta(hours=5)
+        Cmd.Vars.start_time = datetime.utcnow()
 
         if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
             em = discord.Embed(title="I have just started", timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
@@ -84,7 +85,7 @@ class MyClient(discord.Client):
             return
         if reaction.emoji == Conversation.Emoji["quote"]:
             await Cmd.Quotes.OnQuoteReaction(reaction, user)
-        if reaction.emoji == Conversation.Emoji["delete_x"]:
+        if reaction.emoji == Conversation.Emoji["x"]:
             await Cmd.On_React.On_X(reaction, user)
 
     async def on_message_delete(self, message):

@@ -624,7 +624,7 @@ class Admin:
         recievedTime = datetime.utcnow()
         difference = recievedTime - sentTime
 
-        now = datetime.now()
+        now = datetime.utcnow()
         delta = now - Vars.start_time
         delta = delta.total_seconds()
 
@@ -2206,19 +2206,25 @@ class On_React:
         message = reaction.message
         total_users = await reaction.users().flatten()
         if Vars.Bot.user in total_users:  # If bot originally reacted X
+            if message.author.id != Vars.Bot.user.id:
+                # If the message isn't by the bot:
+                try:
+                    await message.delete()
+                    return
+                except Exception:
+                    pass
+            return
+
+        # If bot didn't originally react:
+        elif user.id in Ranks.Admins:
             try:
+                await message.add_reaction(Conversation.Emoji['check'])
+                await asyncio.sleep(.4)
                 await message.delete()
-                return
             except Exception:
                 pass
             return
 
-        # If bot didn't originally react:
-        if user.id in Ranks.Admins:
-            await message.add_reaction(Conversation.Emoji['check'])
-            await asyncio.sleep(.4)
-            await message.delete()
-            return
 
 
 async def test(message):
