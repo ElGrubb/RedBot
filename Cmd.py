@@ -36,7 +36,7 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = None
-    Version = "4.10"
+    Version = "4.11"
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
