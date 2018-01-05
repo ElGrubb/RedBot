@@ -2233,7 +2233,7 @@ class Other:
         await message.channel.trigger_typing()
         counter = 0
         final_count = 0
-        async for part in message.channel.history(limit=2500):
+        async for part in message.channel.history(limit=5000):
             counter += 1
             for emoji in part.reactions:
                 if stop_emoji == emoji.emoji:
