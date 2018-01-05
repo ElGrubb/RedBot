@@ -2200,11 +2200,11 @@ class Other:
         # Find domain of link
         partial = string.split("//")[1]
         if "www." in partial:
-            partial = partial.replace("www.","").strip()
+            partial = partial.replace("www.", "").strip()
         partial = partial.split(".")
         domain = partial[0] + "." + partial[1].split("/")[0]
 
-        text = "**Shortened Link from " + message.author.name + ":  **" + shortened_string + "   *(" + domain + ")*"
+        text = "**Shortened Link from " + message.author.name + ":  **" + shortened_string + "   (*" + domain + "*)"
         if type(more_content) == str and more_content:
             text += "\n**\" **" + more_content + " **\"**"
             await message.add_reaction(Conversation.Emoji["x"])
