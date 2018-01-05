@@ -2227,11 +2227,10 @@ class Other:
         text = "I will count messages until I see a " + stop_emoji + " reaction. My limit is: `2500` messages."
         description = "Click the Check when you're ready!"
 
-
         if not await Helpers.Confirmation(message, text=text, deny_text="Count cancelled", timeout=120,
                                           extra_text=description):
             return
-
+        await message.channel.trigger_typing()
         counter = 0
         final_count = 0
         async for part in message.channel.history(limit=2500):
