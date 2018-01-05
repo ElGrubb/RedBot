@@ -48,6 +48,7 @@ class MyClient(discord.Client):
         await Cmd.Other.Calculate(message)
         await Cmd.Other.No_Context(message)
         await Cmd.Other.ChatLinkShorten(message)
+        await Cmd.Other.CountMessages(message)
 
         # ADMIN Commands
         await Cmd.Admin.Delete(message)

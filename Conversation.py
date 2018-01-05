@@ -102,7 +102,8 @@ Emoji = {
     'x': '\U0000274c',
     'heavy_check': '\U00002714',
     'heavy_x': '\U00002716',
-    'stop': '\U0001f6d1'
+    'stop': '\U0001f6d1',
+    "blue_book": "\U0001f4d8"
 }
 
 # Nice Tries

@@ -1553,13 +1553,14 @@ class Other:
     async def Poll(message):
         if not await CheckMessage(message, prefix=True, start="poll"):
             return
-
+        # PRepare the message for interpretation
         not_symbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+/\\\'\".,~`<>: "
         message.content = message.content[1:].lower().replace("poll", "").strip()
         content = message.content.split("\n")
         to_send = ""
         title = content[0]
         sections_list = []
+        # Go through it and interpret each line
         for i in range(0, len(content)):  # For each line of the string
             if i != 0:  # Except the first part
                 part = content[i].strip()
@@ -1584,6 +1585,8 @@ class Other:
             msg = await message.channel.send("Too many options, the limit is 10.", delete_after=10)
             return
         await message.delete()
+
+        # Add emojis to those that don't have them
         for i in range(0, len(sections_list)):
             reg = ":regional_indicator_"
             alphabet = ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
@@ -1591,17 +1594,20 @@ class Other:
             if not sections_list[i][1]:
                 sections_list[i][1] = alphabet[i]
 
+        # Set up each line to print
         for section in sections_list:
             new_append = "\n" + section[1] + "   " + Sys.FirstCap(section[0])
             to_send += new_append
 
+        # User ID can be found as a url link
         user_number = "http://" + str(message.author.id) + ".com"
         em = discord.Embed(description=to_send, colour=message.author.color, title="**Poll**: " + Sys.FirstCap(title))
         em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
                       icon_url=message.author.avatar_url,
                       url=user_number)
-        msg = await message.channel.send(embed=em)
+        msg = await message.channel.send(embed=em)  # Send embedded message
 
+        # Add reactions
         for section in sections_list:
             if section[1].startswith("<"):
                 section[1] = section[1].replace('<', '').replace('>', '')
@@ -2211,6 +2217,32 @@ class Other:
         await message.delete()
 
         await message.channel.send(text)
+
+    @staticmethod
+    async def CountMessages(message):
+        if not await CheckMessage(message, start="Count", prefix=True):
+            return
+
+        stop_emoji = Conversation.Emoji["blue_book"]
+        text = "I will count messages until I see a " + stop_emoji + " reaction. My limit is: `2500` messages."
+        description = "Click the Check when you're ready!"
+
+
+        if not await Helpers.Confirmation(message, text=text, deny_text="Count cancelled", timeout=120,
+                                          extra_text=description):
+            return
+
+        counter = 0
+        final_count = 0
+        async for part in message.channel.history(limit=2500):
+            counter += 1
+            for emoji in part.reactions:
+                if stop_emoji == emoji.emoji:
+                    final_count = counter
+            if final_count:
+                break
+
+        await message.channel.send(str(final_count) + " messages.")
 
 
 class On_React:
