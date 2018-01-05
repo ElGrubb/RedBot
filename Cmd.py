@@ -210,7 +210,7 @@ async def loadingSign(message):
 class Helpers:
     @staticmethod
     async def Confirmation(message, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
-                           return_timeout=False, deleted_original_message=False, mention=None):
+                           return_timeout=False, deleted_original_message=False, mention=None, extra_text=None):
         """
         Sends a confirmation for a command
         :param message: The message object
@@ -243,7 +243,7 @@ class Helpers:
         else:
             before_message = None
 
-        em = discord.Embed(title=text, timestamp=datetime.now(), colour=Vars.Bot_Color)
+        em = discord.Embed(title=text, description=extra_text, timestamp=datetime.now(), colour=Vars.Bot_Color)
 
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
         # Send message and add emojis
@@ -1668,6 +1668,7 @@ class Other:
                 if person != Vars.Bot.user:
                     response_list.append(person.name)
                     people_exist = True
+
             if not people_exist:
                 response_list.append("  ")
 
@@ -2179,16 +2180,25 @@ class Other:
         else:
             more_content = False
 
-        if len(string) < 50:
+        shortened_string = Sys.Shorten_Link(string)
+        saved_length = len(string) - len(shortened_string)
+        if saved_length < 5:
             return
+        extra_text = "It would be `" + str(saved_length) + "` characters shorter."
 
         confirmation = await Helpers.Confirmation(message, "Would you like to shorten that link?", deny_text="Okay.",
-                                                  timeout=40, mention=message.author)
+                                                  timeout=40, mention=message.author, extra_text=extra_text)
         if not confirmation:
             return
 
-        shortened_string = Sys.Shorten_Link(string)
-        text = "**Shortened Link from " + message.author.name + ":  **" + shortened_string
+        # Find domain of link
+        partial = string.split("//")[1]
+        if "www." in partial:
+            partial = partial.replace("www.","").split()
+        partial = partial.split(".")
+        domain = partial[0] + "." + partial[1].split("/")[0]
+
+        text = "**Shortened Link from " + message.author.name + ":  **" + shortened_string + "   *(" + domain + ")*"
         if type(more_content) == str and more_content:
             text += "\n**\" **" + more_content + " **\"**"
             await message.add_reaction(Conversation.Emoji["x"])
