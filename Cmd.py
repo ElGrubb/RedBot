@@ -36,7 +36,7 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = None
-    Version = "4.11"
+    Version = "4.12"
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
@@ -1660,23 +1660,29 @@ class Other:
 
         emoji_list = []
         response_list = []
-        for part2 in msg.reactions:
-            emoji_list.append(part2.emoji)
+        for part2 in msg.reactions:  # For each Reaction
+            emoji_data = {}
+            emoji_list.append(part2.emoji)  # Add the emoji symbol to emoji_list
+            emoji_data["emoji"] = part2.emoji
             people_exist = False
-            people = await part2.users().flatten()
-            for person in people:
-                if person != Vars.Bot.user:
-                    response_list.append(person.name)
-                    people_exist = True
-
+            people = await part2.users().flatten()  # All people for said emoji
+            emoji_user_string = ""
+            for person in people:  # for each person
+                if person != Vars.Bot.user:  # If the person isn't a bot
+                    if emoji_user_string:
+                        emoji_user_string += ", " + person.name
+                    else:
+                        emoji_user_string = person.name
+                        people_exist = True
             if not people_exist:
-                response_list.append("  ")
-
+                emoji_user_string = "   "
+            emoji_data["users"] = emoji_user_string
+            response_list.append(emoji_data)
         embed = msg.embeds[0].to_dict()
         old_description = embed['description'].split('\n')
         new_description = ""
         for i in range(0, len(old_description)):
-            new_description += old_description[i] + "  -  *" + response_list[i] + "*" + "\n"
+            new_description += old_description[i] + "  -  *" + response_list[i]["users"] + "*" + "\n"
 
         em = discord.Embed(title="**Closed: **" + embed['title'].replace("**Poll**:", "").strip(),
                            description=new_description)
@@ -2194,7 +2200,7 @@ class Other:
         # Find domain of link
         partial = string.split("//")[1]
         if "www." in partial:
-            partial = partial.replace("www.","").split()
+            partial = partial.replace("www.","").strip()
         partial = partial.split(".")
         domain = partial[0] + "." + partial[1].split("/")[0]
 

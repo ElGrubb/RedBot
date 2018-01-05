@@ -185,7 +185,14 @@ Error_Response = [
     "Ran into a tree, wait...",
     "Even bots need rest days",
     "It's been a long day, but about as long as every other day.",
-    "Sorry!"
+    "Sorry!",
+    "Something went wrong...",
+    "Ow.",
+    "Shit happens",
+    "What the fuck just happened",
+    "Someone call the police!",
+    "Wrong button.",
+    "Nice try!"
 ]
 
 Server_IDs = {
