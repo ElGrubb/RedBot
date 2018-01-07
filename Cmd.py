@@ -1364,7 +1364,6 @@ class Other:
             await message.channel.send("Your current color is " + str(member.color))
             return
 
-
         # Go through the roles in the guild to see if it exists
         role_exists = False
         for role in guild.roles:
@@ -2194,7 +2193,7 @@ class Other:
 
         shortened_string = Sys.Shorten_Link(string)
         saved_length = len(string) - len(shortened_string)
-        if saved_length < 5:
+        if saved_length < 20:
             return
         extra_text = "It would be `" + str(saved_length) + "` characters shorter."
 
@@ -2233,7 +2232,7 @@ class Other:
         await message.channel.trigger_typing()
         counter = 0
         final_count = 0
-        async for part in message.channel.history(limit=5000):
+        async for part in message.channel.history(limit=10^5):
             counter += 1
             for emoji in part.reactions:
                 if stop_emoji == emoji.emoji:
@@ -2273,15 +2272,22 @@ class On_React:
             return
 
 
-
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
     permission = await CheckPermissions(message.channel, "change_nickname", return_all=True)
 
-    print(permission)
+    guild = message.guild
 
+    bot_member = None
+    for member in guild.members:
+        if member.id == Vars.Bot.user.id:
+            bot_member = member
 
+    red_role = bot_member.roles[-1]
+
+    color = discord.Colour(Vars.Bot_Color)
+    await red_role.edit(color=color)
 
 
 async def Help(message):

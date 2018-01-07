@@ -108,6 +108,18 @@ class MyClient(discord.Client):
             await initial_message.delete()
             await Cmd.Vars.Creator.send("I have officially left " + guild.name)
 
+        bot_member = None
+        for member in guild.members:
+            if member.id == Cmd.Vars.Bot.id:
+                bot_member = member
+
+        red_role = bot_member.roles[0]
+        print(red_role.name)
+
+        color = discord.Colour(Cmd.Vars.Bot_Color)
+        await red_role.edit(color=color)
+
+
     async def on_guild_remove(self, guild):
         creator = Cmd.Vars.Creator
         await creator.send("I have officially left " + guild.name)
