@@ -1,5 +1,5 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback, pytz
+import discord, random, traceback
 from datetime import datetime, timedelta
 
 
