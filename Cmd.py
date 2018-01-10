@@ -36,7 +36,7 @@ class Vars:
     Bot = None
     Disabled = False
     start_time = None
-    Version = "4.12"
+    Version = "4.15"
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
@@ -1793,7 +1793,7 @@ class Other:
         if permissions["change_nickname"]:
             bot_member = guild.get_member(Vars.Bot.user.id)
             old_name = bot_member.name
-            await bot_member.edit(nick="Thinking...", reason=member.name + " left.")
+            await bot_member.edit(nick="Thinking...", reason=member.name + " joined.")
             await bot_member.edit(nick=old_name)
 
         # Send the message
@@ -2275,19 +2275,7 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    permission = await CheckPermissions(message.channel, "change_nickname", return_all=True)
-
-    guild = message.guild
-
-    bot_member = None
-    for member in guild.members:
-        if member.id == Vars.Bot.user.id:
-            bot_member = member
-
-    red_role = bot_member.roles[-1]
-
-    color = discord.Colour(Vars.Bot_Color)
-    await red_role.edit(color=color)
+    raise TypeError("Help")
 
 
 async def Help(message):
@@ -2384,55 +2372,3 @@ async def Help(message):
         elif reaction.emoji == Big_Next:
             current_page = len(help_data) - 1
 
-
-# async def NewYears(message):
-#     if not await CheckMessage(message, start="new years", prefix=True, admin=True):
-#         return
-#     msg = await message.channel.send("Counting down...")
-#     if "-final" in message.content:
-#         final = "This message will stay up until the new year!"
-#     else:
-#         final = None
-#     dt = datetime.strptime("01/01/18 00:00", "%d/%m/%y %H:%M")
-#     dt = time.mktime(dt.timetuple())
-#     now = time.mktime(datetime.now().timetuple())
-#     loops = 0
-#     while dt > now:
-#         now = time.mktime(datetime.now().timetuple())
-#         seconds = dt - now
-#
-#         m, s = divmod(seconds, 60)
-#         h, m = divmod(m, 60)
-#
-#         # format string
-#         if h:
-#             string = "%d Hours, %d Minutes, %d Seconds Until Next Year!" % (h, m, s)
-#         elif m:
-#             string = "%d Minutes, %d Seconds Until Next Year!" % (m, s)
-#         else:
-#             string = "%d Seconds Until Next Year!" % (s)
-#
-#         # string = str(int(seconds)) + " seconds"
-#
-#         em = discord.Embed(title="**New Years Countdown**", timestamp=datetime.now(), colour=Vars.Bot_Color,
-#                            description=string)
-#         em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
-#         if not final:
-#             em.set_footer(text="This will self-delete a few minutes after sent", icon_url=message.guild.icon_url)
-#         if not msg:
-#             break
-#
-#         await msg.edit(embed=em, content=final)
-#
-#         loops += 1
-#
-#         if h and loops > 60 and not final:
-#             await msg.delete()
-#             return
-#         if h and m:
-#             await asyncio.sleep(2)
-#         elif not h and not m:
-#             await asyncio.sleep(.5)
-#     if now >= dt:
-#         await msg.edit(content="@everyone Happy New Years!")
-#

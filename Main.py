@@ -1,6 +1,7 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback
+import discord, random, traceback, pytz
 from datetime import datetime, timedelta
+
 
 class MyClient(discord.Client):
     async def on_ready(self):
@@ -66,20 +67,61 @@ class MyClient(discord.Client):
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
+        has_channel = True
+        context = None
         # argument could be reaction, or message
         if type(argument) == discord.reaction.Reaction:
             channel = argument.message.channel
+            context = "**Reaction** on message by `" + argument.message.author + "` saying `" + argument.message.content[0:40]
+            try:
+                context += "`\nReaction was `" + argument.emoji + "` by `" + str(await argument.users().flatten())
+            except:
+                context += "\nError Retrieving Reaction Info"
         elif type(argument) == discord.message.Message:
             channel = argument.channel
+            context = "**Message** by  `" + argument.author.name + "`   `" + str(argument.author.id) + \
+                      "`   saying   `" + argument.content[0:80] + "`  "
+
+        elif type(argument) == discord.emoji.PartialReactionEmoji:
+            channel = bot.get_channel(args[2])
+            message = await channel.get_message(args[1])
+            adder = channel.guild.get_member(args[3])
+            context = "**Partial Reaction** on message by  `" + message.author.name + "`  saying  `" + message.content[0:40]
+            try:
+                context += " `\nReaction was  `" + argument.name + "`  by  `" + adder.name + "`"
+            except:
+                context += "` \nError Retrieving Reaction Info"
+        else:
+            has_channel = False
 
         error_text = "**ERROR**: *" + Sys.Response(Conversation.Error_Response).strip() + "*"
-        await channel.send(error_text)
+
         to_send = str(traceback.format_exc())
         to_send = "```py" + to_send + "```"
         to_send = to_send.replace("C:\\Users\\spong\\", "")
         to_send = to_send.replace("C:/Users/spong/", "").replace("Desktop", "")
-        await channel.send(to_send)
-        await channel.send(bot.get_user(239791371110580225).mention)
+        still_up = "`Function stopped mid process. Bot still active`"
+        message = error_text + "\n" + to_send + still_up + "\n" + Cmd.Vars.Creator.mention
+
+        crash_channel = bot.get_channel(343422937380028420)
+
+        # Log in #Crashes
+        to_log = datetime.now().strftime("%b %d %Y %r") + "\n**Location:**  "
+        if has_channel:
+            to_log += channel.guild.name + "   /   #" + channel.name + "   (*" + str(channel.id) + "*)"
+        to_log += "\n" + context + "\n" + to_send
+
+        if has_channel:
+            if await Cmd.CheckPermissions(channel, "send_messages"):
+                await channel.send(message)
+            else:
+                has_channel = False
+        if not has_channel:
+            await crash_channel.send(Cmd.Vars.Creator.mention + ", this below was `Unlogged` in original channel.\n")
+
+        to_log = to_log + "== -- " * 4 + "=="
+        await crash_channel.send(to_log)
+
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
@@ -88,6 +130,38 @@ class MyClient(discord.Client):
             await Cmd.Quotes.OnQuoteReaction(reaction, user)
         if reaction.emoji == Conversation.Emoji["x"]:
             await Cmd.On_React.On_X(reaction, user)
+
+    async def on_raw_reaction_add(self, emoji, message_id, channel_id, user_id):
+        channel = bot.get_channel(channel_id)
+        message = await channel.get_message(message_id)
+
+        if user_id == bot.user.id:
+            return
+
+        # If it was sent after bot was turned on / restarted
+        if message.created_at >= Cmd.Vars.start_time:
+            return
+
+        # If the reaction was added to a message not in the cache
+        # Now to find the reaction and user
+        user = channel.guild.get_member(user_id)
+        reaction = None
+        given_emoji = emoji.name
+        # For each reaction in the message
+        for partial_reaction in message.reactions:
+            if partial_reaction.custom_emoji:  # If the emoji is custom (str)
+                # shorten <:etc:124125> to etc
+                to_test = str(partial_reaction.emoji).split(":")[1]
+            else:
+                # If not, just keep it as the string it is
+                to_test = partial_reaction.emoji
+            if to_test == given_emoji:
+                reaction = partial_reaction
+                break
+
+        if reaction:
+            await self.on_reaction_add(reaction, user)
+
 
     async def on_message_delete(self, message):
         await Cmd.Other.On_Message_Delete(message)
