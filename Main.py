@@ -119,7 +119,7 @@ class MyClient(discord.Client):
         if not has_channel:
             await crash_channel.send(Cmd.Vars.Creator.mention + ", this below was `Unlogged` in original channel.\n")
 
-        to_log = to_log + "== -- " * 4 + "=="
+        to_log = "== -- " * 4 + "==\n" + to_log
         await crash_channel.send(to_log)
 
 
