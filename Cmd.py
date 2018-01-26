@@ -1044,7 +1044,7 @@ class Quotes:
             # Returns if there are 3 more reactions who aren't this bot
             if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                 return False
-            if init_reaction.count >= 4 and init_reaction.emoji == Conversation.Emoji["quote"]:
+            if init_reaction.count >= 6 and init_reaction.emoji == Conversation.Emoji["quote"]:
                 return init_reaction, init_user
             else:
                 return False
