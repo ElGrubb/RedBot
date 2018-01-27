@@ -1,5 +1,5 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback
+import discord, random, traceback, asyncio
 from datetime import datetime, timedelta
 
 
@@ -23,10 +23,16 @@ class MyClient(discord.Client):
         if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
             em = discord.Embed(title="I have just started", timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
             await Cmd.Vars.Creator.send(embed=em)
+        Cmd.Vars.Ready = True
 
     async def on_message(self, message):
         if message.author == bot.user:
             return
+
+        if not Cmd.Vars.Ready:  # Ensures the bot is ready to go if a message is sent
+            await asyncio.sleep(1)
+            if not Cmd.Vars.Ready:  # If, after a second, it's not ready, the bot returns this thead
+                return
 
         if Cmd.Vars.Disabled:
             await Cmd.Admin.Enable(message)
@@ -47,7 +53,7 @@ class MyClient(discord.Client):
         await Cmd.Other.Poll(message)
         await Cmd.Other.OldWeather(message)
         await Cmd.Other.Calculate(message)
-        await Cmd.Other.No_Context(message)
+        await Cmd.Other.NoContext(message)
         await Cmd.Other.ChatLinkShorten(message)
         await Cmd.Other.CountMessages(message)
 

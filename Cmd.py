@@ -47,6 +47,7 @@ class Vars:
     QuickChat_TriggerList = []
 
     Creator = None
+    Ready = False
 
 
 async def CheckPermissions(channel, nec, return_all=False):
@@ -2121,7 +2122,7 @@ class Other:
         await message.channel.send(to_send)
 
     @staticmethod
-    async def No_Context(message):
+    async def NoContext(message):
         if not await CheckMessage(message, start="no context", prefix=True):
             return
 
@@ -2157,16 +2158,22 @@ class Other:
         async for part in default_channel.history(before=new_time, limit=400):
             if not part.author.bot and part.content != "":
                 if part.content.lower()[0] in symbols and "http" not in part.content.lower():
-                    new_message = part
-                    break
+                    if " " in part.content.lower() and 10 < len(part.content.lower()) < 250:
+                        new_message = part
+                        break
+        if not new_message:
+            await message.delete()
+            msg = await message.channel.send("Something went horribly wrong.", delete_after=5)
+            return
+        Date = new_message.created_at
+        addition = " pm" if int(Date.strftime("%H")) <= 11 else " am"
+        DateStr = "*" + Date.strftime("%A, %B %e")
+        if Date.strftime("%Y") != datetime.now().strftime("%Y"):
+            DateStr += ", " + Date.strftime("%Y") + " "
+        DateStr += Date.strftime(" at %I:%M") + addition + "*"
 
-        if new_message.author in message.guild.members:
-            em = discord.Embed(title=new_message.content, colour=new_message.author.color,
-                               timestamp=new_message.created_at)
-            em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
-        else:
-            em = discord.Embed(title=new_message.content, timestamp=new_message.created_at, color=Vars.Bot_Color)
-            em.set_author(name=new_message.author.display_name, icon_url=new_message.author.avatar_url)
+        em = discord.Embed(title=Sys.FirstCap(new_message.content), description=DateStr, color=0xFFFFFF)
+        em.set_footer(icon_url=new_message.author.avatar_url, text=new_message.author.display_name + " - No Context")
         msg = await message.channel.send(embed=em)
 
     @staticmethod
