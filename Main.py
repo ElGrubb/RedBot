@@ -31,7 +31,7 @@ class MyClient(discord.Client):
 
         if not Cmd.Vars.Ready:  # Ensures the bot is ready to go if a message is sent
             await asyncio.sleep(1)
-            if not Cmd.Vars.Ready:  # If, after a second, it's not ready, the bot returns this thead
+            if not Cmd.Vars.Ready:  # If, after a second, it's not ready, the bot returns this thread
                 return
 
         if Cmd.Vars.Disabled:

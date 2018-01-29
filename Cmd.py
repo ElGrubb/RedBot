@@ -35,6 +35,7 @@ class Vars:
     AdminCode = random.randint(0, 4000)
     Bot = None
     Disabled = False
+    Disabler = None
     start_time = None
     Version = "4.15"
 
@@ -493,6 +494,7 @@ class Admin:
         msg = await message.channel.send('Bot Disabled.')
         await asyncio.sleep(5)
         await message.channel.delete_messages([msg, message])
+        Vars.Disabler = message.author.id
 
         # Wait to re-enable
         await asyncio.sleep(1200)
@@ -508,13 +510,19 @@ class Admin:
         if confirmation:
             await message.channel.send("Enabling.")
             Vars.Disabled = False
+            Vars.Disabler = None
             return
 
     @staticmethod
     async def Enable(message):
         if not await CheckMessage(message, prefix=True, admin=True, start="Enable"):
             return True
+        if Vars.Disabler:
+            if message.author.id != Vars.Disabler and message.author.id != Vars.Creator.id:
+                return
+
         Vars.Disabled = False
+        Vars.Disabler = None
         await Vars.Bot.change_presence(status=discord.Status.online)
         msg = await message.channel.send('Bot Enabled.')
         await asyncio.sleep(5)
