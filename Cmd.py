@@ -2011,6 +2011,8 @@ class Other:
             message.content = message.content[1:len(message.content)]
         if message.content.startswith('='):  # If there's a second, return
             return
+        if not message.content:
+            return
 
         await message.channel.trigger_typing()
         res = wolfram_client.query(message.content)
