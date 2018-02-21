@@ -1025,6 +1025,14 @@ class Quotes:
         await message.channel.send(embed=em)
 
     @staticmethod
+    async def CheckTime():
+        hour = datetime.now().hour
+        if 1 < hour < 6:
+            return False
+        else:
+            return True
+
+    @staticmethod
     async def QuoteCommand(message):
         if not await CheckMessage(message, start="quote", prefix=True):
             return
@@ -1036,6 +1044,9 @@ class Quotes:
             await message.channel.send("You can only quote one individual.", delete_after=5)
             return
 
+        if not await Quotes.CheckTime():
+            await message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
+            await message.delete()
         # Seperate reactioned user from the message
         mention_user = message.mentions[0]
         content = message.clean_content[7:].replace("@" + mention_user.name, '').strip()
@@ -1084,11 +1095,17 @@ class Quotes:
             return
         if reaction.message.author == Vars.Bot.user:
             return
-        if reaction.count >= 3:
+
+        if not await Quotes.CheckTime():
+            await reaction.message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
+            await reaction.message.clear_reactions()
+            return
+
+        if reaction.count >= 5:
             await reaction.message.clear_reactions()
             await reaction.message.add_reaction(Conversation.Emoji["check"])
             await Quotes.NoteQuote(quote=reaction.message.content, user=reaction.message.author)
-            await reaction.message.channel.send("Saved quote " + reaction.message.content)
+            await reaction.message.channel.send("Saved quote \"" + reaction.message.content + "\"")
 
     @staticmethod
     async def NoteQuote(quote=None, user=None):
