@@ -1026,6 +1026,9 @@ class Quotes:
 
     @staticmethod
     async def CheckTime():
+        # Right now itll always return true
+        return True
+
         hour = datetime.now().hour
         if 1 < hour < 6:
             return False
@@ -1396,6 +1399,11 @@ class Other:
             if role.name.startswith(encoded_name):
                 role_exists = role
                 role_to_edit = role
+
+        if message.content == "clear":
+            await message.author.remove_roles(role_to_edit)
+            await message.channel.send("Removed your role")
+            return
 
         # Create Color item
         try:
