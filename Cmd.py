@@ -1889,6 +1889,8 @@ class Other:
     @staticmethod
     async def On_Message_Delete(message):
         delete_from_redbot = False
+        if Vars.Disabled:
+            return
         guild = message.guild
         if str(message.channel).startswith("Direct Message"):
             return
@@ -1952,6 +1954,40 @@ class Other:
                     await message.channel.send(message.content, embed=message.embeds[0])
                 else:
                     await Attempt_To_Send(message, message.content, embed=message.embeds[0])
+
+    @staticmethod
+    async def FakeJoin(message):
+        if not await CheckMessage(message, start="FakeJoin", prefix=True, admin=True):
+            return
+
+
+        guild = bot.get
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        description = "Account Created at: " + member.created_at.strftime("%H:%M:%S  on  %m-%d-%Y")
+        description += "\nJoined Server at: " + datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
+        description += '\nID: `' + str(member.id) + '`'
+        if member.bot:
+            description += '\nYou are a bot. I do not like being replaced.'
+        em = discord.Embed(description=description, colour=0xffffff)
+        em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
+        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
+
+        permissions = await CheckPermissions(default_channel, ["send_messages", "change_nickname"], return_all=True)
+
+        # Add to audit log
+        if permissions["change_nickname"]:
+            bot_member = guild.get_member(Vars.Bot.user.id)
+            old_name = bot_member.name
+            await bot_member.edit(nick="Thinking...", reason=member.name + " joined.")
+            await bot_member.edit(nick=old_name)
+
+        # Send the message
+        if permissions['send_messages']:
+            await default_channel.send("Welcome!", embed=em)
 
     @staticmethod
     async def OldWeather(message, morning=False):
