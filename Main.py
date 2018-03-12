@@ -71,6 +71,8 @@ class MyClient(discord.Client):
         await Cmd.Admin.ChangePersonal(message)
         await Cmd.Admin.Broadcast(message)
 
+        await Cmd.Admin.SinglePrivateMessage(message)
+
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
         has_channel = True
@@ -109,7 +111,7 @@ class MyClient(discord.Client):
         still_up = "`Function stopped mid process. Bot still active`"
         message = error_text + "\n" + to_send + still_up + "\n" + Cmd.Vars.Creator.mention
 
-        crash_channel = bot.get_channel(343422937380028420)
+        crash_channel = bot.get_channel(Sys.Channel["Errors"])
 
         # Log in #Crashes
         to_log = datetime.now().strftime("%b %d %Y %r") + "\n**Location:**  "

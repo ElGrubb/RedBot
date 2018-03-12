@@ -47,6 +47,7 @@ class Vars:
     QuickChat_Data = []
     QuickChat_TriggerList = []
 
+
     Creator = None
     Ready = False
 
@@ -406,6 +407,72 @@ class Helpers:
                 await admin.send(prompt, embed=embed)
             else:
                 await admin.send(prompt)
+
+    @staticmethod
+    async def FormatMessage(message, IncludeDate=False, IncludeArea=False, Markdown=True, FullName=False, Discriminator=False):
+        """
+            Prepares a message into a text object with certain specifications
+            :param message: The message object
+            :param IncludeDate: Include the date and time sent?
+            :param IncludeArea: Include the server and channel?
+            :param Markdown: Whether or not to include boldness, etc
+            :param Discriminator: To include the #1241 after a person's name or not. 
+            :return: A string containing everything. 
+            """
+        MessageContent = Sys.FirstCap(message.content)
+        if message.attachments:
+            MessageAttachments = "\nAttachments:"
+            for item in message.attachments:
+                MessageAttachments += " - **" + item.filename + "** - " + Sys.Shorten_Link(item.url)
+        else:
+            MessageAttachments = ""
+
+        if FullName:  # If we want the full name
+            MessageSender = Sys.FirstCap(message.author.name)
+        else:  # If just nickname
+            MessageSender = Sys.FirstCap(message.author.display_name)
+        if IncludeArea + IncludeDate:
+            MessageSender = " - " + MessageSender
+
+        # Add the 4 digit code found after a user's name
+        if Discriminator:
+            MessageDiscriminator = "#" + message.author.discriminator
+        else:
+            MessageDiscriminator = ""
+
+        # Add the Server and Channel it's from in the format 'Server/#Channel'
+        if IncludeArea:
+            MessageArea = message.guild.name + "/#" + message.channel.name
+        else:
+            MessageArea = ""
+
+        # Add the date sent
+        if IncludeDate:
+            MessageDate = message.created_at.strftime("%x %X")
+        else:
+            MessageDate = ""
+
+        if IncludeDate + IncludeArea == 2 and Markdown:
+            # If there's a lot of things on the message:
+            StartMessage = ":\n **\"** "
+            EndMessage = " **\"**"
+            BeforeAll = "="*25 + "\n"
+        else:
+            StartMessage = ": "
+            EndMessage = ""
+            BeforeAll = ""
+
+        # Create the actual full string
+        if Markdown:  # if it should be created in markdown format
+            MessageSender = "**" + MessageSender + "**"
+            MessageDiscriminator = " *" + MessageDiscriminator + "*" if Discriminator else ""
+            MessageArea = " " + MessageArea + "" if IncludeArea else ""
+            MessageDate = " " + MessageDate + "" if IncludeDate else ""
+
+        EndString = BeforeAll + MessageDate + MessageArea + MessageSender + MessageDiscriminator
+        EndString += StartMessage + MessageContent + EndMessage + MessageAttachments
+
+        return EndString.strip()
 
 
 class Admin:
@@ -869,10 +936,25 @@ class Admin:
         if not await Helpers.Confirmation(message, "Are you sure you want to broadcast?"):
             return
 
-        message.content = message.content[1:].replace("broadcast","").strip()
+        message.content = message.content[1:].replace("broadcast", "").strip()
 
         await Helpers.MessageAdmins(message.content)
 
+    @staticmethod
+    async def SinglePrivateMessage(message):
+        if not await CheckMessage(message, admin=True, prefix=True, start="p "):
+            return
+        # This will delete any message that starts with /p after 20 seconds
+
+        await message.add_reaction(Conversation.Emoji["x"])
+
+        SecretChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
+
+        SecretContent = await Helpers.FormatMessage(message, IncludeArea=True, FullName=True)
+
+        await SecretChannel.send(SecretContent)
+        await asyncio.sleep(20)
+        await message.delete()
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
@@ -1619,6 +1701,10 @@ class Other:
             return
         await message.delete()
 
+        if not sections_list:
+            await message.channel.send("Woah woah woah, you need some options")
+            return
+
         # Add emojis to those that don't have them
         for i in range(0, len(sections_list)):
             reg = ":regional_indicator_"
@@ -1900,12 +1986,16 @@ class Other:
         secondsDiff = (now_time - created_at)
         maxSeconds = 60 * 60 * 4  # 4 hours
 
+        if not message.author.bot:  # If neither of these things are true, so it's just any other msssage, log it
+            DeleteLoggerChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
+            LoggedMessage = await Helpers.FormatMessage(message, IncludeArea=True, FullName=True, Discriminator=True, IncludeDate=True)
+            await DeleteLoggerChannel.send(LoggedMessage)
+            return
+
         recent_from_bot = False
         if maxSeconds > secondsDiff:  # If the message was sent less than 4 hours ago
             if message.author == Vars.Bot.user:
                 recent_from_bot = True
-            else:
-                return
 
         permissions = await CheckPermissions(message.channel, ["send_messages", "view_audit_log"], return_all=True)
         if permissions['view_audit_log']:
@@ -1954,6 +2044,8 @@ class Other:
                     await message.channel.send(message.content, embed=message.embeds[0])
                 else:
                     await Attempt_To_Send(message, message.content, embed=message.embeds[0])
+
+
 
     @staticmethod
     async def FakeJoin(message):
@@ -2252,6 +2344,9 @@ class Other:
         if not await CheckMessage(message, include="http", prefix=False):
             return
         string = message.content.strip()
+
+        if message.author.bot:
+            return
 
         if " " in string:  # If there's a space in the message, IE more text
             original_string = string

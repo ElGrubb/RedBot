@@ -149,7 +149,7 @@ def Shorten_Link(link, undo=False):
 
     error = False
     new_link = False
-    for i in range(0, 5):
+    for i in range(0, 20):
         try:
             new_link = shortener.short(link)
             break
@@ -261,3 +261,8 @@ def Response(type, message=None):
         return type[randnumber].format(message)
     else:
         return type[randnumber]
+
+Channel = {
+    "Errors": 343422937380028420,
+    "DeleteLog": 422850384088793092
+}
