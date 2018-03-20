@@ -541,7 +541,7 @@ class Admin:
 
         channel = message.channel
 
-        SendChannel = Vars.Bot.get_channel(425750162728550438)
+        SendChannel = Vars.Bot.get_channel(425754966167257113)
 
         BotChannel = await channel.send("Working...")
 
@@ -560,6 +560,10 @@ class Admin:
                 await SendChannel.send(to_send)
                 to_send = formatted
                 await BotChannel.edit(content="Working... #" + str(Counted))
+
+            await BotChannel.edit(content="Done   " + message.author.mention)
+            await asyncio.sleep(5)
+            await BotChannel.delete()
 
 
     @staticmethod
