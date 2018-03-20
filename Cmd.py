@@ -554,11 +554,12 @@ class Admin:
             if len(to_send + formatted) < 1950:
                 # If there's room to add formatted:
                 to_send += "\n" + formatted
-                await BotChannel.edit(content="Working... #" + str(Counted))
+
             else:
                 # If there's no room
                 await SendChannel.send(to_send)
                 to_send = formatted
+                await BotChannel.edit(content="Working... #" + str(Counted))
 
 
     @staticmethod
