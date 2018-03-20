@@ -560,9 +560,9 @@ class Admin:
                 to_send = formatted
                 await BotChannel.edit(content="Working... #" + str(Counted))
 
-            await BotChannel.edit(content="Done   " + message.author.mention)
-            await asyncio.sleep(5)
-            await BotChannel.delete()
+        await BotChannel.edit(content="Done   " + message.author.mention)
+        await asyncio.sleep(5)
+        await BotChannel.delete()
 
 
     @staticmethod
