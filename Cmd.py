@@ -522,6 +522,41 @@ class Admin:
             await message.channel.send("Deleted " + str(content) + " messages", delete_after=5)  # Send message
 
     @staticmethod
+    async def CopyFrom(message):
+        if not await CheckMessage(message, start="Copy", prefix=True, admin=True):
+            return
+
+        content = message.content[5:].strip()
+
+        try:
+            int(content)
+        except:
+            raise TypeError("/Copy {timestamp}")
+
+        timestamp = int(content)
+        startreading = datetime.fromtimestamp(timestamp)
+
+        await message.delete()
+
+        channel = message.channel
+
+        SendChannel = Vars.Bot.get_channel(425750162728550438)
+
+
+        to_send = ""
+        async for foundmessage in channel.history(after=startreading, limit=200):
+            formatted = await Helpers.FormatMessage(foundmessage, IncludeDate=True, FullName=True)
+
+            if len(to_send + formatted) < 1950:
+                # If there's room to add formatted:
+                to_send += "\n" + formatted
+            else:
+                # If there's no room
+                await SendChannel.send(to_send)
+                to_send = formatted
+
+
+    @staticmethod
     async def Stop(message):
         """
         Stops the Bot

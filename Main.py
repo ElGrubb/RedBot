@@ -58,6 +58,7 @@ class MyClient(discord.Client):
         await Cmd.Other.CountMessages(message)
 
         # ADMIN Commands
+        await Cmd.Admin.CopyFrom(message)
         await Cmd.Admin.Delete(message)
         await Cmd.Admin.Stop(message)
         await Cmd.Admin.LeaveServer(message)
