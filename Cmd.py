@@ -556,8 +556,10 @@ class Admin:
             formatted = await Helpers.FormatMessage(foundmessage, IncludeDate=True, FullName=True)
             Counted += 1
             if embed:
-                em = discord.Embed(description=foundmessage.content, timestamp=foundmessage.created_at, colour=foundmessage.author.color)
+                em = discord.Embed(description=foundmessage.content, timestamp=foundmessage.created_at)
                 em.set_author(name=foundmessage.author.name, url="http://" + str(foundmessage.author.id) + ".com", icon_url=foundmessage.author.avatar_url)
+                if foundmessage.attachments:
+                    em.set_image(url=foundmessage.attachments[0].url)
                 await SendChannel.send(embed=em)
                 await BotChannel.edit(content="Working... #" + str(Counted))
             else:
