@@ -557,7 +557,7 @@ class Admin:
             Counted += 1
             if embed:
                 em = discord.Embed(description=foundmessage.content, timestamp=foundmessage.created_at, colour=foundmessage.author.color)
-                em.set_author(name=foundmessage.author.name, url="http://" + str(foundmessage.author.id), icon_url=foundmessage.author.avatar_url)
+                em.set_author(name=foundmessage.author.name, url="http://" + str(foundmessage.author.id) + ".com", icon_url=foundmessage.author.avatar_url)
                 await SendChannel.send(embed=em)
                 await BotChannel.edit(content="Working... #" + str(Counted))
             else:
