@@ -527,11 +527,17 @@ class Admin:
             return
 
         content = message.content[5:].strip()
+        if "embed" in content:
+            content = content.lower().replace("embed","").strip()
+            embed = True
+        else:
+            embed = False
 
         try:
             int(content)
         except:
             raise TypeError("/Copy {timestamp}")
+
 
         timestamp = int(content)
         startreading = datetime.fromtimestamp(timestamp)
@@ -546,19 +552,24 @@ class Admin:
 
         Counted = 0
         to_send = ""
-        async for foundmessage in channel.history(after=startreading, limit=1200):
+        async for foundmessage in channel.history(after=startreading, limit=100):
             formatted = await Helpers.FormatMessage(foundmessage, IncludeDate=True, FullName=True)
             Counted += 1
-
-            if len(to_send + formatted) < 1950:
-                # If there's room to add formatted:
-                to_send += "\n" + formatted
-
-            else:
-                # If there's no room
-                await SendChannel.send(to_send)
-                to_send = formatted
+            if embed:
+                em = discord.Embed(description=foundmessage.content, timestamp=foundmessage.created_at, colour=foundmessage.author.color)
+                em.set_author(name=foundmessage.author.name, url="http://" + str(foundmessage.author.id), icon_url=foundmessage.author.avatar_url)
+                await SendChannel.send(embed=em)
                 await BotChannel.edit(content="Working... #" + str(Counted))
+            else:
+                if len(to_send + formatted) < 1950:
+                    # If there's room to add formatted:
+                    to_send += "\n" + formatted
+
+                else:
+                    # If there's no room
+                    await SendChannel.send(to_send)
+                    to_send = formatted
+                    await BotChannel.edit(content="Working... #" + str(Counted))
 
         await BotChannel.edit(content="Done   " + message.author.mention)
         await asyncio.sleep(5)
