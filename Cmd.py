@@ -552,7 +552,7 @@ class Admin:
 
         Counted = 0
         to_send = ""
-        async for foundmessage in channel.history(after=startreading, limit=100):
+        async for foundmessage in channel.history(after=startreading, limit=100000):
             formatted = await Helpers.FormatMessage(foundmessage, IncludeDate=True, FullName=True)
             Counted += 1
             if embed:
