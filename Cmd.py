@@ -538,18 +538,23 @@ class Admin:
 
         await message.delete()
 
+
         channel = message.channel
 
         SendChannel = Vars.Bot.get_channel(425750162728550438)
 
+        BotChannel = await channel.send("Working...")
 
+        Counted = 0
         to_send = ""
-        async for foundmessage in channel.history(after=startreading, limit=200):
+        async for foundmessage in channel.history(after=startreading, limit=1200):
             formatted = await Helpers.FormatMessage(foundmessage, IncludeDate=True, FullName=True)
+            Counted += 1
 
             if len(to_send + formatted) < 1950:
                 # If there's room to add formatted:
                 to_send += "\n" + formatted
+                await BotChannel.edit(content="Working... #" + str(Counted))
             else:
                 # If there's no room
                 await SendChannel.send(to_send)
