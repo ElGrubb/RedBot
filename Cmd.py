@@ -538,7 +538,6 @@ class Admin:
 
         await message.delete()
 
-
         channel = message.channel
 
         SendChannel = Vars.Bot.get_channel(425754966167257113)
