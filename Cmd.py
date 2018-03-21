@@ -538,6 +538,7 @@ class Admin:
         except:
             raise TypeError("/Copy {timestamp}")
 
+        starttime = time.clock()
 
         timestamp = int(content)
         startreading = datetime.fromtimestamp(timestamp)
@@ -546,13 +547,13 @@ class Admin:
 
         channel = message.channel
 
-        SendChannel = Vars.Bot.get_channel(425754966167257113)
+        SendChannel = Vars.Bot.get_channel(425763690344611840)
 
         BotChannel = await channel.send("Working...")
 
         Counted = 0
         to_send = ""
-        async for foundmessage in channel.history(after=startreading, limit=100000):
+        async for foundmessage in channel.history(after=startreading, limit=1000):
             formatted = await Helpers.FormatMessage(foundmessage, IncludeDate=True, FullName=True)
             Counted += 1
             if embed:
@@ -576,6 +577,7 @@ class Admin:
         await BotChannel.edit(content="Done   " + message.author.mention)
         await asyncio.sleep(5)
         await BotChannel.delete()
+        await SendChannel.send(Vars.Creator.mention())
 
 
     @staticmethod
