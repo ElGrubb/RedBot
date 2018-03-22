@@ -1036,7 +1036,8 @@ class Admin:
         if emoji:
             await message.add_reaction(emoji)
             await asyncio.sleep(10*60)
-            await message.clear_reactions()
+            if message:
+                await message.clear_reactions()
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
