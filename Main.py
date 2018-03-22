@@ -59,6 +59,7 @@ class MyClient(discord.Client):
 
         # ADMIN Commands
         await Cmd.Admin.CopyFrom(message)
+        await Cmd.Admin.Juliana(message)
         await Cmd.Admin.Delete(message)
         await Cmd.Admin.Stop(message)
         await Cmd.Admin.LeaveServer(message)
@@ -197,7 +198,6 @@ class MyClient(discord.Client):
                 bot_member = member
 
         red_role = bot_member.roles[0]
-        print(red_role.name)
 
         color = discord.Colour(Cmd.Vars.Bot_Color)
         await red_role.edit(color=color)
