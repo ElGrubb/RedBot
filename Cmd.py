@@ -1035,6 +1035,8 @@ class Admin:
         emoji = discord.utils.get(message.guild.emojis, name='spookolz')
         if emoji:
             await message.add_reaction(emoji)
+            await asyncio.sleep(10*60)
+            await message.clear_reactions()
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
