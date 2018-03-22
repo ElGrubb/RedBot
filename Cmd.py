@@ -1031,7 +1031,6 @@ class Admin:
         if message.guild.id != 215639569071210496:
            return
 
-
         emoji = discord.utils.get(message.guild.emojis, name='spookolz')
         if emoji:
             await message.add_reaction(emoji)
