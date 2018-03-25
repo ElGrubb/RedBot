@@ -1024,19 +1024,6 @@ class Admin:
         await asyncio.sleep(20)
         await message.delete()
 
-    @staticmethod
-    async def Juliana(message):
-        if message.author.id != 277152050305957889:
-            return
-        if message.guild.id != 215639569071210496:
-           return
-
-        emoji = discord.utils.get(message.guild.emojis, name='spookolz')
-        if emoji:
-            await message.add_reaction(emoji)
-            await asyncio.sleep(10*60)
-            if message:
-                await message.clear_reactions()
 
 class Cooldown:
     meme_types = ["meme", "quote", "nocontext", "delete"]
@@ -2068,10 +2055,20 @@ class Other:
         secondsDiff = (now_time - created_at)
         maxSeconds = 60 * 60 * 4  # 4 hours
 
-        if not message.author.bot:  # If neither of these things are true, so it's just any other msssage, log it
+        if not message.author.bot:  # If neither of these things are true, so it's just any other message, log it
             DeleteLoggerChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
             LoggedMessage = await Helpers.FormatMessage(message, IncludeArea=True, FullName=True, Discriminator=True, IncludeDate=True)
-            await DeleteLoggerChannel.send(LoggedMessage)
+
+            title = "**Deleted message by " + message.author.mention + " in " + message.channel.mention + "/" + message.guild.name+"**\n"
+
+            em = discord.Embed(description=title + message.content, colour=0xff0000, timestamp=datetime.now())
+            em.set_author(name=message.author.name + "#" + str(message.author.discriminator), icon_url=message.author.avatar_url)
+            em.set_footer(text="ID: " + str(message.id))
+
+            if message.attachments:
+                em.set_image(url=message.attachments[0].url)
+
+            await DeleteLoggerChannel.send(embed=em)
             return
 
         recent_from_bot = False

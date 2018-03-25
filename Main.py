@@ -59,7 +59,6 @@ class MyClient(discord.Client):
 
         # ADMIN Commands
         await Cmd.Admin.CopyFrom(message)
-        #await Cmd.Admin.Juliana(message)
         await Cmd.Admin.Delete(message)
         await Cmd.Admin.Stop(message)
         await Cmd.Admin.LeaveServer(message)
