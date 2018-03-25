@@ -2055,14 +2055,29 @@ class Other:
         secondsDiff = (now_time - created_at)
         maxSeconds = 60 * 60 * 4  # 4 hours
 
-        if not message.author.bot:  # If neither of these things are true, so it's just any other message, log it
+        async def LogDeletion(message):
             DeleteLoggerChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
-            LoggedMessage = await Helpers.FormatMessage(message, IncludeArea=True, FullName=True, Discriminator=True, IncludeDate=True)
+            # First check to see if it's already a logged deletion:
+            OneHour = datetime.now() - timedelta(hours = 1)
+            async for LogMessage in DeleteLoggerChannel.history(after=OneHour):
+                # For each message in the logger's history:
+                if LogMessage.embeds:  # If there's an embed
+                    embed = LogMessage.embeds[0].to_dict()  # Grab it as embed
+                    if "description" in embed.keys():
+                        if embed["description"].startswith("**Deleted"):
+                            if embed["footer"]["text"].startswith("ID"):
+                                LogMessageID = int(embed["footer"]["text"][3:].strip())
+                                if LogMessageID == message.id:
+                                    await LogMessage.add_reaction(Conversation.Emoji["check"])
+                                    return
 
-            title = "**Deleted message by " + message.author.mention + " in " + message.channel.mention + "/" + message.guild.name+"**\n"
+            # Create Embed for Logging Purposes
+            title = "**Deleted message by " + message.author.mention + " in " + message.channel.mention + \
+                    "/" + message.guild.name + "**\n"
 
             em = discord.Embed(description=title + message.content, colour=0xff0000, timestamp=datetime.now())
-            em.set_author(name=message.author.name + "#" + str(message.author.discriminator), icon_url=message.author.avatar_url)
+            em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
+                          icon_url=message.author.avatar_url)
             em.set_footer(text="ID: " + str(message.id))
 
             if message.attachments:
@@ -2070,6 +2085,9 @@ class Other:
 
             await DeleteLoggerChannel.send(embed=em)
             return
+
+        if not message.author.bot:  # If neither of these things are true, so it's just any other message, log it
+            await LogDeletion(message)
 
         recent_from_bot = False
         if maxSeconds > secondsDiff:  # If the message was sent less than 4 hours ago
