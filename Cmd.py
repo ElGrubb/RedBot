@@ -563,7 +563,7 @@ class Admin:
 
         channel = Vars.Bot.get_channel(404105641645441034)
 
-        SendChannel = Vars.Bot.get_channel(425763690344611840)
+        SendChannel = Vars.Bot.get_channel(428394717798072342)
 
         WorkingMessage = await channel.send("Working...")
 
