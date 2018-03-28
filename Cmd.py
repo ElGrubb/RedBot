@@ -533,7 +533,7 @@ class Admin:
             for channel in guild.text_channels:
                 sendmessage += "- " + channel.name + " - " + str(channel.id)
 
-                if not await CheckPermissions(message.channel, "read_messages"):
+                if not await CheckPermissions(channel, "read_messages"):
                     # if it can't read the chat:
                     sendmessage += " - CANNOT READ"
 
