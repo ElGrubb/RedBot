@@ -531,7 +531,15 @@ class Admin:
         for guild in Vars.Bot.guilds:
             sendmessage += "**" + guild.name + "** - " + str(guild.id) + "\n"
             for channel in guild.text_channels:
-                sendmessage += "- " + channel.name + " - " + str(channel.id) + "\n"
+                sendmessage += "- " + channel.name + " - " + str(channel.id)
+
+                if not await CheckPermissions(message.channel, "read_messages"):
+                    # if it can't read the chat:
+                    sendmessage += " - CANNOT READ"
+
+
+                sendmessage += "\n"
+
 
             sendmessage += "\n"
 
