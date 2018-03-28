@@ -559,7 +559,7 @@ class Admin:
         timestamp = int(content)
         startreading = datetime.fromtimestamp(timestamp)
 
-        await message.delete()
+        await message.delete() # A few issues
 
         channel = Vars.Bot.get_channel(404105641645441034)
 
