@@ -526,7 +526,7 @@ class Admin:
         if not await CheckMessage(message, start="BotGuild", prefix=True, admin=True):
             return
 
-        sendmessage = ""
+        sendmessage = "" # test this
 
         for guild in Vars.Bot.guilds:
             sendmessage += "**" + guild.name + "** - " + str(guild.id) + "\n"
