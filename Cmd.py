@@ -561,11 +561,11 @@ class Admin:
 
         await message.delete()
 
-        channel = bot.get_channel(428394717798072342)
+        channel = Vars.Bot.get_channel(404105641645441034)
 
         SendChannel = Vars.Bot.get_channel(425763690344611840)
 
-        BotChannel = await channel.send("Working...")
+        WorkingMessage = await channel.send("Working...")
 
         Counted = 0
         to_send = ""
@@ -585,7 +585,7 @@ class Admin:
                     if foundmessage.attachments:
                         em.set_image(url=foundmessage.attachments[0].url)
                     await SendChannel.send(embed=em)
-                    await BotChannel.edit(content="Working... #" + str(Counted))
+                    await WorkingMessage.edit(content="Working... #" + str(Counted))
             else:
                 if len(to_send + formatted) < 1950:
                     # If there's room to add formatted:
@@ -595,13 +595,13 @@ class Admin:
                     # If there's no room
                     await SendChannel.send(to_send)
                     to_send = formatted
-                    await BotChannel.edit(content="Working... #" + str(Counted))
+                    await WorkingMessage.edit(content="Working... #" + str(Counted))
 
             PreviousAuthor = foundmessage.author
 
-        await BotChannel.edit(content="Done   " + message.author.mention)
+        await WorkingMessage.edit(content="Done   " + message.author.mention)
         await asyncio.sleep(5)
-        await BotChannel.delete()
+        await WorkingMessage.delete()
         await SendChannel.send(Vars.Creator.mention())
 
 
