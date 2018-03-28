@@ -522,6 +522,22 @@ class Admin:
             await message.channel.send("Deleted " + str(content) + " messages", delete_after=5)  # Send message
 
     @staticmethod
+    async def GuildInfo(message):
+        if not await CheckMessage(message, start="BotGuild", prefix=True, admin=True):
+            return
+
+        sendmessage = ""
+
+        for guild in Vars.Bot.guilds:
+            sendmessage += "**" + guild.name + "** - " + str(guild.id) + "\n"
+            for channel in guild.text_channels:
+                sendmessage += "- " + channel.name + " - " + str(channel.id) + "\n"
+
+            sendmessage += "\n"
+
+        await message.channel.send(sendmessage)
+
+    @staticmethod
     async def CopyFrom(message):
         if not await CheckMessage(message, start="Copy", prefix=True, admin=True):
             return
@@ -547,7 +563,7 @@ class Admin:
 
         channel = bot.get_channel(428394717798072342)
 
-        SendChannel = Vars.Bot.get_channel(428394717798072342)
+        SendChannel = Vars.Bot.get_channel(425763690344611840)
 
         BotChannel = await channel.send("Working...")
 
@@ -748,9 +764,8 @@ class Admin:
                 response = await Helpers.Confirmation(message, "Click when ready", timeout=120)
                 if not response:
                     return
-            await message.channel.send(str(channel.id))
-            #await channel.send(content)
-            #await message.channel.send("Successfully sent message")
+            await channel.send(content)
+            await message.channel.send("Successfully sent message")
             return
         # if "server=" in content:
         #     # If user defined server in the message's content:

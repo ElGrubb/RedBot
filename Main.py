@@ -72,6 +72,8 @@ class MyClient(discord.Client):
         await Cmd.Admin.ChangePersonal(message)
         await Cmd.Admin.Broadcast(message)
 
+        await Cmd.Admin.GuildInfo(message)
+
         await Cmd.Admin.SinglePrivateMessage(message)
 
     async def on_error(self, event_method, *args, **kwargs):
