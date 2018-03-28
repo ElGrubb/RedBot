@@ -545,9 +545,9 @@ class Admin:
 
         await message.delete()
 
-        channel = message.channel
+        channel = bot.get_channel(428394717798072342)
 
-        SendChannel = Vars.Bot.get_channel(425763690344611840)
+        SendChannel = Vars.Bot.get_channel(428394717798072342)
 
         BotChannel = await channel.send("Working...")
 
@@ -748,8 +748,9 @@ class Admin:
                 response = await Helpers.Confirmation(message, "Click when ready", timeout=120)
                 if not response:
                     return
-            await channel.send(content)
-            await message.channel.send("Successfully sent message")
+            await message.channel.send(str(channel.id))
+            #await channel.send(content)
+            #await message.channel.send("Successfully sent message")
             return
         # if "server=" in content:
         #     # If user defined server in the message's content:
