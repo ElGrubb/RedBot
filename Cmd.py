@@ -475,6 +475,48 @@ class Helpers:
         return EndString.strip()
 
 
+class Log:
+    LogChannel = None
+
+    @staticmethod
+    def SetLogChannel():
+        if Log.LogChannel:
+            return
+        else:
+            Log.LogChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
+
+    @staticmethod
+    async def AppendLogged(givenid, append, NewColor=None):
+        Log.SetLogChannel()
+        # Called from bot when something needs to be added to a logged message
+        async for loggedmessage in Log.LogChannel.history(limit=1000):
+            if loggedmessage.embeds:  # If it has embeds
+                FoundLog = loggedmessage.embeds[0].to_dict()
+
+                # Look for footer ID
+                if 'footer' in FoundLog.keys():
+                    if 'text' in FoundLog['footer'].keys():
+                        IDStr = FoundLog['footer']['text'][4:].strip()
+                        ID = int(IDStr)
+
+                        if ID == givenid:
+                            # Then we have found the message
+                            # Create new dict object
+                            NewContent = FoundLog['description'] + append
+
+                            if NewColor:
+                                color = NewColor
+                            else:
+                                color = FoundLog['color']
+
+                            em = discord.Embed(description=NewContent, color=color)
+                            em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
+                            em.set_footer(text=FoundLog['footer']['text'])
+                            await loggedmessage.edit(embed=em)
+                            return
+
+
+
 class Admin:
     @staticmethod
     async def Delete(message):
@@ -610,7 +652,7 @@ class Admin:
         await WorkingMessage.edit(content="Done   " + message.author.mention)
         await asyncio.sleep(5)
         await WorkingMessage.delete()
-        await SendChannel.send(Vars.Creator.mention())
+        await SendChannel.send(Vars.Creator.mention)
 
 
     @staticmethod
@@ -2561,6 +2603,8 @@ class On_React:
                 await message.add_reaction(Conversation.Emoji['check'])
                 await asyncio.sleep(.4)
                 await message.delete()
+
+                await asyncio.sleep(5)
             except Exception:
                 pass
             return
@@ -2569,7 +2613,7 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    raise TypeError("Help")
+    await Log.AppendLogged(429630979855089667, "\n**Testing this:**\nmemes", NewColor=0x22BB22)
 
 
 async def Help(message):
