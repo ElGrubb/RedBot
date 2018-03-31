@@ -512,6 +512,10 @@ class Log:
                             em = discord.Embed(description=NewContent, color=color)
                             em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
                             em.set_footer(text=FoundLog['footer']['text'])
+
+                            if "image" in FoundLog.keys:
+                                em.set_image(url=FoundLog['image']['url'])
+
                             await loggedmessage.edit(embed=em)
                             return True
         return False
@@ -538,6 +542,8 @@ class Log:
         em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
                       icon_url=message.author.avatar_url)
         em.set_footer(text="ID: " + str(message.id))
+        if message.attachments:
+            em.set_image(url=message.attachments[0].url)
 
         await Log.LogChannel.send(embed=em)
 
@@ -556,7 +562,15 @@ class Log:
         phrase = "\n**Edited to:**\n" + content
         await Log.AppendLogged(before.id, phrase, NewColor=0xe5c1ff)
 
+    @staticmethod
+    async def LogDelete(message, type):
+        Log.SetLogChannel()
 
+        if message.author.bot:
+            return
+
+        phrase = "\n**" + type + "**"
+        await Log.AppendLogged(message.id, phrase, NewColor=0xff0000)
 
 
 class Admin:
@@ -2164,6 +2178,10 @@ class Other:
         maxSeconds = 60 * 60 * 4  # 4 hours
 
         async def LogDeletion(message):
+            await Log.LogDelete(message, "Deleted.")
+            return
+
+
             DeleteLoggerChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
             # First check to see if it's already a logged deletion:
             OneHour = datetime.now() - timedelta(hours = 1)
@@ -2642,9 +2660,11 @@ class On_React:
         # If bot didn't originally react:
         elif user.id in Ranks.Admins:
             try:
+                await Log.LogDelete(message, "Requested Delete by " + user.name)
                 await message.add_reaction(Conversation.Emoji['check'])
                 await asyncio.sleep(.4)
                 await message.delete()
+
 
                 await asyncio.sleep(5)
             except Exception:
