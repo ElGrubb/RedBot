@@ -40,6 +40,7 @@ class MyClient(discord.Client):
 
         await Cmd.test(message)
         await Cmd.Help(message)
+        await Cmd.Log.LogSent(message)
 
         # 'SEND' Commands
         await Cmd.Memes.SendMeme(message)
@@ -75,6 +76,11 @@ class MyClient(discord.Client):
         await Cmd.Admin.GuildInfo(message)
 
         await Cmd.Admin.SinglePrivateMessage(message)
+
+
+    async def On_Message_Edit(self, before, after):
+        await Cmd.Log.LogEdit(before, after)
+
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]

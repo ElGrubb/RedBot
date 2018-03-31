@@ -513,7 +513,49 @@ class Log:
                             em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
                             em.set_footer(text=FoundLog['footer']['text'])
                             await loggedmessage.edit(embed=em)
-                            return
+                            return True
+        return False
+
+    @staticmethod
+    async def LogSent(message):
+        # Ran by bot to log a sent message
+        Log.SetLogChannel()
+
+        if message.author.bot:
+            return
+
+        if len(message.content) > 500:
+            content = message.content[0:500] + " [...]"
+        else:
+            content = message.content
+
+        description = "**Message Sent in " + message.channel.mention + "/" + message.guild.name + "**\n" + content
+        timestamp = datetime.now() + timedelta(3)
+        timestamp = timestamp.strftime("%A %B %d at %X")
+        timestamp = "\n_Originally sent on " + timestamp + "_"
+
+        em = discord.Embed(description=description + timestamp, color=0xc1d9ff)
+        em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
+                      icon_url=message.author.avatar_url)
+        em.set_footer(text="ID: " + str(message.id))
+
+        await Log.LogChannel.send(embed=em)
+
+    @staticmethod
+    async def LogEdit(before, after):
+        Log.SetLogChannel()
+
+        if message.author.bot:
+            return
+
+        if len(after.content) > 500:
+            content = after.content[0:500] + " [...]"
+        else:
+            content = after.content
+
+        phrase = "\n**Edited to:**\n" + content
+        await Log.AppendLogged(before.id, phrase, NewColor=0xe5c1ff)
+
 
 
 
