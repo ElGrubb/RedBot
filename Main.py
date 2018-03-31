@@ -78,7 +78,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.SinglePrivateMessage(message)
 
 
-    async def On_Message_Edit(self, before, after):
+    async def on_message_edit(self, before, after):
         await Cmd.Log.LogEdit(before, after)
 
 
