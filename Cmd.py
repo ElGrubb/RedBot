@@ -573,7 +573,7 @@ class Admin:
 
         SendChannel = Vars.Bot.get_channel(428394717798072342)
 
-        WorkingMessage = await channel.send("Working...")
+        WorkingMessage = await message.channel.send("Working...")
 
         Counted = 0
         to_send = ""
