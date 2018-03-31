@@ -513,7 +513,7 @@ class Log:
                             em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
                             em.set_footer(text=FoundLog['footer']['text'])
 
-                            if "image" in FoundLog.keys:
+                            if "image" in FoundLog.keys():
                                 em.set_image(url=FoundLog['image']['url'])
 
                             await loggedmessage.edit(embed=em)
@@ -570,7 +570,7 @@ class Log:
             return
 
         phrase = "\n**" + type + "**"
-        await Log.AppendLogged(message.id, phrase, NewColor=0xff0000)
+        await Log.AppendLogged(message.id, phrase, NewColor=0xAA0000)
 
 
 class Admin:
@@ -615,9 +615,28 @@ class Admin:
                                                       deny_text="Deletion Cancelled", timeout=20)
         else:
             confirmation = True
+
         if confirmation:
-            await message.channel.purge(limit=content + 1)  # Delete the messages
+            purged_messages = await message.channel.purge(limit=content + 1)  # Delete the messages
             await message.channel.send("Deleted " + str(content) + " messages", delete_after=5)  # Send message
+
+            # Log deletes
+            if content < 100:  # If there are less than 100 purged
+                for deleted_message in purged_messages:
+                    # For each message deleted
+                    Log.LogDelete(deleted_message, "Requested Purge by " + message.author + \
+                                  " of " + str(content) +" messages.")
+            else:
+                AllIDs = ""
+                for deleted_message in purged_messages:
+                    content = deleted_message.content if len(deleted_message.content) < 100 else deleted_message.content[0:100] + " [...]"
+
+                    AllIDs += "- " + str(deleted_message.id) + deleted_message.author + " - " + content + "\n"
+
+                AllIDs = "**Logging a Systematic Purge by " + message.author + "(" + message.author.id + ") of " + str(content) + " messages**"
+                Log.SetLogChannel()
+                await Log.LogChannel.send(AllIDs)
+
 
     @staticmethod
     async def GuildInfo(message):
@@ -2657,7 +2676,7 @@ class On_React:
                     pass
             return
 
-        # If bot didn't originally react:
+        # If bot didn't originally react:f
         elif user.id in Ranks.Admins:
             try:
                 await Log.LogDelete(message, "Requested Delete by " + user.name)
