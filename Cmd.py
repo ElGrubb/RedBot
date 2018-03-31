@@ -545,7 +545,7 @@ class Log:
     async def LogEdit(before, after):
         Log.SetLogChannel()
 
-        if message.author.bot:
+        if after.author.bot:
             return
 
         if len(after.content) > 500:
