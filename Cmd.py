@@ -474,9 +474,45 @@ class Helpers:
 
         return EndString.strip()
 
+    @staticmethod
+    async def SendLongMessage(channel, content):
+
+        while len(content) > 2000:
+            await channel.send(content[0:1999])
+            content = content[1999:]
+        if content:
+            await channel.send(content)
+        return
+
+
+
+        sectionlist = []
+        while len(content) > 1980:
+            SplitContent = content.split('\n')
+            # Test to see if there's a line break near the 2000 cutoff
+            BuiltString = ""
+            for i in range(0, len(Splitcontent)):  # Counter for each number
+                if len(BuildString) < 2000:
+                    # If the BuildString is still less than 2000
+                    if len(BuildString + SplitContent[i]) > 2000:  # If adding this next section will put it over:
+                        if BuildString > 1500:
+                            break
+                        else:
+                            BuildString += "\n" + SplitContent[0:1980-len(buildstring)]
+                    else:
+                        BuildString += "\n" + SplitContent[i]
+
+                BuiltString += SplitContent
+
+            sectionlist.append(content[5])
+
 
 class Log:
     LogChannel = None
+    SentColor = 0x42a1f4
+    EditColor = 0xe5c1ff
+    DeleteColor = 0xAA0000
+
 
     @staticmethod
     def SetLogChannel():
@@ -538,7 +574,7 @@ class Log:
         timestamp = timestamp.strftime("%A %B %d at %X")
         timestamp = "\n_Originally sent on " + timestamp + "_"
 
-        em = discord.Embed(description=description + timestamp, color=0xc1d9ff)
+        em = discord.Embed(description=description + timestamp, color=Log.SentColor)
         em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
                       icon_url=message.author.avatar_url)
         em.set_footer(text="ID: " + str(message.id))
@@ -560,7 +596,7 @@ class Log:
             content = after.content
 
         phrase = "\n**Edited to:**\n" + content
-        await Log.AppendLogged(before.id, phrase, NewColor=0xe5c1ff)
+        await Log.AppendLogged(before.id, phrase, NewColor=Log.EditColor)
 
     @staticmethod
     async def LogDelete(message, type):
@@ -570,7 +606,7 @@ class Log:
             return
 
         phrase = "\n**" + type + "**"
-        await Log.AppendLogged(message.id, phrase, NewColor=0xAA0000)
+        await Log.AppendLogged(message.id, phrase, NewColor=Log.DeleteColor)
 
 
 class Admin:
@@ -633,9 +669,9 @@ class Admin:
 
                     AllIDs += "- " + str(deleted_message.id) + deleted_message.author + " - " + content + "\n"
 
-                AllIDs = "**Logging a Systematic Purge by " + message.author + "(" + message.author.id + ") of " + str(content) + " messages**"
+                AllIDs = "**Logging a Systematic Purge by " + message.author.name + "(" + str(message.author.id) + ") of " + str(content) + " messages**"
                 Log.SetLogChannel()
-                await Log.LogChannel.send(AllIDs)
+                await Helpers.SendLongMessage(Log.LogChannel, AllIDs)
 
 
     @staticmethod
