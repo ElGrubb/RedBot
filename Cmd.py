@@ -660,7 +660,7 @@ class Admin:
             if content < 100:  # If there are less than 100 purged
                 for deleted_message in purged_messages:
                     # For each message deleted
-                    Log.LogDelete(deleted_message, "Requested Purge by " + message.author + \
+                    Log.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
                                   " of " + str(content) +" messages.")
             else:
                 AllIDs = ""
