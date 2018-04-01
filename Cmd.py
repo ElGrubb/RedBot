@@ -995,6 +995,8 @@ class Admin:
 
             if restart_data["Type"] == "Update":
                 await Admin.OnUpdate(restart_data["Channel_ID"])
+                return True
+        return False
 
     @staticmethod
     async def Update(message):

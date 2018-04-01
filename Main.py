@@ -13,7 +13,7 @@ class MyClient(discord.Client):
 
         Cmd.Vars.Creator = Cmd.Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
         # Check if it just restarted:
-        await Cmd.Admin.CheckRestart()
+        isupdate = await Cmd.Admin.CheckRestart()  # True or False if update
 
         await Cmd.Memes.CleanMemes()  # Clean Meme Files
         await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
@@ -21,7 +21,10 @@ class MyClient(discord.Client):
         Cmd.Vars.start_time = datetime.utcnow()
 
         if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
-            em = discord.Embed(title="I have just started", timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
+            string = "I have just started up"
+            if isupdate:
+                string += ". Updated."
+            em = discord.Embed(title=string, timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
             await Cmd.Vars.Creator.send(embed=em)
         Cmd.Vars.Ready = True
 
