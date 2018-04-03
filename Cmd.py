@@ -657,19 +657,19 @@ class Admin:
             await message.channel.send("Deleted " + str(content) + " messages", delete_after=5)  # Send message
 
             # Log deletes
-            if content < 100:  # If there are less than 100 purged
+            if content < 4:  # If there are less than 100 purged
                 for deleted_message in purged_messages:
                     # For each message deleted
-                    Log.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
+                    await Log.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
                                   " of " + str(content) +" messages.")
             else:
-                AllIDs = ""
+                AllIDs = "**Logging a Systematic Purge by " + message.author.name + " **(" + str(message.author.id) + ")** of " + str(content) + " messages**\n"
+
                 for deleted_message in purged_messages:
                     content = deleted_message.content if len(deleted_message.content) < 100 else deleted_message.content[0:100] + " [...]"
 
-                    AllIDs += "- " + str(deleted_message.id) + deleted_message.author + " - " + content + "\n"
+                    AllIDs += "- " + str(deleted_message.id) + "  " + deleted_message.author.name + " - " + content + "\n"
 
-                AllIDs = "**Logging a Systematic Purge by " + message.author.name + "(" + str(message.author.id) + ") of " + str(content) + " messages**"
                 Log.SetLogChannel()
                 await Helpers.SendLongMessage(Log.LogChannel, AllIDs)
 
