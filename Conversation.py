@@ -326,6 +326,6 @@ QuickChat = [
       ],
       "type": "reply",
       "use": "Watch Your Language!",
-      "chance": 10
+      "chance": 5
     }
   ]

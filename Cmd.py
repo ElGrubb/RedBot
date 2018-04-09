@@ -2108,6 +2108,11 @@ class Other:
         if not chat_function:
             return
 
+        # Random Chance
+        if 'chance' in chat_function:
+            if random.randrange(0, 100) > chat_function['chance']:
+                return
+
         channel = message.channel
         # Reply with Response
         if chat_function['type'] == 'reply':
