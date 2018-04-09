@@ -304,7 +304,7 @@ QuickChat = [
       ],
       "type": "reply",
       "use": "Oooh rekt",
-      "chance": 100
+      "chance": 75
     },
     {
       "trigger": [
@@ -317,5 +317,15 @@ QuickChat = [
       "type": "conversation",
       "use": "hellos",
       "chance": 100
+    },
+{
+      "trigger": [
+        "breen",
+        "buchholz",
+        "spookholz"
+      ],
+      "type": "reply",
+      "use": "Watch Your Language!",
+      "chance": 10
     }
   ]
