@@ -240,9 +240,82 @@ ReplyList = {
 }
 
 
-Help = [
-    ""
-
-
-
-]
+QuickChat = [
+    {
+      "trigger": "mexican",
+      "type": "autocorrect",
+      "use": "Taco Man",
+      "chance": 100
+    },
+    {
+      "trigger": "capitalism",
+      "type": "conversation",
+      "use": "capitalism",
+      "chance": 25
+    },
+    {
+      "trigger": "all hail",
+      "type": "reply",
+      "use": ":clap: :raised_hands: :pray:",
+      "chance": 100
+    },
+    {
+      "trigger": "like if",
+      "type": "react",
+      "use": "thumbsup",
+      "chance": 100
+    },
+    {
+      "trigger": "fuck you bot",
+      "type": "reply",
+      "use": "Fuck you too.",
+      "chance": 100
+    },
+    {
+      "trigger": "love you bot",
+      "type": "reply",
+      "use": "Love you too.",
+      "chance": 100
+    },
+    {
+      "trigger": "thank you bot",
+      "type": "reply",
+      "use": "You're Welcome.",
+      "chance": 100
+    },
+    {
+      "trigger": "communism",
+      "type": "react",
+      "use": "thumbsup",
+      "chance": 100
+    },
+    {
+      "trigger": "right, redbot",
+      "type": "reply",
+      "use": "Right.",
+      "chance": 100
+    },
+    {
+      "trigger": [
+        "your mom",
+        "ur mom",
+        "ur mum",
+        "your mum"
+      ],
+      "type": "reply",
+      "use": "Oooh rekt",
+      "chance": 100
+    },
+    {
+      "trigger": [
+        "hello redbot",
+        "hello bot",
+        "howdy bot",
+        "hi bot",
+        "hi redbot"
+      ],
+      "type": "conversation",
+      "use": "hellos",
+      "chance": 100
+    }
+  ]

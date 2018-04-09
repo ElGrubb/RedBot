@@ -2073,7 +2073,7 @@ class Other:
         Runs on start
         :return: a dict of each part of quickchat data
         """
-        data = Helpers.RetrieveData("QuickChat")
+        data = Conversation.QuickChat
         new_data = []
         # This part here deals with the lists as triggers
         for item in data:
