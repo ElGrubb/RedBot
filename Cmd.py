@@ -2726,11 +2726,9 @@ class Other:
         if not channel:
             if not await CheckMessage(message, start="weather", prefix=True):
                 return
-        await message.channel.send("Hello")
 
         # Obtain Forecast Dataset
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
-        await message.channel.send("Hello")
 
         DataDaily = forecast.daily()  # Daily
         DataHourly = forecast.hourly()  # Hourly
