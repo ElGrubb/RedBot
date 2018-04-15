@@ -2723,8 +2723,9 @@ class Other:
 
     @staticmethod
     async def Weather(message, channel=None):
-        if not await CheckMessage(message, start="weather", prefix=True):
-            return
+        if not channel:
+            if not await CheckMessage(message, start="weather", prefix=True):
+                return
         await message.channel.send("Hello")
 
         # Obtain Forecast Dataset
