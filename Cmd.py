@@ -1432,8 +1432,6 @@ class Quotes:
 
         def check(init_reaction, init_user):  # Will be used to validate answers
             # Returns if there are 3 more reactions who aren't this bot
-            #if await Helpers.Deleted(msg):
-                #return False
 
             if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                 return False
