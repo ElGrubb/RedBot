@@ -484,6 +484,36 @@ class Helpers:
             await channel.send(content)
         return
 
+    @staticmethod
+    async def ReGet(message):
+        id = message.id
+        channel = message.channel
+        try:
+            newmsg = await channel.get_message(id)
+            return newmsg
+        except discord.NotFound:
+            return None
+
+    @staticmethod
+    async def Deleted(message):
+        id = message.id
+        channel = message.channel
+        try:
+            newmsg = await channel.get_message(id)
+        except discord.NotFound:
+            return True
+        return False
+
+    @staticmethod
+    async def QuietDelete(message):
+        id = message.id
+        channel = message.channel
+        try:
+            message.delete()
+        except discord.NotFound:
+            return None
+        return True
+
 
 
         sectionlist = []
@@ -1201,8 +1231,9 @@ class Admin:
         SecretContent = await Helpers.FormatMessage(message, IncludeArea=True, FullName=True)
 
         await SecretChannel.send(SecretContent)
-        await asyncio.sleep(20)
-        await message.delete()
+        await asyncio.sleep(5)
+        if not Helpers.Deleted(message):
+            await message.delete()
 
 
 class Cooldown:
@@ -1401,7 +1432,7 @@ class Quotes:
 
         def check(init_reaction, init_user):  # Will be used to validate answers
             # Returns if there are 3 more reactions who aren't this bot
-            if not msg:
+            if Helpers.Deleted(msg):
                 return False
 
             if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
@@ -1419,13 +1450,11 @@ class Quotes:
 
         except asyncio.TimeoutError:
             # If it times out
-            if msg:
-                await msg.delete()
+            await Helpers.QuietDelete(msg)
             await message.channel.send("Failed to receive 3 reactions", delete_after=5)
             return None
-        if msg:
-            await msg.delete()
-        if message:
+        await Helpers.QuietDelete(msg)
+        if not Helpers.Deleted(message):
             await message.add_reaction(Conversation.Emoji["check"])
 
         await Quotes.NoteQuote(quote=content, user=mention_user)
