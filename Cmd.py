@@ -1383,7 +1383,12 @@ class Quotes:
             await message.delete()
         # Seperate reactioned user from the message
         mention_user = message.mentions[0]
-        content = message.clean_content[7:].replace("@" + mention_user.name, '').strip()
+        content = message.clean_content[7:].replace("@" + mention_user.display_name, '').strip()
+        if content.startswith("\""):
+            content = content[1:]
+        if content[-1] == "\"":
+            content = content[0:len(content)-1]
+
 
         # Create Embed
         em = discord.Embed(title="Quote this?", timestamp=datetime.now(), colour=Vars.Bot_Color,
@@ -1396,6 +1401,9 @@ class Quotes:
 
         def check(init_reaction, init_user):  # Will be used to validate answers
             # Returns if there are 3 more reactions who aren't this bot
+            if not msg:
+                return False
+
             if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                 return False
             if init_reaction.count >= 6 and init_reaction.emoji == Conversation.Emoji["quote"]:
@@ -1411,12 +1419,14 @@ class Quotes:
 
         except asyncio.TimeoutError:
             # If it times out
-            await msg.delete()
+            if msg:
+                await msg.delete()
             await message.channel.send("Failed to receive 3 reactions", delete_after=5)
             return None
-
-        await msg.delete()
-        await message.add_reaction(Conversation.Emoji["check"])
+        if msg:
+            await msg.delete()
+        if message:
+            await message.add_reaction(Conversation.Emoji["check"])
 
         await Quotes.NoteQuote(quote=content, user=mention_user)
 
@@ -1432,6 +1442,10 @@ class Quotes:
 
         if not await Quotes.CheckTime():
             await reaction.message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
+            await reaction.message.clear_reactions()
+            return
+        if await CheckMessage(reaction.message, prefix=True):
+            await reaction.message.channel.send("Quoting Commands confuses me!", delete_after=5)
             await reaction.message.clear_reactions()
             return
 
