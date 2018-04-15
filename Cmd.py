@@ -1098,7 +1098,7 @@ class Admin:
         #     file.write(lines + to_add)
         #     file.close()
         # await channel.send("Successfully Migrated Help Text")
-        await Other.T_Weather()
+        #await Other.T_Weather()
         pass
 
     @staticmethod
@@ -2725,9 +2725,11 @@ class Other:
     async def Weather(message, channel=None):
         if not await CheckMessage(message, start="weather", prefix=True):
             return
+        await message.channel.send("Hello")
 
         # Obtain Forecast Dataset
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
+        await message.channel.send("Hello")
 
         DataDaily = forecast.daily()  # Daily
         DataHourly = forecast.hourly()  # Hourly
