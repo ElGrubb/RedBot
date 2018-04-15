@@ -2390,7 +2390,7 @@ class Other:
     @staticmethod
     async def OldWeather(message, morning=False):
         if not morning:
-            if not await CheckMessage(message, prefix=True, start="Weather"):
+            if not await CheckMessage(message, prefix=True, start="FullWeather"):
                 return
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
         byHour = forecast.hourly()
