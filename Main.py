@@ -55,7 +55,7 @@ class MyClient(discord.Client):
         await Cmd.Other.YesNo(message)
         await Cmd.Other.Change_Color(message)
         await Cmd.Other.Poll(message)
-        await Cmd.Other.OldWeather(message)
+        await Cmd.Other.Weather(message)
         await Cmd.Other.Calculate(message)
         await Cmd.Other.NoContext(message)
         await Cmd.Other.ChatLinkShorten(message)

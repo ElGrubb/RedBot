@@ -570,7 +570,7 @@ class Log:
             content = message.content
 
         description = "**Message Sent in " + message.channel.mention + "/" + message.guild.name + "**\n" + content
-        timestamp = datetime.now() + timedelta(3)
+        timestamp = datetime.now() + timedelta(hours = 3)
         timestamp = timestamp.strftime("%A %B %d at %X")
         timestamp = "\n_Originally sent on " + timestamp + "_"
 
@@ -1098,6 +1098,7 @@ class Admin:
         #     file.write(lines + to_add)
         #     file.close()
         # await channel.send("Successfully Migrated Help Text")
+        await Other.T_Weather()
         pass
 
     @staticmethod
@@ -1452,6 +1453,28 @@ class Quotes:
         data['info'].append({'date': timestamp, 'quote': quote, 'user_id': user_id, 'user_name': user_name})
 
         Helpers.SaveData(data_dict=data, type="Quotes")
+
+    @staticmethod
+    async def EditQuote(message):
+        if not CheckMessage(message, start="EditQuote", admin=True, prefix=True):
+            return
+        # Allows the user to select a quote and then change it / Delete it remotely
+
+        # First we're going to want to make lists of quotes, 10 quotes per list
+        TotalQuoteList = []
+
+        RawQuoteData = Helpers.RetrieveData(type="Quotes") # Given as Quote Dict
+
+        QuoteCounter = -1
+        for QuoteObject in RawQuoteData['info']:
+            # Create a string for the quote and put that string in TotalQuoteList
+            QuoteCounter += 1
+            QuoteString = str(QuoteCounter) + ". " + QuoteObject['user_name']
+            QuoteString += " - \"" + QuoteObject['quote'] + "\""
+
+            TotalQuoteList.append(QuoteString)
+
+        # So now we have a list of each quote string. Need to
 
 
 class Memes:
@@ -2330,8 +2353,6 @@ class Other:
                 else:
                     await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
-
-
     @staticmethod
     async def FakeJoin(message):
         if not await CheckMessage(message, start="FakeJoin", prefix=True, admin=True):
@@ -2438,7 +2459,7 @@ class Other:
         default_channel = channel_list[0]
 
         if default_channel:
-            await Other.OldWeather(default_channel, morning=True)
+            await Other.Weather(None, default_channel)
 
     @staticmethod
     async def Calculate(message):
@@ -2699,6 +2720,209 @@ class Other:
                 break
 
         await message.channel.send(str(final_count) + " messages.")
+
+    @staticmethod
+    async def Weather(message, channel=None):
+        if not await CheckMessage(message, start="weather", prefix=True):
+            return
+
+        # Obtain Forecast Dataset
+        forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
+
+        DataDaily = forecast.daily()  # Daily
+        DataHourly = forecast.hourly()  # Hourly
+        DataMinutely = forecast.minutely()  # Minutely
+        DataCurrently = forecast.currently()  # Currently
+        DataAlerts = forecast.alerts()  # Alerts
+
+        # Now we need to organize the data into dictionaries
+        WeatherDict = {}
+
+        DayDataList = []
+        for day in DataDaily.data:  # For each Day
+            OneDayDict = {}  # Create temporary Dict
+            OneDayDict['Data'] = day.d
+            OneDayDict['Summary'] = day.summary
+
+            # Set up the Time Information
+            Time = {}
+            # print(dir(day))
+            DayNum = datetime.fromtimestamp(int(day.d['time'])).strftime('%m')
+            DayWeek = datetime.fromtimestamp(int(day.d['time'])).strftime('%a')
+            DayWeekFull = datetime.fromtimestamp(int(day.d['time'])).strftime('%A')
+            Time['DayNum'] = DayNum
+            Time['DayWeek'] = DayWeek
+            Time['DayWeekFull'] = DayWeekFull
+
+            OneDayDict['Time'] = Time
+
+            # Add to Main Dict
+            DayDataList.append(OneDayDict)
+        WeatherDict['Daily'] = DayDataList
+
+        HourDataList = []
+        for hour in DataHourly.data:  # For each Day
+            OneHourDict = {}  # Create temporary Dict
+            OneHourDict['Data'] = hour.d
+            OneHourDict['Summary'] = hour.summary
+
+            # Set up Time Information
+            Time = {}
+            Hour24 = datetime.fromtimestamp(int(hour.d['time'])).strftime('%H')
+            Hour = datetime.fromtimestamp(int(hour.d['time'])).strftime('%I')
+            Time['hour24'] = Hour24
+            Time['hour'] = Hour
+
+            OneHourDict['Time'] = Time
+
+            # Add to Main Dict
+            HourDataList.append(OneHourDict)
+        WeatherDict['Hourly'] = HourDataList
+
+        MinuteDataList = []
+        for minute in DataMinutely.data:  # For each Day
+            OneMinuteDict = {}  # Create temporary Dict
+            OneMinuteDict['Data'] = minute.d
+            MinuteDataList.append(OneMinuteDict)
+
+        WeatherDict['Minutely'] = MinuteDataList
+        WeatherDict['Currently'] = DataCurrently
+        WeatherDict['Alerts'] = DataAlerts[0].json
+
+        # Now that we have everything all in WeatherDict, we can start to construct our whole Message
+        def SelectList(selectlist):
+            # Selects one option out of a list at random
+            return random.choice(selectlist)
+
+        Phrases = Conversation.WeatherText  # Dictionary of weather responses
+        msg = SelectList(Phrases['Intro'])
+
+        # Set up the Currently Section
+        CurrentlyTemp = round(WeatherDict['Currently'].d['temperature'])  # Assign Current Temp Float to CurrentTemp
+        msg += " " + SelectList(Phrases["Currently"]).replace("%Now%", str(
+            CurrentlyTemp) + " degrees")  # Add random phrase for it
+
+        ApparentTemp = round(
+            WeatherDict['Currently'].d['apparentTemperature'])  # Assign ApparentTemperature "feelsLike"
+
+        if abs(ApparentTemp - CurrentlyTemp) > 3:  # If there's more than 3 degree difference
+            # Include Feels Like in the message
+            msg += " " + SelectList(Phrases["FeelsLike"]).replace("%FeelsLike%", str(ApparentTemp) + " degrees.")
+        else:  # Otherwise do not include it in the currently section
+            msg += "."
+
+        # At a Glance
+        Summary = WeatherDict["Daily"][0]["Data"]["summary"]
+        msg += "\n - **Today:** " + Summary
+
+        # Add High and Low
+        # Assign HighTemp and LowTemp
+        HighTemp = round(WeatherDict['Daily'][0]["Data"]["temperatureMax"])
+        LowTemp = round(WeatherDict['Daily'][0]["Data"]["temperatureMin"])
+
+        # Create the HighTime based on the local timestmap
+        HighTime = WeatherDict['Daily'][0]["Data"]["temperatureMaxTime"]
+        HighTime = datetime.fromtimestamp(int(HighTime)).strftime('%I:00 %p')
+
+        # Create the LowTime based on the local timestamp
+        LowTime = WeatherDict['Daily'][0]["Data"]["temperatureMinTime"]
+        LowTime = datetime.fromtimestamp(int(LowTime)).strftime('%I:00 %p')
+
+        # Create the HighText phrase
+        HighText = SelectList(Phrases["HighLow"])
+        HighText = HighText.replace("%Type%", "high").replace("%Temp%", str(HighTemp)).replace("%Time%", HighTime)
+
+        # Create the LowText Phrase and make the first letter Lowercase
+        LowText = SelectList(Phrases["HighLow"])
+        LowText = LowText.replace("%Type%", "low").replace("%Temp%", str(LowTemp)).replace("%Time%", LowTime)
+        LowText = LowText[0].lower() + LowText[1:]
+
+        # Create the whole section
+        HighLowText = HighText + " " + SelectList(Phrases["Transitions"]) + " " + LowText
+
+        # Append to Message
+        msg += "\n - " + HighLowText + "."
+
+        # Today's Humidity  - Only displays if over a certain percentage
+        Humidity = WeatherDict["Daily"][0]["Data"]["humidity"]
+        if Humidity > 0.9:
+            HumidText = SelectList(Phrases["Humidity"])
+            msg += "\n - " + HumidText
+
+        # Cloud Cover (or lack of)
+        CloudCover = WeatherDict["Daily"][0]["Data"]["cloudCover"]
+        if CloudCover > 0.95:
+            msg += "\n - " + SelectList(Phrases["Cloudy"])
+
+        if CloudCover < 0.1:
+            msg += "\n - " + SelectList(Phrases["Sunny"])
+
+        # Precipitation
+        PrecipProbability = WeatherDict["Daily"][0]["Data"]["precipProbability"]
+        if PrecipProbability >= 0.75:
+            # If there's a 3/4 chance of Precipitation
+            # Now we need to find out when it starts
+            HourCounter = 0
+            Start = {}
+            End = {}
+            for hour in WeatherDict["Hourly"]:
+                hourtime = datetime.fromtimestamp(hour["Data"]["time"])
+
+                if hour["Data"]["precipProbability"] >= 0.5 and not Start:
+                    Start["Probability"] = hour["Data"]["precipProbability"]
+                    Start["Hour"] = datetime.fromtimestamp(hour["Data"]["time"]).strftime("%I %p")
+                    Start["Type"] = hour["Data"]["precipType"]
+
+                    if hourtime.strftime("A") == WeatherDict["Daily"][0]["Time"]["DayWeekFull"]:
+                        # Then the start is today
+                        Start["Date"] = "today"
+                    else:
+                        Start["Date"] = "tomorrow"
+
+                # Now we need an end
+                if hour["Data"]["precipProbability"] < 0.4 and not End:
+                    End["Probability"] = hour["Data"]["precipProbability"]
+                    End["Hour"] = datetime.fromtimestamp(hour["Data"]["time"]).strftime("%I %p")
+
+                    if hourtime.strftime("A") == WeatherDict["Daily"][0]["Time"]["DayWeekFull"]:
+                        # Then the start is today
+                        End["Date"] = "today"
+                    else:
+                        End["Date"] = "tomorrow"
+                if HourCounter > 24:
+                    break
+
+                HourCounter += 1
+
+            # Now we have Start and maybe End
+            PrecipMessage = ""
+            StartText = SelectList(Phrases["PrecipitationStart"])
+            StartText = StartText.replace("%Type%", Start["Type"]).replace("%Time%", Start["Hour"])
+            StartText = StartText.replace("%Date%", Start["Date"]).replace("%Chance%",
+                                                                           str(int(Start["Probability"] * 100)) + "%")
+
+            if End:
+                EndText = SelectList(Phrases["PrecipitationEnd"]).replace("%Time%", End["Hour"]).replace("%Date%",
+                                                                                                         End["Date"])
+                # EndText = EndText[0].lower() + EndText[1:]
+            else:
+                EndText = ""
+
+            PrecipMessage = StartText + " " + SelectList(Phrases["Transitions"]) + " " + EndText + "."
+
+            msg += "\n - " + PrecipMessage
+
+        # Tomorrow's Forecast
+        Summary = WeatherDict["Daily"][1]["Data"]["summary"]
+        msg += "\n - **Tomorrow:** " + Summary
+
+        em = discord.Embed(description=msg, colour=0x498fff, timestamp=datetime.now() + timedelta(hours=4))
+        #em.set_author(name=WeatherDict["Daily"][0]["Data"]["summary"])
+        if channel:
+            await channel.send(embed=em)
+        else:
+            await message.channel.send(embed=em)
+        return
 
 
 class On_React:

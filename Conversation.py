@@ -329,3 +329,68 @@ QuickChat = [
       "chance": 5
     }
   ]
+
+WeatherText = {
+'Intro': [
+    "Good Morning!",
+    "Hello!",
+    "Morning!",
+    "What a Lovely Morning!",
+    "Hey, Good Morning!",
+    "Hey!",
+    "Hello! Good Morning!",
+    "Great Morning!"
+],
+'Currently': [
+    "It is currently %Now% outside",
+    "Right now it is %Now% outside",
+    "The temperature is %Now%",
+    "Currently, it's %Now%",
+    "Outside it is %Now%"
+],
+'FeelsLike': [
+    "but it feels like %FeelsLike%",
+    "yet it feels more like %FeelsLike%",
+    "but it seems more like %FeelsLike%",
+    "but it feels like %FeelsLike%"
+],
+'HighLow': [
+    "The %Type% today will be %Temp% at %Time%",
+    "The %Type%est temperature will be at %Time% with %Temp%",
+    "Today's %Type% will be %Temp% at %Time%",
+    "Today's %Type% will be %Temp% and occur at %Time%"
+],
+'Transitions': [
+    "but",
+    "and",
+    "while",
+    "yet"
+],
+'Humidity': [
+    "It will be very humid today.",
+    "The Humidity is very large today.",
+    "It will be very humid"
+],
+"Cloudy": [
+    "It will be extremely cloudy today.",
+    "Very cloudy today",
+    "100% Cloud Cover"
+],
+"Sunny": [
+    "Not a cloud in sight!",
+    "Extremely blue sky today"
+],
+"PrecipitationStart": [
+    "There is a %Chance% of %Type% starting at %Time% %Date%",
+    "It looks like it'll %Type% %Date%. There is a %Chance% probability at %Time%"
+],
+"PrecipitationEnd": [
+    "I think it will end at %Time% %Date%"
+],
+"WeatherReport": [
+    "Here's the Weather Report:",
+    "The weather, coming right up!",
+    "Going to be sluggish today, I bet.",
+    "Weather."
+]
+}
