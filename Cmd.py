@@ -1232,7 +1232,7 @@ class Admin:
 
         await SecretChannel.send(SecretContent)
         await asyncio.sleep(5)
-        if not Helpers.Deleted(message):
+        if not await Helpers.Deleted(message):
             await message.delete()
 
 
@@ -1432,7 +1432,7 @@ class Quotes:
 
         def check(init_reaction, init_user):  # Will be used to validate answers
             # Returns if there are 3 more reactions who aren't this bot
-            if Helpers.Deleted(msg):
+            if await Helpers.Deleted(msg):
                 return False
 
             if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
@@ -1454,7 +1454,7 @@ class Quotes:
             await message.channel.send("Failed to receive 3 reactions", delete_after=5)
             return None
         await Helpers.QuietDelete(msg)
-        if not Helpers.Deleted(message):
+        if not await Helpers.Deleted(message):
             await message.add_reaction(Conversation.Emoji["check"])
 
         await Quotes.NoteQuote(quote=content, user=mention_user)
