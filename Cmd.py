@@ -37,7 +37,7 @@ class Vars:
     Disabled = False
     Disabler = None
     start_time = None
-    Version = "4.15"
+    Version = "4.21"
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
@@ -1473,6 +1473,11 @@ class Quotes:
             return
         if await CheckMessage(reaction.message, prefix=True):
             await reaction.message.channel.send("Quoting Commands confuses me!", delete_after=5)
+            await reaction.message.clear_reactions()
+            return
+
+        if len(reaction.message.content) > 500:
+            await reaction.message.channel.send("Simply too long to quote.", delete_after=5)
             await reaction.message.clear_reactions()
             return
 
