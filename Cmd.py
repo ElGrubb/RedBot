@@ -2780,7 +2780,6 @@ class Other:
         DataHourly = forecast.hourly()  # Hourly
         DataMinutely = forecast.minutely()  # Minutely
         DataCurrently = forecast.currently()  # Currently
-        if
         DataAlerts = forecast.alerts()  # Alerts
 
         # Now we need to organize the data into dictionaries
