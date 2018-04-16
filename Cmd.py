@@ -2780,6 +2780,7 @@ class Other:
         DataHourly = forecast.hourly()  # Hourly
         DataMinutely = forecast.minutely()  # Minutely
         DataCurrently = forecast.currently()  # Currently
+        if
         DataAlerts = forecast.alerts()  # Alerts
 
         # Now we need to organize the data into dictionaries
@@ -2834,7 +2835,10 @@ class Other:
 
         WeatherDict['Minutely'] = MinuteDataList
         WeatherDict['Currently'] = DataCurrently
-        WeatherDict['Alerts'] = DataAlerts[0].json
+        if 'Alerts' in WeatherDict.keys():
+            WeatherDict['Alerts'] = DataAlerts[0].json
+        else:
+            WeatherDict['Alerts'] = {}
 
         # Now that we have everything all in WeatherDict, we can start to construct our whole Message
         def SelectList(selectlist):
