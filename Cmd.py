@@ -2847,6 +2847,26 @@ class Other:
         Phrases = Conversation.WeatherText  # Dictionary of weather responses
         msg = SelectList(Phrases['Intro'])
 
+        # Replace "Morning" with "Afternoon" or "Night"
+        CurrentHour = WeatherDict["Currently"].d["time"]
+        CurrentHour = datetime.fromtimestamp(int(CurrentHour))
+        CurrentHour = int(CurrentHour.strftime("%H"))
+
+        CurrentTimeArea = ""
+        if CurrentHour > 19:        # More than 7 pm
+            CurrentTimeArea = "Night"
+        elif CurrentHour > 12:      # More than 12 pm
+            CurrentTimeArea = "Afternoon"
+        elif CurrentHour >= 6:      # More than 6 am
+            CurrentTimeArea = "Morning"
+        elif CurrentHour < 6:       # Early Morning (Earlier than 6)
+            CurrentTimeArea = "Night"
+        else:                       # Anything else
+            CurrentTimeArea = "Day"
+
+        msg = msg.replace("%DayTime%", CurrentTimeArea)
+
+
         # Set up the Currently Section
         CurrentlyTemp = round(WeatherDict['Currently'].d['temperature'])  # Assign Current Temp Float to CurrentTemp
         msg += " " + SelectList(Phrases["Currently"]).replace("%Now%", str(
@@ -2947,6 +2967,8 @@ class Other:
             # Now we have Start and maybe End
             PrecipMessage = ""
             StartText = SelectList(Phrases["PrecipitationStart"])
+            if "Type" not in Start.keys():
+                Start["Type"] = "Rain"
             StartText = StartText.replace("%Type%", Start["Type"]).replace("%Time%", Start["Hour"])
             StartText = StartText.replace("%Date%", Start["Date"]).replace("%Chance%",
                                                                            str(int(Start["Probability"] * 100)) + "%")

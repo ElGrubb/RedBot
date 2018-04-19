@@ -332,14 +332,14 @@ QuickChat = [
 
 WeatherText = {
 'Intro': [
-    "Good Morning!",
+    "Good %DayTime%!",
     "Hello!",
-    "Morning!",
-    "What a Lovely Morning!",
-    "Hey, Good Morning!",
+    "%DayTime%!",
+    "What a Lovely %DayTime%!",
+    "Hey, Good %DayTime%!",
     "Hey!",
-    "Hello! Good Morning!",
-    "Great Morning!"
+    "Hello! Good %DayTime%!",
+    "Great %DayTime%!"
 ],
 'Currently': [
     "It is currently %Now% outside",
