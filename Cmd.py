@@ -3132,7 +3132,7 @@ class Tag:
 
         # If it does exist in the data
         TagData = AllTagData[TagKey]
-        if TagKey["Admin"]:
+        if TagData["Admin"]:
             # If it's an admin only tag:
             IsAdmin = await CheckMessage(message, prefix=True, admin=True)
             if not IsAdmin:
@@ -3141,8 +3141,18 @@ class Tag:
                 return
             # If it is an admin then there's no issue
 
-        await message.channel.send(TagData[TagKey])
+        await message.channel.send(TagData["Content"])
         return
+
+    @staticmethod
+    async def ClearTagData(message):
+        if not await CheckMessage(message, start="ClearTagData", admin=True, prefix=True):
+            return
+
+        if not await Helpers.Confirmation(message, "Are you sure you want to clear?"):
+            return
+
+        Helpers.SaveData({}, type="Tag")
     # Todo /Tag Info
     # Todo /Tag Help
     # Todo /Tag List

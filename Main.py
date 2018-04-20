@@ -84,6 +84,7 @@ class MyClient(discord.Client):
         # TAG Commands
         await Cmd.Tag.SetTag(message)
         await Cmd.Tag.TagFunction(message)
+        await Cmd.Tag.ClearTagData(message)
 
 
     async def on_message_edit(self, before, after):
