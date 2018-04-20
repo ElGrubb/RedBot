@@ -81,6 +81,9 @@ class MyClient(discord.Client):
 
         await Cmd.Admin.SinglePrivateMessage(message)
 
+        # TAG Commands
+        await Cmd.Tag.SetTag(message)
+
 
     async def on_message_edit(self, before, after):
         await Cmd.Log.LogEdit(before, after)

@@ -213,7 +213,8 @@ async def loadingSign(message):
 class Helpers:
     @staticmethod
     async def Confirmation(message, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
-                           return_timeout=False, deleted_original_message=False, mention=None, extra_text=None):
+                           return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
+                           add_reaction=True):
         """
         Sends a confirmation for a command
         :param message: The message object
@@ -289,7 +290,7 @@ class Helpers:
         elif reaction.emoji == ContinueEmoji:
             await msg.delete()
             if not deleted_original_message:
-                if is_message:
+                if is_message and add_reaction:
                     await message.add_reaction(ContinueEmoji)
             if yes_text:
                 await channel.send(yes_text, delete_after=5)
@@ -505,11 +506,13 @@ class Helpers:
         return False
 
     @staticmethod
-    async def QuietDelete(message):
+    async def QuietDelete(message, wait=None):
         id = message.id
         channel = message.channel
+        if wait:
+            await asyncio.sleep(wait)
         try:
-            message.delete()
+            await message.delete()
         except discord.NotFound:
             return None
         return True
@@ -2995,6 +2998,88 @@ class Other:
         else:
             await message.channel.send(embed=em)
         return
+
+
+class Tag:
+    @staticmethod
+    async def RetrieveTagList():
+        # Called internally, retrieves the dictionary of tags
+        taglist = Helpers.RetrieveData(type="Tag")
+        return taglist
+
+    @staticmethod
+    async def SetTag(message):
+        if not await CheckMessage(message, start="settag", prefix=True):
+            return
+        # Creates the Tag given, starts a TagVote if not an admin.
+
+        # Format: /settag cheese-and-stuff https://www.cheese.com
+        content = message.content[1:].replace("settag","").strip()
+
+        if content.startswith("-a"):
+            AdminTag = True
+            content = content.replace("-a","").strip().replace("  ", " ")
+        else:
+            AdminTag = False
+
+
+        # User: > .t TagKey
+        # Bot : > TagSend
+        TagKey = content.split(" ")[0].strip()
+        TagSend = content[len(TagKey):].strip()
+
+        TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
+
+        # Some Fail-Safes about size and stuff
+        if TagKey.count(" ") > 2:
+            await message.channel.send("Key can only be 3 or more words/numerals!", delete_after=5)
+            await Helpers.QuietDelete(message, wait=2)
+            return
+        if len(TagKey) > 50:
+            await message.channel.send("Too long of a key!", delete_after=5)
+            await Helpers.QuietDelete(message, wait=2)
+            return
+        if len(TagSend) > 250:
+            await message.channel.send("The Tag Content is too long!", delete_after=5)
+            await Helpers.QuietDelete(message, wait=2)
+            return
+
+        # Verify that they're an admin
+        IsAdmin = await CheckMessage(message, prefix=True, admin=True)
+
+        if IsAdmin:
+            yes_text = None
+        elif not IsAdmin:
+            yes_text = "Let's take it to a vote!"
+
+        ConfirmMessage = "Create Tag?"
+        Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagSend.replace("```","\'\'\'") + "```"
+        Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+                                                  deny_text="Tag Creation Cancelled", yes_text=yes_text)
+        if not Confirmation:
+            return
+
+        await message.channel.trigger_typing()
+
+        if not IsAdmin:
+            # Initiate a Vote
+            return
+
+        # If accepted or if IsAdmin:
+        NewTagDict = {
+            "Key": TagKey,
+            "Content": TagSend,
+            "Creator": message.author.id,
+            "Guild": message.guild.id,
+            "Channel": message.guild.channel,
+            "Time": (datetime.now() + timedelta(hours=3)).timestamp()
+        }
+
+
+
+
+
+
 
 
 class On_React:
