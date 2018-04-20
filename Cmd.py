@@ -195,7 +195,7 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
             numberCorrect += 1
 
     if numberCorrect == totalPossibleCorrect:
-        Vars.Bot.loop.create_task(loadingSign(message))
+        # Vars.Bot.loop.create_task(loadingSign(message))
         return True
     else:
         return False
@@ -3005,11 +3005,13 @@ class Tag:
     async def RetrieveTagList():
         # Called internally, retrieves the dictionary of tags
         taglist = Helpers.RetrieveData(type="Tag")
+        if not taglist:
+            return {}
         return taglist
 
     @staticmethod
     async def SetTag(message):
-        if not await CheckMessage(message, start="settag", prefix=True):
+        if not await CheckMessage(message, start="settag", prefix=True, admin=True):
             return
         # Creates the Tag given, starts a TagVote if not an admin.
 
@@ -3022,11 +3024,10 @@ class Tag:
         else:
             AdminTag = False
 
-
         # User: > .t TagKey
         # Bot : > TagSend
         TagKey = content.split(" ")[0].strip()
-        TagSend = content[len(TagKey):].strip()
+        TagSend = content[len(TagKey):].strip().lower()
 
         TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
 
@@ -3052,6 +3053,19 @@ class Tag:
         elif not IsAdmin:
             yes_text = "Let's take it to a vote!"
 
+        if not IsAdmin and AdminTag:
+            AdminTag = False
+
+        # See if TagKey is already used:
+        TagData = await Tag.RetrieveTagList()
+        if TagKey in TagData.keys():
+            if TagData[TagKey]["Admin"] and not IsAdmin:
+                # If the tag they want to overwrite is admin and they are not:
+                await message.channel.send("This Tag is Occupied by a more important function. Insufficient "
+                                           "Permissions to Overwrite.")
+                return
+        # Todo Edit tag
+
         ConfirmMessage = "Create Tag?"
         Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagSend.replace("```","\'\'\'") + "```"
         Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
@@ -3063,7 +3077,8 @@ class Tag:
 
         if not IsAdmin:
             # Initiate a Vote
-            return
+            return  # Todo VoteTag
+
 
         # If accepted or if IsAdmin:
         NewTagDict = {
@@ -3071,9 +3086,68 @@ class Tag:
             "Content": TagSend,
             "Creator": message.author.id,
             "Guild": message.guild.id,
-            "Channel": message.guild.channel,
-            "Time": (datetime.now() + timedelta(hours=3)).timestamp()
+            "Channel": message.channel.id,
+            "Time": (datetime.now() + timedelta(hours=3)).timestamp(),
+            "Admin": AdminTag
         }
+
+        # Download current data and save the new tag there
+        FullTagData = await Tag.RetrieveTagList()
+        if not FullTagData:  # If it's not yet set up / used
+            FullTagData = {}
+        # Add the key to the dict
+        FullTagData[TagKey] = NewTagDict
+        # Save the data and close out
+        Helpers.SaveData(FullTagData, type="Tag")
+
+        if not await Helpers.Deleted(message):
+            await message.add_reaction(Conversation.Emoji["check"])
+
+        if AdminTag:
+            ExitMessage = "Successfully Created **Admin** Tag. To use it, type: ```css\n/tag " + TagKey + "```"
+        else:
+            ExitMessage = "Successfully Created Tag. To use it, type: ```css\n/tag " + TagKey + "```"
+        await message.channel.send(ExitMessage)
+        return
+
+
+    @staticmethod
+    async def TagFunction(message):
+        if await CheckMessage(message, start="t ", prefix=True, admin=True):
+            # If they did /t <tag>:
+            content = message.content[2:].strip()
+        elif await CheckMessage(message, start="tag", prefix=True, admin=True):
+            content = message.content[4:].strip()
+        else:
+            return
+        TagKey = content.lower()
+
+        AllTagData = await Tag.RetrieveTagList()
+
+        if TagKey not in AllTagData.keys():
+            await message.channel.send("Cannot find key in data!")
+            # Todo add 'Did You Mean?'
+            await message.add_reaction(Conversation.Emoji["x"])
+
+        # If it does exist in the data
+        TagData = AllTagData[TagKey]
+        if TagKey["Admin"]:
+            # If it's an admin only tag:
+            IsAdmin = await CheckMessage(message, prefix=True, admin=True)
+            if not IsAdmin:
+                await message.channel.send("This is an admin-only tag! Sorry.")
+                await message.add_reaction(Conversation.Emoji["x"])
+                return
+            # If it is an admin then there's no issue
+
+        await message.channel.send(TagData[TagKey])
+        return
+    # Todo /Tag Info
+    # Todo /Tag Help
+    # Todo /Tag List
+    # Todo /Tag Edit
+    # Todo Attachments with Tags
+    # Todo TagVotes
 
 
 
