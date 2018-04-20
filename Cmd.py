@@ -3026,8 +3026,8 @@ class Tag:
 
         # User: > .t TagKey
         # Bot : > TagSend
-        TagKey = content.split(" ")[0].strip()
-        TagSend = content[len(TagKey):].strip().lower()
+        TagKey = content.split(" ")[0].strip().lower()
+        TagSend = content[len(TagKey):].strip()
 
         TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
 
@@ -3128,6 +3128,7 @@ class Tag:
             await message.channel.send("Cannot find key in data!")
             # Todo add 'Did You Mean?'
             await message.add_reaction(Conversation.Emoji["x"])
+            return
 
         # If it does exist in the data
         TagData = AllTagData[TagKey]
