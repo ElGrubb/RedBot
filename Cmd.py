@@ -3025,11 +3025,31 @@ class Tag:
             AdminTag = False
 
         # User: > .t TagKey
-        # Bot : > TagSend
+        # Bot : > TagContent
         TagKey = content.split(" ")[0].strip().lower()
-        TagSend = content[len(TagKey):].strip()
+        TagContent = content[len(TagKey):].strip()
 
         TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
+
+        # Shorten Links within Tag
+        if "http" in TagContent:
+            ContentWords = TagContent.split(" ")  # Split by spaces
+            for word in ContentWords:
+                if "http" in word.lower():  # If this particular word contains the link
+
+                    while not word.lower().startswith("http"):  # Keep going one by one until you find it
+                        word = word[1:]
+                    # We now have word starting in the right place, but not ending yet
+                    if word.endswith("\""):
+                        word = word.replace("\"", "")
+                    word = word.strip()
+                    while "\n" in word:
+                        word = word[:len(word)-1]
+
+                    shortened_word = Sys.Shorten_Link(word)
+                    # Replace original usage with shortened link
+                    TagContent = TagContent.replace(word, shortened_word)
+
 
         # Some Fail-Safes about size and stuff
         if TagKey.count(" ") > 2:
@@ -3040,7 +3060,7 @@ class Tag:
             await message.channel.send("Too long of a key!", delete_after=5)
             await Helpers.QuietDelete(message, wait=2)
             return
-        if len(TagSend) > 250:
+        if len(TagContent) > 250:
             await message.channel.send("The Tag Content is too long!", delete_after=5)
             await Helpers.QuietDelete(message, wait=2)
             return
@@ -3067,7 +3087,7 @@ class Tag:
         # Todo Edit tag
 
         ConfirmMessage = "Create Tag?"
-        Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagSend.replace("```","\'\'\'") + "```"
+        Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
         Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
                                                   deny_text="Tag Creation Cancelled", yes_text=yes_text)
         if not Confirmation:
@@ -3083,7 +3103,7 @@ class Tag:
         # If accepted or if IsAdmin:
         NewTagDict = {
             "Key": TagKey,
-            "Content": TagSend,
+            "Content": TagContent,
             "Creator": message.author.id,
             "Guild": message.guild.id,
             "Channel": message.channel.id,
@@ -3157,8 +3177,10 @@ class Tag:
     # Todo /Tag Help
     # Todo /Tag List
     # Todo /Tag Edit
+    # Todo /Tag Delete
     # Todo Attachments with Tags
     # Todo TagVotes
+    #### Todo Shorten Links within Tag
 
 
 
