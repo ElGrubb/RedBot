@@ -3116,7 +3116,7 @@ class Tag:
             # Initiate a Vote
             em = discord.Embed(title="Tag this?", timestamp=datetime.now(), colour=Vars.Bot_Color,
                                description=Extra_Text)
-            em.set_author(name=mention_user, icon_url=mention_user.avatar_url)
+            em.set_author(name=message.author, icon_url=message.author.avatar_url)
             em.set_footer(text="10 minute timeout")
             if HasAttachment:
                 em.set_image(url=AttachmentUploaded.link)
@@ -3129,7 +3129,7 @@ class Tag:
 
                 if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                     return False
-                if init_reaction.count >= 4 and init_reaction.emoji == Conversation.Emoji["tag"]:
+                if init_reaction.count >= 5 and init_reaction.emoji == Conversation.Emoji["tag"]:
                     return init_reaction, init_user
                 else:
                     return False
@@ -3147,6 +3147,7 @@ class Tag:
                 return None
 
             # Elif it has all 3 needed
+            await Helpers.QuietDelete(msg)
 
         # If accepted or if IsAdmin:
         NewTagDict = {
