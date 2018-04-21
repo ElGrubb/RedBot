@@ -3129,7 +3129,7 @@ class Tag:
 
                 if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                     return False
-                if init_reaction.count >= 5 and init_reaction.emoji == Conversation.Emoji["tag"]:
+                if init_reaction.count >= 5  and init_reaction.emoji == Conversation.Emoji["tag"]:
                     return init_reaction, init_user
                 else:
                     return False
