@@ -85,6 +85,9 @@ class MyClient(discord.Client):
         await Cmd.Tag.SetTag(message)
         await Cmd.Tag.TagFunction(message)
         await Cmd.Tag.ClearTagData(message)
+        # await Cmd.Tag.ImageTest(message)
+
+        #await Cmd.PipInstall(message)
 
 
     async def on_message_edit(self, before, after):

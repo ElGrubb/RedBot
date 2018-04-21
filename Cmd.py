@@ -1,7 +1,7 @@
 import Sys, Conversation
 import asyncio, random, time, discord, json, praw
 from datetime import datetime, timedelta
-import forecastio, os, sys, git, wolframalpha, traceback
+import forecastio, os, sys, git, wolframalpha, traceback, urllib.request, pyimgur
 
 # Reddit
 reddit = praw.Reddit('bot1')
@@ -214,7 +214,7 @@ class Helpers:
     @staticmethod
     async def Confirmation(message, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
                            return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
-                           add_reaction=True):
+                           add_reaction=True, image=None):
         """
         Sends a confirmation for a command
         :param message: The message object
@@ -250,6 +250,8 @@ class Helpers:
         em = discord.Embed(title=text, description=extra_text, timestamp=datetime.now(), colour=Vars.Bot_Color)
 
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
+        if image:
+            em.set_image(url=image)
         # Send message and add emojis
 
         msg = await channel.send(before_message, embed=em)
@@ -3011,7 +3013,7 @@ class Tag:
 
     @staticmethod
     async def SetTag(message):
-        if not await CheckMessage(message, start="settag", prefix=True, admin=True):
+        if not await CheckMessage(message, start="settag", prefix=True):  # admin=True):
             return
         # Creates the Tag given, starts a TagVote if not an admin.
 
@@ -3050,6 +3052,16 @@ class Tag:
                     # Replace original usage with shortened link
                     TagContent = TagContent.replace(word, shortened_word)
 
+        # ATTACHMENTS
+        if message.attachments:
+            HasAttachment = True
+            AttachmentUploaded = await Tag.DownloadAndUpload(message, message.attachments[0])
+
+            if not AttachmentUploaded:
+                HasAttachment = False
+        else:
+            HasAttachment = False
+
 
         # Some Fail-Safes about size and stuff
         if TagKey.count(" ") > 2:
@@ -3085,11 +3097,16 @@ class Tag:
                                            "Permissions to Overwrite.")
                 return
         # Todo Edit tag
+        if HasAttachment:
+            image = AttachmentUploaded.link
+        else:
+            image = None
 
         ConfirmMessage = "Create Tag?"
         Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
         Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
-                                                  deny_text="Tag Creation Cancelled", yes_text=yes_text)
+                                                  deny_text="Tag Creation Cancelled", yes_text=yes_text,
+                                                  image=image)
         if not Confirmation:
             return
 
@@ -3097,8 +3114,39 @@ class Tag:
 
         if not IsAdmin:
             # Initiate a Vote
-            return  # Todo VoteTag
+            em = discord.Embed(title="Tag this?", timestamp=datetime.now(), colour=Vars.Bot_Color,
+                               description=Extra_Text)
+            em.set_author(name=mention_user, icon_url=mention_user.avatar_url)
+            em.set_footer(text="10 minute timeout")
+            if HasAttachment:
+                em.set_image(url=AttachmentUploaded.link)
 
+            # Send Message
+            msg = await message.channel.send("Create Tag?", embed=em)
+
+            def check(init_reaction, init_user):  # Will be used to validate answers
+                # Returns if there are 3 more reactions who aren't this bot
+
+                if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
+                    return False
+                if init_reaction.count >= 4 and init_reaction.emoji == Conversation.Emoji["tag"]:
+                    return init_reaction, init_user
+                else:
+                    return False
+
+            await msg.add_reaction(Conversation.Emoji["tag"])
+
+            try:
+                # Wait for the reaction(s)
+                reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=600, check=check)
+
+            except asyncio.TimeoutError:
+                # If it times out
+                await Helpers.QuietDelete(msg)
+                await message.channel.send("Failed to receive 3 reactions", delete_after=5)
+                return None
+
+            # Elif it has all 3 needed
 
         # If accepted or if IsAdmin:
         NewTagDict = {
@@ -3110,6 +3158,10 @@ class Tag:
             "Time": (datetime.now() + timedelta(hours=3)).timestamp(),
             "Admin": AdminTag
         }
+        if HasAttachment:
+            NewTagDict["Image"] = AttachmentUploaded.link
+        else:
+            NewTagDict["Image"] = None
 
         # Download current data and save the new tag there
         FullTagData = await Tag.RetrieveTagList()
@@ -3161,7 +3213,12 @@ class Tag:
                 return
             # If it is an admin then there's no issue
 
-        await message.channel.send(TagData["Content"])
+        em = discord.Embed(description=TagData["Content"], color=0xFFFFFF)
+        if TagData["Image"]:
+            em.set_image(url=TagData["Image"])
+        em.set_footer(text="/tag " + TagData["Key"])
+
+        await message.channel.send(embed=em) #TagData["Content"])
         return
 
     @staticmethod
@@ -3173,18 +3230,62 @@ class Tag:
             return
 
         Helpers.SaveData({}, type="Tag")
+
+    @staticmethod
+    async def DownloadAndUpload(message, attachment):
+        # Called from within Bot
+
+        # Create Images Folder if not already created
+        if not os.path.isdir("Images"):
+            os.makedirs("Images")
+
+        DiscordURL = attachment.url
+        if DiscordURL.endswith("/"):
+            DiscordURL = DiscordURL[0:len(DiscordURL)-1]
+
+        ImageSuffixes = [".png", ".jpg", ".jpeg", ".gif"]
+        HasSuffix = False
+        for Suffix in ImageSuffixes:
+            if DiscordURL.endswith(Suffix):
+                HasSuffix = True
+
+        if not HasSuffix:
+            await message.channel.send("Cannot read image!")
+            return False
+
+
+        Progress = await message.channel.send("**Image Detected!** Downloading...")
+
+        Image_Title = str(random.randrange(100000, 99999999))  +  ".jpg"
+        Image_PATH = "Images\\" + Image_Title
+
+        # Download Image
+        await attachment.save(Image_PATH)# + Image_Title)
+
+        await Progress.edit(content="**Image Detected!** Uploading...")
+
+        # Prepare Imgur Client
+        CLIENT_ID = Sys.Read_Personal(data_type='Imgur_Client')
+
+        # Actually upload it
+        im = pyimgur.Imgur(CLIENT_ID)
+        uploaded_image = im.upload_image(Image_PATH, title="From RedBot")
+        await Progress.edit(content=uploaded_image.link)
+
+        # Delete Local File
+        os.remove(Image_PATH)
+
+        await Helpers.QuietDelete(Progress)
+
+        return uploaded_image
     # Todo /Tag Info
     # Todo /Tag Help
     # Todo /Tag List
     # Todo /Tag Edit
     # Todo /Tag Delete
-    # Todo Attachments with Tags
+    #### Todo Attachments with Tags
     # Todo TagVotes
     #### Todo Shorten Links within Tag
-
-
-
-
 
 
 
