@@ -3076,6 +3076,10 @@ class Tag:
             await message.channel.send("The Tag Content is too long!", delete_after=5)
             await Helpers.QuietDelete(message, wait=2)
             return
+        if not HasAttachment and not TagContent.strip():
+            await message.channel.send("No content and no image... Hmmm", delete_after=5)
+            await Helpers.QuietDelete(message, wait=5)
+            return
 
         # Verify that they're an admin
         IsAdmin = await CheckMessage(message, prefix=True, admin=True)
@@ -3198,8 +3202,48 @@ class Tag:
         AllTagData = await Tag.RetrieveTagList()
 
         if TagKey not in AllTagData.keys():
-            await message.channel.send("Cannot find key in data!")
-            # Todo add 'Did You Mean?'
+            KeyList = []  # Create list of Tag Keys
+            for TagData in AllTagData:
+                KeyList.append(AllTagData[TagData]["Key"])
+
+            # Filter out Keys with similar starts
+            FirstLetterList = []
+            for Key in KeyList:
+                if Key.startswith(TagKey[0]):
+                    FirstLetterList.append(Key)
+
+            if len(FirstLetterList) > 0:  # If there are any similar starting Tags
+                if len(FirstLetterList) > 10:  # Shorten down the list to less than 10
+                    NextList = []
+                    for value in FirstLetterList:
+                        if value.startswith(TagKey[0:2]):
+                            NextList.append(value)
+
+                    # Double check that NextList has any values
+                    if len(NextList) == 0:
+                        NextList = FirstLetterList
+                    elif len(NextList) > 10:
+                        NextList = FirstLetterList[0:10]
+
+                    FinalList = NextList
+                else:
+                    FinalList = FirstLetterList
+
+                # Now we have a list of tags to concatenate
+                TagString = ""
+                for tag in FinalList:
+                    if TagString:
+                        TagString += ", "
+                    TagString += tag
+
+                TagString = "*Did you mean: " + TagString + "?*"
+                print(TagString)
+            else:
+                Tagstring = ""
+
+            SendString = "Cannot find Key in Data!\n" + TagString
+            await message.channel.send(SendString)
+
             await message.add_reaction(Conversation.Emoji["x"])
             return
 
