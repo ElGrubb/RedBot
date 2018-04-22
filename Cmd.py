@@ -3190,10 +3190,10 @@ class Tag:
 
     @staticmethod
     async def TagFunction(message):
-        if await CheckMessage(message, start="t ", prefix=True, admin=True):
+        if await CheckMessage(message, start="t ", prefix=True): #, admin=True):
             # If they did /t <tag>:
             content = message.content[2:].strip()
-        elif await CheckMessage(message, start="tag", prefix=True, admin=True):
+        elif await CheckMessage(message, start="tag", prefix=True): #, admin=True):
             content = message.content[4:].strip()
         else:
             return
@@ -3236,12 +3236,11 @@ class Tag:
                         TagString += ", "
                     TagString += tag
 
-                TagString = "*Did you mean: " + TagString + "?*"
-                print(TagString)
+                TagString = "**Did you mean:** *" + TagString + "*?"
             else:
                 Tagstring = ""
 
-            SendString = "Cannot find Key in Data!\n" + TagString
+            SendString = "Cannot find Key in Data!  " + TagString
             await message.channel.send(SendString)
 
             await message.add_reaction(Conversation.Emoji["x"])
@@ -3308,6 +3307,7 @@ class Tag:
         await attachment.save(Image_PATH)# + Image_Title)
 
         await Progress.edit(content="**Image Detected!** Uploading...")
+        await message.channel.trigger_typing()
 
         # Prepare Imgur Client
         CLIENT_ID = Sys.Read_Personal(data_type='Imgur_Client')
@@ -3329,7 +3329,7 @@ class Tag:
     # Todo /Tag Edit
     # Todo /Tag Delete
     #### Todo Attachments with Tags
-    # Todo TagVotes
+    #### Todo TagVotes
     #### Todo Shorten Links within Tag
 
 
