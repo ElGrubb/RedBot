@@ -847,13 +847,16 @@ class Admin:
     async def ForceLeave(message):
         if not await CheckMessage(message, start="ForceLeave", prefix=True, admin=True):
             return
-        text = "Leave " + message.guild.name + "?"  # Says "Leave Red Playground?"
+        GuildToLeave = int(message.content[11:])
+        GuildToLeave = await Vars.Bot.get_guild(GuildToLeave)
+
+        text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
         confirmation = await Helpers.Confirmation(Vars.Creator, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
-            await message.channel.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
-            await message.guild.leave()  # Leaves
-            await Vars.Creator.send(Vars.Bot.user.name + " Left at " + current_time + " from " + message.guild.name)  # Sends goodbye)
+            await GuildToLeave.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
+            await GuildToLeave.leave()  # Leaves
+            await Vars.Creator.send(Vars.Bot.user.name + " Left at " + current_time + " from " + GuildToLeave.name)  # Sends goodbye)
 
     @staticmethod
     async def Disable(message):

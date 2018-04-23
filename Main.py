@@ -69,6 +69,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.Delete(message)
         await Cmd.Admin.Stop(message)
         await Cmd.Admin.LeaveServer(message)
+        await Cmd.Admin.ForceLeave(message)
         await Cmd.Admin.Disable(message)
         await Cmd.Admin.Talk(message)
         await Cmd.Admin.Status(message)
