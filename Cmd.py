@@ -748,16 +748,20 @@ class Admin:
         try:
             int(content)
         except:
-            raise TypeError("/Copy {timestamp}")
+            raise TypeError("/Copy {Channel ID}")
 
         starttime = time.clock()
 
-        timestamp = int(content)
+        # timestamp = int(content)
+
+        timestamp = 1461383520
         startreading = datetime.fromtimestamp(timestamp)
+
+        Read_From = int(content)
 
         await message.delete() # A few issues
 
-        channel = Vars.Bot.get_channel(404105641645441034)
+        channel = Vars.Bot.get_channel(Read_From)
 
         SendChannel = Vars.Bot.get_channel(428394717798072342)
 
@@ -775,7 +779,6 @@ class Admin:
                     MessageString += "\n" if MessageString else ""
                     MessageString += formatted
                 else:
-
                     em = discord.Embed(description=foundmessage.content, timestamp=foundmessage.created_at)
                     em.set_author(name=foundmessage.author.name, url="http://" + str(foundmessage.author.id) + ".com", icon_url=foundmessage.author.avatar_url)
                     if foundmessage.attachments:
@@ -795,6 +798,8 @@ class Admin:
 
             PreviousAuthor = foundmessage.author
 
+        await SendChannel.send(to_send)
+        #await SendChannel.send(embed=em)
         await WorkingMessage.edit(content="Done   " + message.author.mention)
         await asyncio.sleep(5)
         await WorkingMessage.delete()
@@ -3062,22 +3067,28 @@ class Tag:
         else:
             HasAttachment = False
 
+        ReservedTags = ["list", "help", "delete", "edit"]
+
 
         # Some Fail-Safes about size and stuff
         if TagKey.count(" ") > 2:
             await message.channel.send("Key can only be 3 or more words/numerals!", delete_after=5)
-            await Helpers.QuietDelete(message, wait=2)
+            await Helpers.QuietDelete(message, wait=5)
             return
         if len(TagKey) > 50:
             await message.channel.send("Too long of a key!", delete_after=5)
-            await Helpers.QuietDelete(message, wait=2)
+            await Helpers.QuietDelete(message, wait=5)
             return
         if len(TagContent) > 250:
             await message.channel.send("The Tag Content is too long!", delete_after=5)
-            await Helpers.QuietDelete(message, wait=2)
+            await Helpers.QuietDelete(message, wait=5)
             return
         if not HasAttachment and not TagContent.strip():
             await message.channel.send("No content and no image... Hmmm", delete_after=5)
+            await Helpers.QuietDelete(message, wait=5)
+            return
+        if TagKey in ReservedTags:
+            await message.channel.send("Sorry, that tag is reserved for a system function!", delete_after=5)
             await Helpers.QuietDelete(message, wait=5)
             return
 
@@ -3187,7 +3198,6 @@ class Tag:
         await message.channel.send(ExitMessage)
         return
 
-
     @staticmethod
     async def TagFunction(message):
         if await CheckMessage(message, start="t ", prefix=True): #, admin=True):
@@ -3200,6 +3210,11 @@ class Tag:
         TagKey = content.lower()
 
         AllTagData = await Tag.RetrieveTagList()
+
+        if TagKey == "list":
+            # If they did /tag list
+            await Tag.ListTag(message)
+            return
 
         if TagKey not in AllTagData.keys():
             KeyList = []  # Create list of Tag Keys
@@ -3331,6 +3346,62 @@ class Tag:
     #### Todo Attachments with Tags
     #### Todo TagVotes
     #### Todo Shorten Links within Tag
+
+    @staticmethod
+    async def ListTag(message):
+        # Called internally with /tag list
+        ListDict = {
+            "Showing": 0
+        }
+        AllTagData = await Tag.RetrieveTagList()
+        SectionedKeyList = []  # Contains the keys each in groups of 10
+        TempList = []
+        for FoundTag in AllTagData:
+            # 10 tags per list
+            if len(TempList) == 10:  # If there are 10 in the queue
+                SectionedKeyList.append(TempList)  # Box them up and put them in the SectionedKeyList
+                TempList = []  # Reset Queue
+            FoundTag = AllTagData[FoundTag]
+            KeyStr = FoundTag["Key"]  # Make string KeyStr that keeps track of the key's name
+            if FoundTag["Image"]:
+                KeyStr += " [Image]"  # Add quantifier if its an image
+
+            TempList.append(KeyStr)  # Add to TempList
+
+        if TempList:  # If there are any remaining values
+            SectionedKeyList.append(TempList)  # Box up and put in SectionedKeyList
+            TempList = []
+
+        FinalKeyList = []  # List of strings per page
+        for box in SectionedKeyList:
+            string = ""
+            for key in box:
+                if string:
+                    string += "\n"
+                string += "- " + key
+            FinalKeyList.append(string)
+
+        ListDict["Keys"] = FinalKeyList
+
+        # Now send the first message
+        em = discord.Embed(title="TagList", description=ListDict["Keys"][0])
+        ListMsg = await message.channel.send(embed=em)
+
+        # If there's only one page, do not show the buttons.
+        if len(ListDict["Keys"]) <= 1:
+            return
+
+        # Prepare the Buttons
+        ButtonNext = Conversation.Emoji["TriangleRight"]
+        ButtonBack = Conversation.Emoji["TriangleLeft"]
+        ButtonSkip = Conversation.Emoji["SkipRight"]
+
+        # Add to message
+        for button in [ButtonBack, ButtonNext, ButtonSkip]:
+            await ListMsg.add_reaction(button)
+
+
+
 
 
 

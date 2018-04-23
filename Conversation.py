@@ -104,7 +104,10 @@ Emoji = {
     'heavy_x': '\U00002716',
     'stop': '\U0001f6d1',
     "blue_book": "\U0001f4d8",
-    "tag": "\U0001f5d2"
+    "tag": "\U0001f5d2",
+    "TriangleRight": "\U000025b6",
+    "TriangleLeft": "\U000025c0",
+    "SkipRight": "\U000023e9"
 }
 
 # Nice Tries
