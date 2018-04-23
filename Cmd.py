@@ -848,7 +848,7 @@ class Admin:
         if not await CheckMessage(message, start="ForceLeave", prefix=True, admin=True):
             return
         GuildToLeave = int(message.content[11:])
-        GuildToLeave = await Vars.Bot.get_guild(GuildToLeave)
+        GuildToLeave = Vars.Bot.get_guild(GuildToLeave)
 
         text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
         confirmation = await Helpers.Confirmation(Vars.Creator, text, deny_text="I will stay.")  # Waits for confirmation
