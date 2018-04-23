@@ -857,6 +857,10 @@ class Admin:
         await message.channel.delete_messages([msg, message])
         Vars.Disabler = message.author.id
 
+        if "-n" in message.content:
+            await message.author.send("Will not self re-enable")
+            return
+
         # Wait to re-enable
         await asyncio.sleep(1200)
         if not Vars.Disabled:
