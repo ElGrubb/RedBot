@@ -851,7 +851,7 @@ class Admin:
             return
 
         Vars.Disabled = True
-        await Vars.Bot.change_presence(game=(discord.Game(name='Offline')), status=discord.Status.do_not_disturb)
+        await Vars.Bot.change_presence(game=(discord.Game(name='Offline')), status=discord.Status.offline)
         msg = await message.channel.send('Bot Disabled.')
         await asyncio.sleep(5)
         await message.channel.delete_messages([msg, message])
@@ -877,10 +877,13 @@ class Admin:
     @staticmethod
     async def Enable(message):
         if not await CheckMessage(message, prefix=True, admin=True, start="Enable"):
-            return True
+            if message.author == Vars.Creator:
+                return True
+            else:
+                return False
         if Vars.Disabler:
             if message.author.id != Vars.Disabler and message.author.id != Vars.Creator.id:
-                return
+                return False
 
         Vars.Disabled = False
         Vars.Disabler = None

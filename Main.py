@@ -38,8 +38,10 @@ class MyClient(discord.Client):
                 return
 
         if Cmd.Vars.Disabled:
-            await Cmd.Admin.Enable(message)
-            return
+            await Cmd.Log.LogSent(message)
+            Continue = await Cmd.Admin.Enable(message)
+            if not Continue:
+                return
 
         await Cmd.test(message)
         await Cmd.Help(message)
