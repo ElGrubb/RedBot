@@ -745,6 +745,12 @@ class Admin:
         else:
             embed = False
 
+        if "-h" in content.lower():
+            content = content.replace("-h", "").strip()
+            SendHere = True
+        else:
+            SendHere = False
+
         try:
             int(content)
         except:
@@ -762,8 +768,11 @@ class Admin:
         await message.delete() # A few issues
 
         channel = Vars.Bot.get_channel(Read_From)
+        if not SendHere:
+            SendChannel = Vars.Bot.get_channel(428394717798072342)
+        elif SendHere:
+            SendChannel = message.channel
 
-        SendChannel = Vars.Bot.get_channel(428394717798072342)
 
         WorkingMessage = await message.channel.send("Working...")
 
