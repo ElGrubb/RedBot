@@ -731,7 +731,7 @@ class Admin:
 
             sendmessage += "\n"
 
-        await message.channel.send(sendmessage)
+        await Helpers.SendLongMessage(message.channel, sendmessage)
 
     @staticmethod
     async def CopyFrom(message):
