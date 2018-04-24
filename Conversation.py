@@ -202,7 +202,8 @@ Error_Response = [
 
 Server_IDs = {
     'Dmakir': 215639569071210496,
-    'PlayGround': 267071439109226496
+    'PlayGround': 267071439109226496,
+    'Union': 425641048178688001
     # 'CruzFumey': '281863357001367553'
 }
 

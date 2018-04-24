@@ -760,7 +760,8 @@ class Admin:
 
         # timestamp = int(content)
 
-        timestamp = 1461383520
+        # timestamp = 1461383520  # Beginnig of discord
+        timestamp = 1524525435  # when we left
         startreading = datetime.fromtimestamp(timestamp)
 
         Read_From = int(content)
@@ -856,11 +857,12 @@ class Admin:
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             invitelist = []
-            for i in range(0, 20):
-                invite = await ChannelToLeave.create_invite(max_age=0, reason="Error: line 228, in _run_event "
-                                                                            "yield from self.on_error(event_name, *args, **kwargs)")
-                invitelist.append(invite)
-                await message.channel.send(invite.url + " - " + str(invite.id))
+
+            #for i in range(0, 20):
+            #    invite = await ChannelToLeave.create_invite(max_age=0, reason="Error: line 228, in _run_event "
+            #                                                                "yield from self.on_error(event_name, *args, **kwargs)")
+            #    invitelist.append(invite)
+            #    await message.channel.send(invite.url + " - " + str(invite.id))
             await ChannelToLeave.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
             await GuildToLeave.leave()  # Leaves
 
@@ -2549,7 +2551,7 @@ class Other:
 
     @staticmethod
     async def T_Weather():
-        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Dmakir'])
+        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Union'])
         channel_list = []
         for channel in guild.text_channels:
             channel_list.append(channel)
