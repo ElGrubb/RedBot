@@ -808,7 +808,8 @@ class Admin:
 
             PreviousAuthor = foundmessage.author
 
-        await SendChannel.send(to_send)
+        if to_send:
+            await SendChannel.send(to_send)
         #await SendChannel.send(embed=em)
         await WorkingMessage.edit(content="Done   " + message.author.mention)
         await asyncio.sleep(5)
