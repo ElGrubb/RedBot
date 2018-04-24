@@ -79,6 +79,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.SendData(message)
         await Cmd.Admin.ChangePersonal(message)
         await Cmd.Admin.Broadcast(message)
+        await Cmd.Admin.PermissionsIn(message)
 
         await Cmd.Admin.GuildInfo(message)
 

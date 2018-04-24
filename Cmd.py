@@ -816,6 +816,22 @@ class Admin:
         await WorkingMessage.delete()
         await SendChannel.send(Vars.Creator.mention)
 
+    @staticmethod
+    async def PermissionsIn(message):
+        if not await CheckMessage(message, start="PermissionsIn", prefix=True, admin=True):
+            return
+
+        guild = message.guild
+        content = message.content[15:]
+        ChannelID = int(content)
+        Permchannel = Vars.Bot.get_channel(ChannelID)
+
+        sendmsg = ""
+        for permission in Permchannel.permissions_for(guild.get_member(Vars.Bot.user.id)):
+            sendmsg += "\n" + permission[0] + "   " + str(permission[1])
+
+        await Helpers.SendLongMessage(message.channel, sendmsg)
+
 
     @staticmethod
     async def Stop(message):
