@@ -2568,7 +2568,7 @@ class Other:
 
     @staticmethod
     async def T_Weather():
-        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Union'])
+        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Lounge'])
         channel_list = []
         for channel in guild.text_channels:
             channel_list.append(channel)
