@@ -3424,7 +3424,7 @@ class Tag:
                 TempList = []  # Reset Queue
             FoundTag = AllTagData[FoundTag]
             KeyStr = FoundTag["Key"]  # Make string KeyStr that keeps track of the key's name
-            if "Image" in TagData.keys():
+            if "Image" in FoundTag.keys():
                 if FoundTag["Image"]:
                     KeyStr += " [Image]"  # Add quantifier if its an image
 
