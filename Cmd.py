@@ -3333,8 +3333,9 @@ class Tag:
             # If it is an admin then there's no issue
 
         em = discord.Embed(description=TagData["Content"], color=0xFFFFFF)
-        if TagData["Image"]:
-            em.set_image(url=TagData["Image"])
+        if "Image" in TagData.keys():
+            if TagData["Image"]:
+                em.set_image(url=TagData["Image"])
         em.set_footer(text="/tag " + TagData["Key"])
 
         await message.channel.send(embed=em) #TagData["Content"])
@@ -3423,8 +3424,9 @@ class Tag:
                 TempList = []  # Reset Queue
             FoundTag = AllTagData[FoundTag]
             KeyStr = FoundTag["Key"]  # Make string KeyStr that keeps track of the key's name
-            if FoundTag["Image"]:
-                KeyStr += " [Image]"  # Add quantifier if its an image
+            if "Image" in TagData.keys():
+                if FoundTag["Image"]:
+                    KeyStr += " [Image]"  # Add quantifier if its an image
 
             TempList.append(KeyStr)  # Add to TempList
 
