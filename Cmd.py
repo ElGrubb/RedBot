@@ -3039,6 +3039,8 @@ class Other:
             StartText = SelectList(Phrases["PrecipitationStart"])
             if "Type" not in Start.keys():
                 Start["Type"] = "Rain"
+            if "Hour" not in Start.keys():
+                Start["Hour"] = "Today"
             StartText = StartText.replace("%Type%", Start["Type"]).replace("%Time%", Start["Hour"])
             StartText = StartText.replace("%Date%", Start["Date"]).replace("%Chance%",
                                                                            str(int(Start["Probability"] * 100)) + "%")
