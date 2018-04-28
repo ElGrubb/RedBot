@@ -3277,6 +3277,10 @@ class Tag:
             # If they did /tag list
             await Tag.ListTag(message)
             return
+        if TagKey == "help":
+            # If they did /tag help
+            await Tag.HelpTag(message)
+            return
 
         if TagKey not in AllTagData.keys():
             KeyList = []  # Create list of Tag Keys
@@ -3403,7 +3407,7 @@ class Tag:
         return uploaded_image
     # Todo /Tag Info
     # Todo /Tag Help
-    # Todo /Tag List
+    #### Todo /Tag List
     # Todo /Tag Edit
     # Todo /Tag Delete
     #### Todo Attachments with Tags
@@ -3448,7 +3452,8 @@ class Tag:
         ListDict["Keys"] = FinalKeyList
 
         # Now send the first message
-        em = discord.Embed(title="TagList", description=ListDict["Keys"][0])
+        em = discord.Embed(title="List of Saved Tags", description=ListDict["Keys"][0], color=Vars.Bot_Color)
+        em.set_footer(text="Page 1/" + str(len(ListDict["Keys"])))
         ListMsg = await message.channel.send(embed=em)
 
         # If there's only one page, do not show the buttons.
@@ -3460,9 +3465,107 @@ class Tag:
         ButtonBack = Conversation.Emoji["TriangleLeft"]
         ButtonSkip = Conversation.Emoji["SkipRight"]
 
+        ButtonList = [ButtonBack, ButtonNext, ButtonSkip]
+
         # Add to message
-        for button in [ButtonBack, ButtonNext, ButtonSkip]:
+        for button in ButtonList:
             await ListMsg.add_reaction(button)
+
+        StopWhileLoop = False
+        while not StopWhileLoop:
+            # Standard loop that runs per each reaction added
+
+            # Will be able to remove an indifferent reaction
+            async def remove_reaction(init_reaction, init_user):
+                # Can remove a reaction without needing async
+                await asyncio.sleep(.25)
+                await init_reaction.message.remove_reaction(init_reaction.emoji, init_user)
+                return
+
+            # Checks to make sure the reaction is valid
+            def check(init_reaction, init_user):
+                if init_reaction.message.id != ListMsg.id:  # On this message
+                    return
+                if init_user.id == Vars.Bot.user.id:  # Not a bot
+                    return
+                if init_reaction.emoji in ButtonList and init_user.id == message.author.id:  # Acceptable Emoji & Origional User
+                    return True
+                else:  # If not:  Start Async loop to remove reaction
+                    Vars.Bot.loop.create_task(remove_reaction(init_reaction, init_user))
+                    return
+
+            # Wait for Reaction
+            try:
+                reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=60, check=check)
+
+            except asyncio.TimeoutError:
+                # If timed out
+                await ListMsg.clear_reactions()
+                StopWhileLoop = True  # Ensure it won't loop again
+                break  # Break Loop
+
+            # If we are successful, remove the reaction and check which emoji it is
+            Vars.Bot.loop.create_task(remove_reaction(reaction, user))
+
+            # Back Button
+            if reaction.emoji == ButtonBack:
+                MoveTo = ListDict['Showing'] - 1
+                if MoveTo < 0:
+                    MoveTo = len(ListDict['Keys']) - 1
+
+            # Next Button
+            if reaction.emoji == ButtonNext:
+                MoveTo = ListDict['Showing'] + 1
+                if MoveTo >= len(ListDict['Keys']):
+                    MoveTo = 0
+
+            # Skip Ahead Button
+            if reaction.emoji == ButtonSkip:
+                MoveTo = len(ListDict["Keys"]) - 1
+
+            # Update ListDict
+            ListDict['Showing'] = MoveTo
+
+            # Update Message / Send it
+            em = discord.Embed(title="List of Saved Tags", description=ListDict["Keys"][MoveTo], color=Vars.Bot_Color)
+            em.set_footer(text="Page " + str(MoveTo +1) + "/" + str(len(ListDict['Keys'])))
+            await ListMsg.edit(embed=em)
+
+            # Update the message item we have
+            ListMsg = await Helpers.ReGet(ListMsg)
+
+        # When we're out of the loop now:
+        em = discord.Embed(title="List of Saved Tags", description=ListDict["Keys"][ListDict["Showing"]])
+        em.set_footer(text="Page " + str(ListDict["Showing"] + 1) + "/" + str(len(ListDict['Keys'])) + " - /tag List")
+        await ListMsg.edit(embed=em)
+        return
+
+    @staticmethod
+    async def HelpTag(message):
+        HelpDesc = "The Tag Command allows me to remember certain images, links, or phrases and send them after a key " \
+                   "phrase is given, IE `/tag tailgate`" \
+                   "\n\n**To Call A Tag**\n" \
+                   "- To call a tag in my memory, type `/tag ___` or `/t ___` with the appropriate key." \
+                   "\n\n **To Create a Tag**\n" \
+                   "- To create a tag, type `/settag <key> <content>`. For example, You could say `/settag Dog I like Dogs`" \
+                   ". When you type `/t dog`, I'll respond with 'I like Dogs'." \
+                   "\n- Sometimes I decide to call a vote on a tag if I feel it may be niche or bad." \
+                   "\n- If you want to tag with an image, type `/settag <key>` in the message attached to the image. You can" \
+                   "have an image and content such as a link in the same tag. " \
+                   "\n- *Keep in mind that I upload all images to Imgur and shorten all links using TinyURL" \
+                   "\n\n**Helpful Commands**" \
+                   "\n  -  /tag Help" \
+                   "\n  -  /tag List"
+        em = discord.Embed(title="Tag Help", description=HelpDesc, color=Vars.Bot_Color)
+        await message.channel.send(embed=em)
+
+
+
+        return
+
+
+
+
 
 
 
