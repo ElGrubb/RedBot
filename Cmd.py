@@ -3129,7 +3129,7 @@ class Tag:
         else:
             HasAttachment = False
 
-        ReservedTags = ["list", "help", "delete", "edit"]
+        ReservedTags = ["list", "help", "delete", "edit", "info"]
 
 
         # Some Fail-Safes about size and stuff
@@ -3281,6 +3281,10 @@ class Tag:
             # If they did /tag help
             await Tag.HelpTag(message)
             return
+        if "info" == TagKey.split(" ")[0]:
+            # If the key starts with "info"
+            await Tag.InfoTag(message, TagKey)
+            return
 
         if TagKey not in AllTagData.keys():
             KeyList = []  # Create list of Tag Keys
@@ -3406,7 +3410,7 @@ class Tag:
 
         return uploaded_image
     # Todo /Tag Info
-    # Todo /Tag Help
+    #### Todo /Tag Help
     #### Todo /Tag List
     # Todo /Tag Edit
     # Todo /Tag Delete
@@ -3558,18 +3562,39 @@ class Tag:
                    "\n  -  /tag List"
         em = discord.Embed(title="Tag Help", description=HelpDesc, color=Vars.Bot_Color)
         await message.channel.send(embed=em)
-
-
-
         return
 
+    @staticmethod
+    async def InfoTag(message, TagKey):
+        # Display some info about the tag's creation
+        AllTagData = await Tag.RetrieveTagList()
 
+        TagKey = TagKey.replace("info", "").strip()
 
+        if TagKey not in AllTagData.keys():
+            # If the key doesn't exist in the data:
+            await message.channel.send("Cannot find key in data...")
+            await message.add_reaction(Conversation.Emoji["x"])
+            return
 
+        TagData = AllTagData[TagKey]
 
+        SendMsg = "```\nKey: " + TagData["Key"]
+        SendMsg += "\nContent: " + TagData["Content"]
+        SendMsg += "\nCreator: " + Vars.Bot.get_user(TagData["Creator"]).name + " (" + str(TagData["Creator"]) + ")"
+        SendMsg += "\nGuild: " + Vars.Bot.get_guild(TagData["Guild"]).name + " (" + str(TagData["Guild"]) + ")"
+        SendMsg += "\nTime: " + str(datetime.fromtimestamp(TagData["Time"]))
+        SendMsg += "\nAdmin Only? " + str(TagData["Admin"])
+        SendMsg += "\nImage: " + str(TagData["Image"])
 
+        SendMsg += "\n```"
+        em = discord.Embed(title="Tag Info", description=SendMsg, color=Vars.Bot_Color)
 
+        if TagData["Image"]:
+            em.set_image(url=TagData["Image"])
 
+        await message.channel.send(embed=em)
+        return
 
 
 
