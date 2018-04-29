@@ -92,9 +92,11 @@ Emoji = {
     'quote': '\U0001f4ac',
     'circle': '\U0001f534',
     'e': '\U0001f1ea',
-    'one': '\U00000031',
-    'two': '\U00000032',
-    'three': '\U00000033',
+    'one': '\U00000031',  # One
+    'two': '\U00000032',  # two
+    'three': '\U00000033',# three
+    'four': '\U00000034', # four
+    'five': '\U00000035', # five
     'info': '\U00002139',
     'repeat': '\U0001f501',
     'hmmm': '\U0001f914',

@@ -214,7 +214,7 @@ class Helpers:
     @staticmethod
     async def Confirmation(message, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
                            return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
-                           add_reaction=True, image=None):
+                           add_reaction=True, image=None, color=Vars.Bot_Color):
         """
         Sends a confirmation for a command
         :param message: The message object
@@ -247,7 +247,7 @@ class Helpers:
         else:
             before_message = None
 
-        em = discord.Embed(title=text, description=extra_text, timestamp=datetime.now(), colour=Vars.Bot_Color)
+        em = discord.Embed(title=text, description=extra_text, timestamp=datetime.now(), colour=color)
 
         em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
         if image:
@@ -3133,7 +3133,7 @@ class Tag:
 
 
         # Some Fail-Safes about size and stuff
-        if TagKey.count(" ") > 2:
+        if TagKey.count(" ") > 3:
             await message.channel.send("Key can only be 3 or more words/numerals!", delete_after=5)
             await Helpers.QuietDelete(message, wait=5)
             return
@@ -3173,7 +3173,11 @@ class Tag:
                 await message.channel.send("This Tag is Occupied by a more important function. Insufficient "
                                            "Permissions to Overwrite.")
                 return
-        # Todo Edit tag
+            else:
+                # If its not an admin tag, give them opportunity to override
+                SendMsg = "This tag is already made! To edit it, type ```css\n/tag edit " + TagKey + "```"
+                await message.channel.send(SendMsg)
+                return
         if HasAttachment:
             image = AttachmentUploaded.link
         else:
@@ -3206,7 +3210,7 @@ class Tag:
 
                 if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
                     return False
-                if init_reaction.count >= 5  and init_reaction.emoji == Conversation.Emoji["tag"]:
+                if init_reaction.count >= 4  and init_reaction.emoji == Conversation.Emoji["tag"]:
                     return init_reaction, init_user
                 else:
                     return False
@@ -3234,7 +3238,8 @@ class Tag:
             "Guild": message.guild.id,
             "Channel": message.channel.id,
             "Time": (datetime.now() + timedelta(hours=3)).timestamp(),
-            "Admin": AdminTag
+            "Admin": AdminTag,
+            "Image": Vars.Bot_Color
         }
         if HasAttachment:
             NewTagDict["Image"] = AttachmentUploaded.link
@@ -3261,31 +3266,19 @@ class Tag:
         return
 
     @staticmethod
-    async def TagFunction(message):
-        if await CheckMessage(message, start="t ", prefix=True): #, admin=True):
-            # If they did /t <tag>:
-            content = message.content[2:].strip()
-        elif await CheckMessage(message, start="tag", prefix=True): #, admin=True):
-            content = message.content[4:].strip()
-        else:
-            return
-        TagKey = content.lower()
+    async def GetTag(message, TagKey):
+        # Called Internally, retrieves the tag and if it can't, sends a message.
+        # Returns None: No tag. Message Sent.
+        # Returns TagData
 
         AllTagData = await Tag.RetrieveTagList()
+        if TagKey in AllTagData.keys():
+            return AllTagData[TagKey]
 
-        if TagKey == "list":
-            # If they did /tag list
-            await Tag.ListTag(message)
-            return
-        if TagKey == "help":
-            # If they did /tag help
-            await Tag.HelpTag(message)
-            return
-        if "info" == TagKey.split(" ")[0]:
-            # If the key starts with "info"
-            await Tag.InfoTag(message, TagKey)
-            return
+        # If it can't find it:
 
+
+        DidYouMean = ""
         if TagKey not in AllTagData.keys():
             KeyList = []  # Create list of Tag Keys
             for TagData in AllTagData:
@@ -3315,24 +3308,59 @@ class Tag:
                     FinalList = FirstLetterList
 
                 # Now we have a list of tags to concatenate
-                TagString = ""
+                DidYouMean = ""
                 for tag in FinalList:
-                    if TagString:
-                        TagString += ", "
-                    TagString += tag
+                    if DidYouMean:
+                        DidYouMean += ", "
+                    DidYouMean += tag
 
-                TagString = "**Did you mean:** *" + TagString + "*?"
+                DidYouMean = "**Did you mean:** *" + DidYouMean + "*?"
             else:
                 Tagstring = ""
 
-            SendString = "Cannot find Key in Data!  " + TagString
+            SendString = "Cannot find Key __" + Sys.FirstCap(TagKey) + "__ in Data!  " + DidYouMean
             await message.channel.send(SendString)
 
             await message.add_reaction(Conversation.Emoji["x"])
+            return None
+
+
+    @staticmethod
+    async def TagFunction(message):
+        if await CheckMessage(message, start="t ", prefix=True): #, admin=True):
+            # If they did /t <tag>:
+            content = message.content[2:].strip()
+        elif await CheckMessage(message, start="tag", prefix=True): #, admin=True):
+            content = message.content[4:].strip()
+        else:
+            return
+        TagKey = content.lower()
+
+        AllTagData = await Tag.RetrieveTagList()
+
+        if TagKey == "list":
+            # If they did /tag list
+            await Tag.ListTag(message)
+            return
+        if TagKey == "help":
+            # If they did /tag help
+            await Tag.HelpTag(message)
+            return
+        if "info" == TagKey.split(" ")[0]:
+            # If the key starts with "info"
+            await Tag.InfoTag(message, TagKey)
+            return
+        if "edit" == TagKey.split(" ")[0]:
+            # /tag edit ___
+            await Tag.EditTag(message, TagKey)
+            return
+
+        TagData = await Tag.GetTag(message, TagKey)
+        if not TagData:
             return
 
         # If it does exist in the data
-        TagData = AllTagData[TagKey]
+        # TagData = AllTagData[TagKey]
         if TagData["Admin"]:
             # If it's an admin only tag:
             IsAdmin = await CheckMessage(message, prefix=True, admin=True)
@@ -3409,14 +3437,6 @@ class Tag:
         await Helpers.QuietDelete(Progress)
 
         return uploaded_image
-    # Todo /Tag Info
-    #### Todo /Tag Help
-    #### Todo /Tag List
-    # Todo /Tag Edit
-    # Todo /Tag Delete
-    #### Todo Attachments with Tags
-    #### Todo TagVotes
-    #### Todo Shorten Links within Tag
 
     @staticmethod
     async def ListTag(message):
@@ -3559,7 +3579,9 @@ class Tag:
                    "\n- *Keep in mind that I upload all images to Imgur and shorten all links using TinyURL" \
                    "\n\n**Helpful Commands**" \
                    "\n  -  /tag Help" \
-                   "\n  -  /tag List"
+                   "\n  -  /tag List" \
+                   "\n  -  /tag Info ____" \
+                   "\n  -  /tag Edit ____"
         em = discord.Embed(title="Tag Help", description=HelpDesc, color=Vars.Bot_Color)
         await message.channel.send(embed=em)
         return
@@ -3571,13 +3593,10 @@ class Tag:
 
         TagKey = TagKey.replace("info", "").strip()
 
-        if TagKey not in AllTagData.keys():
-            # If the key doesn't exist in the data:
-            await message.channel.send("Cannot find key in data...")
-            await message.add_reaction(Conversation.Emoji["x"])
+        TagData = await Tag.GetTag(message, TagKey)
+        if not TagData:
             return
 
-        TagData = AllTagData[TagKey]
 
         SendMsg = "```\nKey: " + TagData["Key"]
         SendMsg += "\nContent: " + TagData["Content"]
@@ -3594,6 +3613,199 @@ class Tag:
             em.set_image(url=TagData["Image"])
 
         await message.channel.send(embed=em)
+        return
+
+    @staticmethod
+    async def EditTag(message, TagKey):
+        AllTagData = await Tag.RetrieveTagList()
+
+        TagKey = TagKey.replace("edit", "").strip()
+
+        if message.author.id not in Ranks.Admins:
+            return
+
+        TagData = await Tag.GetTag(message, TagKey)
+        if not TagData:
+            return
+
+        # Prepare Dialogue asking what action they wish to do
+        ChoiceBoxString = ":one:  Change Tag Key\n:two:  Change Tag Content\n:three:  Change Tag Image" \
+                          "\n:four:  Change Tag Color\n:five:  Delete Tag"
+        em = discord.Embed(title="Edit Tag: " + TagKey, description=ChoiceBoxString)
+        ChoiceBoxMsg = await message.channel.send(embed=em)
+
+        ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
+         '\U0001F1EC', '\U0001F1ED', '\U0001F1EE', '\U0001F1EF']
+
+        ReactOne   = '\U0001F1E6'
+        ReactTwo   = '\U0001F1E7'
+        ReactThree = '\U0001F1E8'
+        ReactFour  = '\U0001F1E9'
+        ReactFive  = '\U0001F1EA'
+
+        ReactList = [ReactOne, ReactTwo, ReactThree, ReactFour, ReactFive]
+
+        for reaction in ReactList:
+            await ChoiceBoxMsg.add_reaction(reaction)
+
+        # Remove Reaction Function
+        async def remove_reaction(init_reaction, init_user):
+            # Can remove a reaction without needing async
+            await init_reaction.message.remove_reaction(init_reaction.emoji, init_user)
+            return
+
+        def check(init_reaction, init_user):
+            if init_user.id == Vars.Bot.user.id:
+                return False
+            if init_reaction.emoji in ReactList and init_user.id == message.author.id:
+                return True
+            else:
+                Vars.Bot.loop.create_task(remove_reaction(init_reaction, init_user))
+
+        try:
+            reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=60, check=check)
+
+        except asyncio.TimeoutError:
+            # If timed out
+            await message.send("Edit Timed Out.")
+            await Helpers.QuietDelete(ChoiceBoxMsg)
+            return
+
+        await Helpers.QuietDelete(ChoiceBoxMsg)
+
+        # Now we find which they chose
+        if reaction.emoji == ReactOne:
+            EditMode = "Key"
+        if reaction.emoji == ReactTwo:
+            EditMode = "Content"
+        if reaction.emoji == ReactThree:
+            EditMode = "Image"
+        if reaction.emoji == ReactFour:
+            EditMode = "Color"
+        if reaction.emoji == ReactFive:
+            EditMode = "Delete"
+
+        # Delete tag if requested
+        if EditMode == "Delete":
+            if not await Helpers.Confirmation(message, "Delete Tag? " + TagKey):
+                return
+            AllTagData.pop(TagKey)
+            Helpers.SaveData(AllTagData,  type="Tag")
+            await message.channel.send("Deleted Tag " + TagKey + " from RedBot Database")
+            await message.add_reaction(Conversation.Emoji["check"])
+            return
+
+        ResponsePrompt = await message.channel.send("Okay, send the new **" + EditMode + "** that you desire now.")
+
+        def check2(init_msg):
+            if init_msg.author.id == message.author.id:
+                return True
+
+        try:
+            ResponseMsg = await Vars.Bot.wait_for('message', timeout=60, check=check2)
+
+        except asyncio.TimeoutError:
+            await message.send("Edit Timed Out.")
+            await Helpers.QuietDelete(ChoiceBoxMsg)
+            return
+
+        await Helpers.QuietDelete(ResponseMsg)
+        await Helpers.QuietDelete(ResponsePrompt)
+        await message.channel.trigger_typing()
+
+        # Okay so now we have the new part of the tag, so it's time to split off and run the command per grouping
+
+        # KEY
+        if EditMode == "Key":
+            NewKey = ResponseMsg.content.strip().replace("-", " ")
+            if len(NewKey) > 50:
+                await message.channel.send("Key is too long!")
+                return
+            elif NewKey.count(" ") > 3:
+                await message.channel.send("Key has too many spaces!")
+                return
+            elif NewKey in AllTagData:
+                await message.channel.send("Tag already exists!")
+                return
+
+            # if Key is good:
+            TagData["Key"] = NewKey
+
+        elif EditMode == "Content":
+            NewContent = ResponseMsg.content.strip()
+
+            # Shorten any links
+            if "http" in NewContent:
+                ContentWords = NewContent.split(" ")  # Split by spaces
+                for word in ContentWords:
+                    if "http" in word.lower():  # If this particular word contains the link
+
+                        while not word.lower().startswith("http"):  # Keep going one by one until you find it
+                            word = word[1:]
+                        # We now have word starting in the right place, but not ending yet
+                        if word.endswith("\""):
+                            word = word.replace("\"", "")
+                        word = word.strip()
+                        while "\n" in word:
+                            word = word[:len(word) - 1]
+
+                        shortened_word = Sys.Shorten_Link(word)
+                        # Replace original usage with shortened link
+                        NewContent = NewContent.replace(word, shortened_word)
+
+            # Okay so now all links are shortened, check length:
+            if len(NewContent) > 250:
+                await message.channel.send("Too long!")
+                return
+
+            # if it's cleared to go
+            TagData["Content"] = NewContent
+
+        elif EditMode == "Image":
+            try:
+                NewImage = ResponseMsg.attachments[0]
+            except:
+                await message.channel.send("You forgot to attach an image, bud.")
+                return
+
+            ImageLink = await Tag.DownloadAndUpload(message, NewImage)
+            NewImage = ImageLink.link
+            TagData["Image"] = NewImage
+
+        elif EditMode == "Color":
+            # Ensure the content is a color
+            try:
+                color = discord.Colour(int(ResponseMsg.content.strip(), 16))
+            except:
+                failure = "Please use a Hex Code. Try this link: "
+                failure += Sys.Shorten_Link('https://www.webpagefx.com/web-design/color-picker/')
+                second_message = await message.channel.send(failure)
+                return
+
+            TagData["Color"] = color
+
+        # So at this point we have an updated TagData Dict to use
+        if not "Color" in TagData.keys():
+            TagData["Color"] = Vars.Bot_Color
+
+        ConfirmMessage = "This is the Tag you want?"
+        Extra_Text = "```You Send:  > /tag " + TagData["Key"] + "\nI Respond: > " + TagData["Content"].replace("```", "\'\'\'") + "```"
+        Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+                                                  deny_text="Tag Creation Cancelled",
+                                                  image=TagData["Image"], color=TagData["Color"])
+        if not Confirmation:
+            return
+
+        # If they confirmed it:
+        AllTagData.pop(TagKey)
+        AllTagData[TagData["Key"]] = TagData
+
+        # Set it in the new dict
+        Helpers.SaveData(AllTagData, "Tag")
+
+        ExitMessage = "Successfully Edit Tag. To use it, type: ```css\n/tag " + TagData["Key"] + "```"
+        await message.channel.send(ExitMessage)
+
         return
 
 
