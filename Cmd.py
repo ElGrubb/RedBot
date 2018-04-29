@@ -3334,7 +3334,7 @@ class Tag:
             content = message.content[4:].strip()
         else:
             return
-        TagKey = content.lower()
+        TagKey = content#.lower()
 
         AllTagData = await Tag.RetrieveTagList()
 
