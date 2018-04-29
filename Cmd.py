@@ -3334,7 +3334,7 @@ class Tag:
             content = message.content[4:].strip()
         else:
             return
-        TagKey = content#.lower()
+        TagKey = content.lower()
 
         AllTagData = await Tag.RetrieveTagList()
 
@@ -3717,7 +3717,7 @@ class Tag:
 
         # KEY
         if EditMode == "Key":
-            NewKey = ResponseMsg.content.strip().replace("-", " ")
+            NewKey = ResponseMsg.content.strip().replace("-", " ").lower()
             if len(NewKey) > 50:
                 await message.channel.send("Key is too long!")
                 return
