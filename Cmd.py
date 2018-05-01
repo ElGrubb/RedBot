@@ -17,10 +17,10 @@ wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_
 
 class Ranks:
     Admins = [
-        239791371110580225,  # Dom
-        # 215639561181724672,  #Scangas
-        211271446226403328,  # Tracy
-        266454101766832131   # Louis
+        239791371110580225,     # Dom
+        211271446226403328,     # Tracy
+        266454101766832131,     # Louis
+        351471785914400789      # Raden
     ]
     NoUse = [
         ''
@@ -3129,7 +3129,7 @@ class Tag:
         else:
             HasAttachment = False
 
-        ReservedTags = ["list", "help", "delete", "edit", "info"]
+        ReservedTags = ["list", "help", "delete", "edit", "info", "random"]
 
 
         # Some Fail-Safes about size and stuff
@@ -3354,6 +3354,9 @@ class Tag:
             # /tag edit ___
             await Tag.EditTag(message, TagKey)
             return
+        if TagKey == "random":
+            await Tag.RandomTag(message)
+            return
 
         TagData = await Tag.GetTag(message, TagKey)
         if not TagData:
@@ -3370,7 +3373,10 @@ class Tag:
                 return
             # If it is an admin then there's no issue
 
-        em = discord.Embed(description=TagData["Content"], color=0xFFFFFF)
+        if "Color" not in TagData.keys():
+            TagData["Color"] = Vars.Bot_Color
+
+        em = discord.Embed(description=TagData["Content"], color=TagData["Color"])
         if "Image" in TagData.keys():
             if TagData["Image"]:
                 em.set_image(url=TagData["Image"])
@@ -3447,7 +3453,7 @@ class Tag:
         AllTagData = await Tag.RetrieveTagList()
         SectionedKeyList = []  # Contains the keys each in groups of 10
         TempList = []
-        for FoundTag in AllTagData:
+        for FoundTag in sorted(AllTagData):
             # 10 tags per list
             if len(TempList) == 10:  # If there are 10 in the queue
                 SectionedKeyList.append(TempList)  # Box them up and put them in the SectionedKeyList
@@ -3545,7 +3551,10 @@ class Tag:
 
             # Skip Ahead Button
             if reaction.emoji == ButtonSkip:
-                MoveTo = len(ListDict["Keys"]) - 1
+                if ListDict['Showing'] == len(ListDict["Keys"]) - 1:
+                    MoveTo = 0
+                else:
+                    MoveTo = len(ListDict["Keys"]) - 1
 
             # Update ListDict
             ListDict['Showing'] = MoveTo
@@ -3605,6 +3614,7 @@ class Tag:
         SendMsg += "\nTime: " + str(datetime.fromtimestamp(TagData["Time"]))
         SendMsg += "\nAdmin Only? " + str(TagData["Admin"])
         SendMsg += "\nImage: " + str(TagData["Image"])
+        SendMsg += "\nColor: " + str(TagData["Color"])
 
         SendMsg += "\n```"
         em = discord.Embed(title="Tag Info", description=SendMsg, color=Vars.Bot_Color)
@@ -3782,7 +3792,8 @@ class Tag:
                 second_message = await message.channel.send(failure)
                 return
 
-            TagData["Color"] = color
+            TagData["Color"] = str(color).replace("#","")
+            TagData['Color'] = color.value
 
         # So at this point we have an updated TagData Dict to use
         if not "Color" in TagData.keys():
@@ -3806,6 +3817,36 @@ class Tag:
         ExitMessage = "Successfully Edit Tag. To use it, type: ```css\n/tag " + TagData["Key"] + "```"
         await message.channel.send(ExitMessage)
 
+        return
+
+    @staticmethod
+    async def RandomTag(message):
+        # Called if /tag random
+        AllTagData = await Tag.RetrieveTagList()
+
+        SelectedTagKey = random.choice(list(AllTagData.keys()))
+
+        TagData = AllTagData[SelectedTagKey]
+
+        if TagData["Admin"]:
+            # If it's an admin only tag:
+            IsAdmin = await CheckMessage(message, prefix=True, admin=True)
+            if not IsAdmin:
+                await message.channel.send("This is an admin-only tag! Sorry.")
+                await message.add_reaction(Conversation.Emoji["x"])
+                return
+            # If it is an admin then there's no issue
+
+        if "Color" not in TagData.keys():
+            TagData["Color"] = Vars.Bot_Color
+
+        em = discord.Embed(description=TagData["Content"], color=TagData["Color"])
+        if "Image" in TagData.keys():
+            if TagData["Image"]:
+                em.set_image(url=TagData["Image"])
+        em.set_footer(text="/tag " + TagData["Key"])
+
+        await message.channel.send(embed=em) #TagData["Content"])
         return
 
 
