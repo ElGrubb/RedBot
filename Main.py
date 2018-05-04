@@ -152,8 +152,13 @@ class MyClient(discord.Client):
         if not has_channel:
             await crash_channel.send(Cmd.Vars.Creator.mention + ", this below was `Unlogged` in original channel.\n")
 
-        to_log = "== -- " * 4 + "==\n" + to_log
-        await crash_channel.send(to_log)
+
+        em = discord.Embed(description=to_log, color=Cmd.Vars.Bot_Color)
+
+        #to_log = "== -- " * 4 + "==\n" + to_log
+
+
+        await crash_channel.send(embed=em)
 
 
     async def on_reaction_add(self, reaction, user):

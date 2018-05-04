@@ -3892,8 +3892,8 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    await Log.AppendLogged(429630979855089667, "\n**Testing this:**\nmemes", NewColor=0x22BB22)
-
+    raise TypeError("Testing!")
+    return
 
 async def Help(message):
     if not await CheckMessage(message, start="help", prefix=True):
