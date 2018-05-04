@@ -3099,6 +3099,7 @@ class Tag:
         TagContent = content[len(TagKey):].strip()
 
         TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
+        TagKey = TagKey.replace("_", " ")
 
         # Shorten Links within Tag
         if "http" in TagContent:
@@ -3324,7 +3325,6 @@ class Tag:
             await message.add_reaction(Conversation.Emoji["x"])
             return None
 
-
     @staticmethod
     async def TagFunction(message):
         if await CheckMessage(message, start="t ", prefix=True): #, admin=True):
@@ -3335,6 +3335,9 @@ class Tag:
         else:
             return
         TagKey = content.lower()
+        if not TagKey.strip():
+            await Tag.HelpTag(message)
+            return
 
         AllTagData = await Tag.RetrieveTagList()
 
@@ -3719,7 +3722,7 @@ class Tag:
             await Helpers.QuietDelete(ChoiceBoxMsg)
             return
 
-        await Helpers.QuietDelete(ResponseMsg)
+
         await Helpers.QuietDelete(ResponsePrompt)
         await message.channel.trigger_typing()
 
@@ -3794,6 +3797,8 @@ class Tag:
 
             TagData["Color"] = str(color).replace("#","")
             TagData['Color'] = color.value
+
+        await Helpers.QuietDelete(ResponseMsg)
 
         # So at this point we have an updated TagData Dict to use
         if not "Color" in TagData.keys():
