@@ -3087,11 +3087,39 @@ class Tag:
         # Format: /settag cheese-and-stuff https://www.cheese.com
         content = message.content[1:].replace("settag","").strip()
 
-        if content.startswith("-a"):
+        if "-a" in content.lower().split(" "):
             AdminTag = True
-            content = content.replace("-a","").strip().replace("  ", " ")
+            SpaceList = content.split(" ")
+            NewSpaceList = []
+            for part in SpaceList:
+                if part.lower() != "-a":
+                    NewSpaceList.append(part)
+            contentstr = ""
+            for part in NewSpaceList:
+                if contentstr:
+                    contentstr += " " + part
+                else:
+                    contentstr = part
+            content = contentstr
         else:
             AdminTag = False
+
+        if "-f" in content.lower().split(" "):
+            ForceTag = True
+            SpaceList = content.split(" ")
+            NewSpaceList = []
+            for part in SpaceList:
+                if part.lower() != "-f":
+                    NewSpaceList.append(part)
+            contentstr = ""
+            for part in NewSpaceList:
+                if contentstr:
+                    contentstr += " " + part
+                else:
+                    contentstr = part
+            content = contentstr
+        else:
+            ForceTag = False
 
         # User: > .t TagKey
         # Bot : > TagContent
@@ -3165,6 +3193,8 @@ class Tag:
 
         if not IsAdmin and AdminTag:
             AdminTag = False
+        if not IsAdmin and ForceTag:
+            ForceTag = False
 
         # See if TagKey is already used:
         TagData = await Tag.RetrieveTagList()
@@ -3184,13 +3214,15 @@ class Tag:
         else:
             image = None
 
-        ConfirmMessage = "Create Tag?"
-        Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
-        Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+
+        if not ForceTag:
+            ConfirmMessage = "Create Tag?"
+            Extra_Text = "```You Send:  > /tag " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
+            Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
                                                   deny_text="Tag Creation Cancelled", yes_text=yes_text,
                                                   image=image)
-        if not Confirmation:
-            return
+            if not Confirmation:
+                return
 
         await message.channel.trigger_typing()
 
