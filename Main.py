@@ -155,9 +155,6 @@ class MyClient(discord.Client):
 
         em = discord.Embed(description=to_log, color=Cmd.Vars.Bot_Color)
 
-        #to_log = "== -- " * 4 + "==\n" + to_log
-
-
         await crash_channel.send(embed=em)
 
 

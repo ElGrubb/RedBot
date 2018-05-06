@@ -3406,7 +3406,7 @@ class Tag:
         if not os.path.isdir("Images"):
             os.makedirs("Images")
 
-        DiscordURL = attachment.url
+        DiscordURL = attachment.url.lower()
         if DiscordURL.endswith("/"):
             DiscordURL = DiscordURL[0:len(DiscordURL)-1]
 
@@ -3417,6 +3417,7 @@ class Tag:
                 HasSuffix = True
 
         if not HasSuffix:
+            print(DiscordURL)
             await message.channel.send("Cannot read image!")
             return False
 
@@ -3890,6 +3891,9 @@ class On_React:
 
 
 async def test(message):
+    # print(message.attachments[0])
+
+
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
     raise TypeError("Testing!")
