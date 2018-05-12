@@ -2650,7 +2650,9 @@ class Other:
             if len(result_text) == 1:
                 result_text = result_text[0]
 
-        if not detail_text[0]:
+        if not detail_text:
+            detail_text = ''
+        elif not detail_text[0]:
             detail_text = ''
         elif len(detail_text) == 1:  # Brings down to 1 text if only 1 elin list
             detail_text = detail_text[0].split('\n')
