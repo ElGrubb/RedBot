@@ -1405,7 +1405,7 @@ class Timer:
 
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
-                if current_time == '06:30':
+                if current_time == '23:56':
                     today = datetime.now().strftime("%B %d")
                     print("Good Morning! It is " + today)
                     await Other.T_Weather()
