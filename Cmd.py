@@ -1410,6 +1410,7 @@ class Timer:
                         today = datetime.now().strftime("%B %d")
                         print("Good Morning! It is " + today)
                         await Other.T_Weather()
+                        await Other.T_Graduation()
                     except exception as e:
                         await Vars.Creator.send("Error during exception, error = " + str(e))
 
@@ -2579,6 +2580,23 @@ class Other:
 
         if default_channel:
             await Other.Weather(None, default_channel)
+
+    @staticmethod
+    async def T_Graduation():
+        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Lounge'])
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        if not default_channel:
+            return
+
+        a = datetime.now()
+        b = datetime.strptime('6/01/2018', date_format)
+        difference = b - a
+
+        await default_channel.send("There are **" + str(difference.days) + " days** until Graduation")
 
     @staticmethod
     async def Calculate(message):
@@ -3929,7 +3947,7 @@ class On_React:
 
 async def test(message):
     # print(message.attachments[0])
-
+    await Other.T_Graduation()
 
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
