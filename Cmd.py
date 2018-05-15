@@ -1099,7 +1099,7 @@ class Admin:
         return False
 
     @staticmethod
-    async def Update(message):
+    async def Update(message, fromBot=False):
         if not await CheckMessage(message, prefix=True, admin=True, start="update"):
             return
         if not await Helpers.Confirmation(message, "Update?", deny_text="Update Cancelled", timeout=20):
@@ -2583,7 +2583,7 @@ class Other:
 
     @staticmethod
     async def T_Graduation():
-        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Lounge'])
+        guild = Vars.Bot.get_guild(Conversation.Server_IDs['PlayGround'])
         channel_list = []
         for channel in guild.text_channels:
             channel_list.append(channel)
@@ -2593,10 +2593,17 @@ class Other:
             return
 
         a = datetime.now()
-        b = datetime.strptime('6/01/2018', date_format)
+        b = datetime.strptime('06/01/2018', "%m/%d/%Y")
         difference = b - a
 
-        await default_channel.send("There are **" + str(difference.days) + " days** until Graduation")
+        daysdifference = difference.days + 1
+
+        if daysdifference == 1:
+            is_are = "is"
+        else:
+            is_are = "are"
+
+        await default_channel.send("There " + is_are + " **" + str(daysdifference) + " days** until Graduation.")
 
     @staticmethod
     async def Calculate(message):
