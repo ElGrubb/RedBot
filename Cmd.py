@@ -1410,7 +1410,7 @@ class Timer:
                         today = datetime.now().strftime("%B %d")
                         print("Good Morning! It is " + today)
                         await Other.T_Weather()
-                        await Other.T_Graduation()
+                        #await Other.T_Graduation()
                     except exception as e:
                         await Vars.Creator.send("Error during exception, error = " + str(e))
 
@@ -3947,10 +3947,11 @@ class On_React:
 
 async def test(message):
     # print(message.attachments[0])
-    await Other.T_Graduation()
+
 
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
+    await Other.T_Graduation()
     raise TypeError("Testing!")
     return
 
