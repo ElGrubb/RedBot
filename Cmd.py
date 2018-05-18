@@ -1410,7 +1410,7 @@ class Timer:
                         today = datetime.now().strftime("%B %d")
                         print("Good Morning! It is " + today)
                         await Other.T_Weather()
-                        #await Other.T_Graduation()
+                        await Other.T_Graduation()
                     except exception as e:
                         await Vars.Creator.send("Error during exception, error = " + str(e))
 
@@ -2583,7 +2583,7 @@ class Other:
 
     @staticmethod
     async def T_Graduation():
-        guild = Vars.Bot.get_guild(Conversation.Server_IDs['PlayGround'])
+        guild = Vars.Bot.get_guild(Conversation.Server_IDs['Lounge'])
         channel_list = []
         for channel in guild.text_channels:
             channel_list.append(channel)
