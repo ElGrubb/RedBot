@@ -2579,7 +2579,8 @@ class Other:
         default_channel = channel_list[0]
 
         if default_channel:
-            await Other.Weather(None, default_channel)
+            await Other.OldWeather(None, default_channel)
+            # await Other.Weather(None, default_channel)
 
     @staticmethod
     async def T_Graduation():
