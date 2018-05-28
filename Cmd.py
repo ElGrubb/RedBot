@@ -2598,12 +2598,21 @@ class Other:
 
         daysdifference = difference.days + 1
 
-        if daysdifference == 1:
-            is_are = "is"
-        else:
-            is_are = "are"
+        if daysdifference >= 0:
+            if daysdifference == 1:
+                is_are = "is"
+            else:
+                is_are = "are"
+            await default_channel.send("There " + is_are + " **" + str(daysdifference) + " days** until Graduation.")
 
-        await default_channel.send("There " + is_are + " **" + str(daysdifference) + " days** until Graduation.")
+        else:
+            # If the day has passed:
+            if daysdifference == -1:
+                await default_channel.send("Graduation was: **yesterday**. Congradulations!")
+            else:
+                await default_channel.send("There have been **" + str(daysdifference) + " Days** since Grdauation.")
+
+        return
 
     @staticmethod
     async def Calculate(message):
@@ -3918,6 +3927,9 @@ class Tag:
         return
 
 
+class Remind:
+    # Working on the new /remind command
+    pass
 
 class On_React:
     @staticmethod
