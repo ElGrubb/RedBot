@@ -3217,7 +3217,7 @@ class Tag:
             await message.channel.send("Too long of a key!", delete_after=5)
             await Helpers.QuietDelete(message, wait=5)
             return
-        if len(TagContent) > 250:
+        if len(TagContent) > 500:
             await message.channel.send("The Tag Content is too long!", delete_after=5)
             await Helpers.QuietDelete(message, wait=5)
             return
