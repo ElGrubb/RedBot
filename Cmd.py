@@ -604,7 +604,12 @@ class Log:
         else:
             content = message.content
 
-        description = "**Message Sent in " + message.channel.mention + "/" + message.guild.name + "**\n" + content
+        if type(message.channel) == discord.channel.DMChannel:
+            GuildName = "Direct Messages"
+        else:
+            GuildName = message.channel.mention + "/" + message.guild.name
+
+        description = "**Message Sent in " + GuildName + "**\n" + content
         timestamp = datetime.now() + timedelta(hours = 3)
         timestamp = timestamp.strftime("%A %B %d at %X")
         timestamp = "\n_Originally sent on " + timestamp + "_"
@@ -1399,7 +1404,7 @@ class Timer:
         old_time, current_time = None, None
         # while not Vars.Crash:
         while True:
-            await asyncio.sleep(5)
+            await asyncio.sleep(3)
             old_time = current_time
             current_time = Timer.DigitTime()
 
@@ -1413,6 +1418,8 @@ class Timer:
                         await Other.T_Graduation()
                     except exception as e:
                         await Vars.Creator.send("Error during exception, error = " + str(e))
+
+                await Remind.CheckForReminders()
 
 
 class Quotes:
@@ -3930,12 +3937,18 @@ class Tag:
 
 class Remind:
     # Working on the new /remind command
+    embed_color = 0x4286f4
+
     @staticmethod
     async def RemindCommand(message):
         if not await CheckMessage(message, start="remind", prefix=True):
             return
-        # todo change message from string to object
+
         usablecontent = message.content[7:].strip()
+
+        if type(message.channel) == discord.channel.DMChannel:
+            await message.author.send("Sorry, Reminders only work in group servers so far!")
+            return
 
         # So we need to first figure out if the bot is given a specific time today, or an amount of time to wait.
         # Unlack usablecontent into each individual word
@@ -3951,7 +3964,10 @@ class Remind:
                 format += "\n/remind 2 hours 35 minutes These are Examples```"
                 error_message += format
 
-            await message.channel.send(error_message)
+            em = discord.Embed(color=Remind.embed_color, description=error_message)
+            em.set_author(name="Reminder Error", icon_url=Vars.Bot.user.avatar_url)
+
+            await message.channel.send(embed=em, delete_after=40)
             return
 
         def CheckUnit(string):
@@ -3970,7 +3986,6 @@ class Remind:
 
             return False
 
-
         if len(contentwords) < 2:
             await ReturnError(message, "You need to follow the format:", sendformat=True)
 
@@ -3987,7 +4002,7 @@ class Remind:
             if ":" in firstitem:
                 firstitemtype = "Time"  # A time is a specific time to go off
             if "/" in firstitem or "-" in firstitem:
-                firstitemtype == "Date"
+                firstitemtype = "Date"
 
         if firstitemtype == "Number" and contentwords[1].lower() in ["am", "pm"]:
             firstitemtype = "Time"  # A simple time is "3 am" instead of "3:00 am"
@@ -4075,7 +4090,6 @@ class Remind:
             # Okay so now we're looking for any part of a Time or Date
 
             info = []
-
 
             i = 0
             stop = False
@@ -4212,6 +4226,7 @@ class Remind:
 
             # Now we have the first date and first item of the message. We now need to work on fixing any missing holes
             if not ReminderTime:
+                # Todo Prompt for another time
                 ReminderTime = {
                     "Type": "Time",
                     "Hour": '8',
@@ -4231,13 +4246,13 @@ class Remind:
 
                 # Now let's make an HourStamp for the proposed time
                 PartialHourStamp = int(ReminderTime["Hour"])
-                PartialHourStamp += 0 if ReminderTime["AMPM"] == "pm" else -12
+                PartialHourStamp += 12 if ReminderTime["AMPM"] == "pm" else 0
                 PartialHourStamp = PartialHourStamp * 100
 
                 RemindHourStamp = PartialHourStamp + int(ReminderTime["Minute"])
 
 
-                if RemindHourStamp < NowHourStamp:  # If the time to remind isn't later in the day
+                if RemindHourStamp < NowHourStamp:  # If the time to remind already happened, the day should be one more
                     tempday = int(datetime.now().strftime('%d')) + 1
                     tempmonth = int(datetime.now().strftime('%m'))
                     tempyear = int(datetime.now().strftime('%y'))
@@ -4250,6 +4265,23 @@ class Remind:
                         "Month": endmonth,
                         "Year": endyear
                     }
+                elif RemindHourStamp > NowHourStamp:  # If the reminder is later that day
+                    tempday = int(datetime.now().strftime('%d'))
+                    tempmonth = int(datetime.now().strftime('%m'))
+                    tempyear = int(datetime.now().strftime('%y'))
+
+                    endmonth, endday, endyear = Sys.DateFixer(tempmonth, tempday, tempyear)
+
+                    ReminderDate = {
+                        "Type": "Date",
+                        "Day": endday,
+                        "Month": endmonth,
+                        "Year": endyear
+                    }
+                else:  # If the time is now
+                    await ReturnError(message, "The Time Given is NOW!")
+                    return
+
 
 
             # So, now we have ReminderDate and ReminderTime. Time to make a time object out of it
@@ -4281,31 +4313,156 @@ class Remind:
             if len(Minute) == 1:
                 Minute = "0" + Minute
 
-            TotalString = DateString + " " + Hour + " " + Day
+            TotalString = DateString + " " + Hour + " " + Minute
+
 
             EndTimeStamp = time.strptime(TotalString, "%m %d %y %H %M")
 
             # Let's deal with the message
             originalcontent = message.content[7:len(message.content)].strip()
 
+            if "Original" not in ReminderDate.keys():
+                ReminderDate["Original"] = ""
+
+            if "Original" not in ReminderTime.keys():
+                ReminderTime["Original"] = ""
+
             originalcontent = originalcontent.replace(ReminderDate["Original"], "").replace(ReminderTime["Original"], "")
 
             RemindMessage = Sys.FirstCap(originalcontent.strip())
             RemindTime = EndTimeStamp
 
-
         # Okay so at this point we should have a time object and a remind string... A few more failsafes before we get into the fun!
-        # TODO Failsafes
-        await message.channel.send("You want me to remind you " + str(RemindMessage) + " on " + str(RemindTime))
+
+        # First let's make sure the time hasn't happened already
+        CurrentTime = datetime.now()
+
+        if type(RemindTime) == time.struct_time:
+            RemindTime = datetime.fromtimestamp(time.mktime(RemindTime))
+
+        if RemindTime < CurrentTime:
+            await ReturnError(message, "Time " + str(RemindTime) + " has already happened!", sendformat=True)
+            return
+
+        if len(RemindMessage) > 250:
+            await ReturnError(message, "Your Reminder Message is too long! Keep it less than 250 characters!")
+            return
+
+        if RemindTime > CurrentTime + timedelta(days=14):
+            await ReturnError(message, "The maximum time you can set a reminder is 14 Days!")
+            return
+
+        # Okay so now we're ready to deal with the confirmation
+        toSendDateString = RemindTime.strftime("%A, %B %d, %Y at %I:%M %p")
+
+        string = "```diff\n- " + toSendDateString + "\nI say: > @" + message.author.name + ", " + RemindMessage + "```"
+
+        confirmation = await Helpers.Confirmation(message, text="Create Reminder?", extra_text=string, color=Remind.embed_color)
 
 
+        await Remind.SaveReminder(RemindTime, RemindMessage, message)
+
+        em = discord.Embed(color=Remind.embed_color, description=string)
+        em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
+
+        await message.channel.send(embed=em)
+
+        return
+
+    @staticmethod
+    async def DateStamp(dt):
+        # Returns timestamp with seconds = 0
+        dt = dt.replace(second=0, microsecond=0)
+
+        stamp = datetime.timestamp(dt)
+
+        return round(stamp)
+
+    @staticmethod
+    async def SaveReminder(RemindTime, RemindMessage, message):
+        # Saves the Reminder in the data
+        RemindStamp = await Remind.DateStamp(RemindTime)
+        To_Add = {
+            "RemindStamp": RemindStamp,
+            "Message": RemindMessage,
+            "Author": message.author.id,
+            "Created_At": await Remind.DateStamp(datetime.now()),
+            "OriginalMessage": message.content,
+            "Channel": message.channel.id,
+            "Guild": message.guild.id
+        }
+
+        PreviousReminders = Helpers.RetrieveData(type="Remind")
+        if not PreviousReminders:
+            PreviousReminders = {}
+
+        if str(RemindStamp) in PreviousReminders.keys():
+            print(True)
+            PreviousReminders[str(RemindStamp)].append(To_Add)
+        else:
+            PreviousReminders[str(RemindStamp)] = [To_Add]
+
+        Helpers.SaveData(PreviousReminders, type="Remind")
+        return True
+
+    @staticmethod
+    async def DeleteReminder(RemindStamp):
+        PreviousRemindData = Helpers.RetrieveData(type="Remind")
+
+        if str(RemindStamp) in PreviousRemindData.keys():
+            del PreviousRemindData[str(RemindStamp)]
+
+        Helpers.SaveData(PreviousRemindData, type="Remind")
+        return
+
+    @staticmethod
+    async def CheckForReminders():
+        RemindData = Helpers.RetrieveData(type="Remind")
+
+        Now = await Remind.DateStamp(datetime.now())
+
+        if str(Now) in RemindData.keys():
+            # If there are reminders to be done now
+            await Remind.SendReminder(RemindData[str(Now)], Now)
+
+        else:
+            return False
+
+    @staticmethod
+    async def SendReminder(RemindList, Now, Add=""):
+        for Reminder in RemindList:
+            # For each reminder given
+            em = discord.Embed(color=Remind.embed_color, description=Reminder["Message"])
+            em.set_author(name="Reminder:", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text=Reminder["OriginalMessage"])
+
+            SendChannel = Vars.Bot.get_channel(int(Reminder["Channel"]))
+            AuthorMention = Vars.Bot.get_user(int(Reminder["Author"])).mention
+
+            if SendChannel:
+                if await CheckPermissions(SendChannel, "send_messages"):
+                    # If the channel exists and the bot can send messages in it:
+                    await SendChannel.send(AuthorMention + Add, embed=em)
+
+        # Now that it's been sent, it must be deleted
+        await Remind.DeleteReminder(str(RemindList[0]["RemindStamp"]))
+
+    @staticmethod
+    async def CheckForOldReminders():
+        # Runs on update, reboot, looking for any older reminders it may have missed
+
+        Now = await Remind.DateStamp(datetime.now())
+
+        RemindData = Helpers.RetrieveData(type="Remind")
+
+        for Reminder in RemindData:
+            if int(Reminder) < Now:
+                # If the reminder has already passed:
+                    delta = Now - int(Reminder)
+                    delta = round(delta/60)
+                    await Remind.SendReminder(RemindData[str(Reminder)], Now, Add=", Sorry, I am " + str(delta) + " minutes late due to an outage")
 
 
-
-
-
-
-        #await message.channel.send(firstitemtype + " " + firstitem)
 
 
 
@@ -4348,8 +4505,8 @@ async def test(message):
 
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
-    await Other.T_Weather()
-
+    await Remind.CheckForReminders()
+    return
 
     await Other.T_Graduation()
     #raise TypeError("Testing!")

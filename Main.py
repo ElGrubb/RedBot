@@ -26,6 +26,10 @@ class MyClient(discord.Client):
                 string += ". Updated."
             em = discord.Embed(title=string, timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
             await Cmd.Vars.Creator.send(embed=em)
+
+        await Cmd.Remind.CheckForOldReminders()
+
+
         Cmd.Vars.Ready = True
 
     async def on_message(self, message):

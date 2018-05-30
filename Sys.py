@@ -269,20 +269,23 @@ Channel = {
 
 
 def DateFixer(month, day, year):
-    def FindTotalMonthDays(month):
-        TotalMonthDays = 0
+    def FindTotalMonthDays(month, year=None):
+        TotalDays = 0
         if month in [1, 3, 5, 7, 8, 10, 12]:
-            TotalMonthDays = 31
+            TotalDays = 31
         elif month in [4, 6, 9, 11]:
-            TotalMonthDays = 30
+            TotalDays = 30
         else:
-            TotalMonthDays = 28
+            if year % 4 == 0:
+                TotalDays = 29
+            else:
+                TotalDays = 28
 
-        return TotalMonthDays
+        return TotalDays
 
     if day <= 0:
         month -= 1
-        TotalMonthDays = FindTotalMonthDays(month)
+        TotalMonthDays = FindTotalMonthDays(month, year=year)
 
         day = TotalMonthDays + day
 
