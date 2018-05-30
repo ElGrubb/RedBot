@@ -2579,8 +2579,8 @@ class Other:
         default_channel = channel_list[0]
 
         if default_channel:
-            await Other.OldWeather(None, default_channel)
-            # await Other.Weather(None, default_channel)
+            #await Other.OldWeather(default_channel, morning=True)
+            await Other.Weather(None, channel=default_channel)
 
     @staticmethod
     async def T_Graduation():
@@ -3930,7 +3930,384 @@ class Tag:
 
 class Remind:
     # Working on the new /remind command
-    pass
+    @staticmethod
+    async def RemindCommand(message):
+        if not await CheckMessage(message, start="remind", prefix=True):
+            return
+        # todo change message from string to object
+        usablecontent = message.content[7:].strip()
+
+        # So we need to first figure out if the bot is given a specific time today, or an amount of time to wait.
+        # Unlack usablecontent into each individual word
+        contentwords = usablecontent.split()
+
+        async def ReturnError(message, error_message, sendformat=False):
+            # If there is some issue, this will make things easier.
+            await message.add_reaction(Conversation.Emoji["x"])
+
+            if sendformat:
+                format = "```\n/remind 2 days Clean Your Room"
+                format += "\n/remind 12:45 Hello there"
+                format += "\n/remind 2 hours 35 minutes These are Examples```"
+                error_message += format
+
+            await message.channel.send(error_message)
+            return
+
+        def CheckUnit(string):
+            # Checks to see if the string is a real unit of time
+            string = string.lower().strip()
+            unitlist = ["second", "minute", "hour", "day", "week", "month", "year", "decade", "am", "pm"]
+
+            fulllist = []
+
+            for item in unitlist:
+                fulllist.append(item)
+                fulllist.append(item + "s")
+
+            if string.lower().strip() in fulllist:
+                return True
+
+            return False
+
+
+        if len(contentwords) < 2:
+            await ReturnError(message, "You need to follow the format:", sendformat=True)
+
+            return
+
+        # Now let's analyze the first thing, and see if it's a time or a number
+        firstitem = contentwords[0]
+        firstitemtype = None
+
+        try:
+            firstitem = int(firstitem)
+            firstitemtype = "Number"  # A number is associated with a unit of time to wait
+        except:
+            if ":" in firstitem:
+                firstitemtype = "Time"  # A time is a specific time to go off
+            if "/" in firstitem or "-" in firstitem:
+                firstitemtype == "Date"
+
+        if firstitemtype == "Number" and contentwords[1].lower() in ["am", "pm"]:
+            firstitemtype = "Time"  # A simple time is "3 am" instead of "3:00 am"
+            firstitem = contentwords[0] = str(firstitem) + ":00"
+
+        # Now our goal is to develop a time object based on the given information
+        RemindTime = None  # Goal is to populate this with a time on when to populate it
+        RemindMessage = None    # Goal is to have a string here to send with the reminder
+
+
+        if firstitemtype == "Number":  # "3 hours 2 days 1 minute"
+            timedata = []  # Will be populated with all of the wait time information
+            tempMsg = []
+
+            i = 0
+            stop = False
+            while not stop:
+                if contentwords[i].isdigit():
+                    int(contentwords[i])  # Try to make it an integer, see if it's a number
+                    # If it's successful, see if the next item is a unit
+
+                    if i < len(contentwords) - 1:
+
+                        # Now that we know that we're not at the end of the message:
+                        if CheckUnit(contentwords[i+1]):
+                            # Double Check that the next item is a unit
+                            TempTimeDict = {
+                                "Amount": contentwords[i],
+                                "Unit": contentwords[i+1]
+                            }
+                            timedata.append(TempTimeDict)
+                elif CheckUnit(contentwords[i]):
+                    pass
+                else:
+                    for j in range(i, len(contentwords)):
+                        tempMsg.append(contentwords[j])
+                    stop = True
+
+                if i == len(contentwords) - 1:
+                    stop = True
+                i += 1
+
+            # Now we have a list timedata that lists all the criteria from now. We need to isolate the new message
+            # ISOLATE THE MESSAGE
+
+            NowTime = datetime.now()  # Current Time Dict
+            LaterTime = NowTime + timedelta()
+
+            for timeitem in timedata:  # Clean up timedata
+                if timeitem["Unit"].endswith("s"):  # Remove any plural units
+                    timeitem["Unit"] = timeitem["Unit"][0:len(timeitem["Unit"])-1]
+
+                timeitem["Amount"] = int(timeitem["Amount"])  # Make integer Amounts
+
+                if timeitem["Unit"] in ["month", "year", "decade"]:  # Ensure only accepted units are used
+                    await ReturnError(message, "Unit `" + timeitem["Unit"] + "` "
+                                               "not supported! Try: `second`, `minute`, `hour`, `day`, `week`")
+                    return
+
+            for timeitem in timedata:
+                if timeitem["Unit"] == "second":
+                    LaterTime = LaterTime + timedelta(seconds=timeitem["Amount"])
+
+                if timeitem["Unit"] == "minute":
+                    LaterTime = LaterTime + timedelta(minutes=timeitem["Amount"])
+
+                if timeitem["Unit"] == "hour":
+                    LaterTime = LaterTime + timedelta(hours=timeitem["Amount"])
+
+                if timeitem["Unit"] == "day":
+                    LaterTime = LaterTime + timedelta(days=timeitem["Amount"])
+
+                if timeitem["Unit"] == "week":
+                    LaterTime = LaterTime + timedelta(weeks=timeitem["Amount"])
+
+            tempString = ""
+            for item in tempMsg:
+                tempString += item + " "
+
+            RemindMessage = Sys.FirstCap(tempString.strip())
+            RemindTime = LaterTime
+
+
+        elif firstitemtype == "Time" or firstitemtype == "Date":
+            # Okay so now we're looking for any part of a Time or Date
+
+            info = []
+
+
+            i = 0
+            stop = False
+            while not stop:
+                CurrentPhrase = contentwords[i]
+
+                if ":" in CurrentPhrase:
+                    # So this is a time
+                    if CurrentPhrase.count(":") > 1:
+                        await ReturnError(message, CurrentPhrase + " is not a valid time! Hr:Mn is.")
+                        return
+
+                    TempDict = {
+                        "Type": "Time",
+                        "Hour": CurrentPhrase.split(":")[0],
+                        "Minute": CurrentPhrase.split(":")[1]
+                    }
+
+                    OriginalNote = CurrentPhrase
+                    AMPM = None
+                    if i < len(contentwords) - 1:
+                        # As long as there's enough for another word:
+                        if contentwords[i + 1].lower().strip() in ["am", "pm"]:
+                            AMPM = contentwords[i + 1]
+                            OriginalNote += " " + contentwords[i + 1]
+
+                    if not AMPM:  # If there is no given AM or PM, the bot guesses
+                        if 8 < int(CurrentPhrase.split(":")[0]) < 11:
+                            AMPM = "am"
+
+                        elif int(CurrentPhrase.split(":")[0]) == 12:
+                            AMPM = "pm"
+                        else:
+                            AMPM = "pm"
+
+                    TempDict["AMPM"] = AMPM
+                    TempDict["Original"] = OriginalNote
+
+                    info.append(TempDict)
+
+                if "-" in CurrentPhrase:
+                    CurrentPhrase = CurrentPhrase.replace("-", "/")
+
+                if "/" in CurrentPhrase:
+                    # First we need to see if a year is included
+                    if CurrentPhrase.count("/") >= 3:
+                        await ReturnError(message, "Date is improper: Mo/Da/Year")
+                        return
+
+                    # These are the 3 items we need to populate
+                    Month = None
+                    Day = None
+                    Year = None
+
+                    GivenFirst = CurrentPhrase.split("/")[0]
+                    GivenSecond = CurrentPhrase.split("/")[1]
+
+                    if CurrentPhrase.count("/") == 1:  # First, let's deal with the year
+                        # No year, so Mo/Da:
+                        Year = datetime.now().strftime("%Y")
+
+                    else:  # So Mo/Da/Yr
+                        GivenYear = CurrentPhrase.split("/")[2]
+
+                        if not GivenYear.isdigit():
+                            await ReturnError(message, "Year is not integer: Try Format Mo/Da/Year, or just Mo/Da")
+                            return
+
+                        if len(str(GivenYear)) == 4:
+                            Year = int(GivenYear)
+                        elif len(str(GivenYear)) == 2:
+                            Year = 2000 + int(GivenYear)
+
+                        else:
+                            # Improper Year?
+                            await ReturnError(message, "Year is improper: Either do Mo/Da/Year or Mo/Da/Yr")
+                            return
+
+                    # So now we have a year, so we need to convert GivenFirst and GivenSecond into integers and compare
+                    if not GivenFirst.isdigit():
+                        await ReturnError(message, "Improper Date! Please only use numbers: Mo/Da/Yr")
+                        return
+                    else:
+                        GivenFirst = int(GivenFirst)
+
+                    if not GivenSecond.isdigit():
+                        await ReturnError(message, "Improper Date! Please only use numbers: Mo/Da/Yr")
+                        return
+                    else:
+                        GivenSecond = int(GivenSecond)
+
+                    # Now we should assume that FirstGiven is month, unless proven otherwise:
+                    GivenMonth, GivenDay = None, None
+
+                    if 12 < GivenFirst:
+                        if 12 < GivenSecond:
+                            # If both the month and the day are bigger than 12:
+                            await ReturnError(message, "Improper Date! Please only use numbers: Mo/Da/Yr")
+                            return
+
+                        else: # If the second item is the month:
+                            GivenMonth = GivenSecond
+                            GivenDay = GivenFirst
+                    else:
+                        GivenMonth = GivenFirst
+                        GivenDay = GivenSecond
+
+                    info.append(
+                        {
+                            "Type": "Date",
+                            "Day": GivenDay,
+                            "Month": GivenMonth,
+                            "Year": GivenYear,
+                            "Original": CurrentPhrase
+                        }
+                    )
+
+                if i >= len(contentwords) -1:
+                    stop = True
+
+                i += 1
+
+            # Okay so now we have a list (info) that describes all of the dates and times mentioned in the message
+            # What we next need to do is ensure that there is one date and one time present
+            ReminderDate = None
+            ReminderTime = None
+
+            for item in info:
+                if not ReminderDate and item["Type"] == "Date":
+                    ReminderDate = item
+
+                if not ReminderTime and item["Type"] == "Time":
+                    ReminderTime = item
+
+            # Now we have the first date and first item of the message. We now need to work on fixing any missing holes
+            if not ReminderTime:
+                ReminderTime = {
+                    "Type": "Time",
+                    "Hour": '8',
+                    "Minute": '01',
+                    "AMPM": 'am'
+                }
+
+            if not ReminderDate:
+
+                def HourStampMaker(input):
+                    # Makes HourStamp "2356" for comparing times
+                    Hour = int(input.strftime("%H")) * 100
+                    HourStamp = Hour + int(input.strftime("%M"))
+                    return HourStamp
+
+                NowHourStamp = HourStampMaker(datetime.now())
+
+                # Now let's make an HourStamp for the proposed time
+                PartialHourStamp = int(ReminderTime["Hour"])
+                PartialHourStamp += 0 if ReminderTime["AMPM"] == "pm" else -12
+                PartialHourStamp = PartialHourStamp * 100
+
+                RemindHourStamp = PartialHourStamp + int(ReminderTime["Minute"])
+
+
+                if RemindHourStamp < NowHourStamp:  # If the time to remind isn't later in the day
+                    tempday = int(datetime.now().strftime('%d')) + 1
+                    tempmonth = int(datetime.now().strftime('%m'))
+                    tempyear = int(datetime.now().strftime('%y'))
+
+                    endmonth, endday, endyear = Sys.DateFixer(tempmonth, tempday, tempyear)
+
+                    ReminderDate = {
+                        "Type": "Date",
+                        "Day": endday,
+                        "Month": endmonth,
+                        "Year": endyear
+                    }
+
+
+            # So, now we have ReminderDate and ReminderTime. Time to make a time object out of it
+            # First, a bit of cleaning up
+            Day = str(ReminderDate["Day"])
+            Month = str(ReminderDate["Month"])
+            Year = str(ReminderDate["Year"])
+
+            if len(Year) > 2:
+                Year = Year[-2 : len(Year)]  # Ensure we just have the last two digits of the date
+
+            if len(Day) == 1:
+                Day = "0" + Day
+
+            if len(Month) == 1:
+                Month = "0" + Month
+
+            DateString = Month + " " + Day + " " + Year
+
+            Hour = str(ReminderTime["Hour"])
+            Minute = str(ReminderTime["Minute"])
+
+            if ReminderTime["AMPM"] == "pm" and int(Hour) <= 12:
+                Hour = str( int(Hour) + 12 )
+
+            if len(Hour) == 1:
+                Hour = "0" + Hour
+
+            if len(Minute) == 1:
+                Minute = "0" + Minute
+
+            TotalString = DateString + " " + Hour + " " + Day
+
+            EndTimeStamp = time.strptime(TotalString, "%m %d %y %H %M")
+
+            # Let's deal with the message
+            originalcontent = message.content[7:len(message.content)].strip()
+
+            originalcontent = originalcontent.replace(ReminderDate["Original"], "").replace(ReminderTime["Original"], "")
+
+            RemindMessage = Sys.FirstCap(originalcontent.strip())
+            RemindTime = EndTimeStamp
+
+
+        # Okay so at this point we should have a time object and a remind string... A few more failsafes before we get into the fun!
+        # TODO Failsafes
+        await message.channel.send("You want me to remind you " + str(RemindMessage) + " on " + str(RemindTime))
+
+
+
+
+
+
+
+
+        #await message.channel.send(firstitemtype + " " + firstitem)
+
+
 
 class On_React:
     @staticmethod
@@ -3971,8 +4348,11 @@ async def test(message):
 
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
+    await Other.T_Weather()
+
+
     await Other.T_Graduation()
-    raise TypeError("Testing!")
+    #raise TypeError("Testing!")
     return
 
 async def Help(message):

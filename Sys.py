@@ -266,3 +266,45 @@ Channel = {
     "Errors": 343422937380028420,
     "DeleteLog": 422850384088793092
 }
+
+
+def DateFixer(month, day, year):
+    def FindTotalMonthDays(month):
+        TotalMonthDays = 0
+        if month in [1, 3, 5, 7, 8, 10, 12]:
+            TotalMonthDays = 31
+        elif month in [4, 6, 9, 11]:
+            TotalMonthDays = 30
+        else:
+            TotalMonthDays = 28
+
+        return TotalMonthDays
+
+    if day <= 0:
+        month -= 1
+        TotalMonthDays = FindTotalMonthDays(month)
+
+        day = TotalMonthDays + day
+
+    CurrentDays = FindTotalMonthDays(month)
+    if day > CurrentDays:  # If the day is over the month
+        month += 1
+        day = day - CurrentDays
+
+    if month <= 0:
+        month = 12 - month
+        year -= 1
+
+    if month > 12:
+        year += 1
+        month = month - 12
+
+    return month, day, year
+
+
+
+
+
+
+
+    return month, day, year

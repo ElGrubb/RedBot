@@ -64,6 +64,9 @@ class MyClient(discord.Client):
         await Cmd.Other.ChatLinkShorten(message)
         await Cmd.Other.CountMessages(message)
 
+        # REMIND Commands
+        await Cmd.Remind.RemindCommand(message)
+
         # ADMIN Commands
         await Cmd.Admin.CopyFrom(message)
         await Cmd.Admin.Delete(message)
