@@ -4419,6 +4419,9 @@ class Remind:
     async def CheckForReminders():
         RemindData = Helpers.RetrieveData(type="Remind")
 
+        if not RemindData:
+            return
+
         Now = await Remind.DateStamp(datetime.now())
 
         if str(Now) in RemindData.keys():
@@ -4454,6 +4457,9 @@ class Remind:
         Now = await Remind.DateStamp(datetime.now())
 
         RemindData = Helpers.RetrieveData(type="Remind")
+
+        if not RemindData:
+            return
 
         for Reminder in RemindData:
             if int(Reminder) < Now:
