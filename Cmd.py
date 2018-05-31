@@ -4397,7 +4397,6 @@ class Remind:
             PreviousReminders = {}
 
         if str(RemindStamp) in PreviousReminders.keys():
-            print(True)
             PreviousReminders[str(RemindStamp)].append(To_Add)
         else:
             PreviousReminders[str(RemindStamp)] = [To_Add]
@@ -4445,7 +4444,10 @@ class Remind:
             if SendChannel:
                 if await CheckPermissions(SendChannel, "send_messages"):
                     # If the channel exists and the bot can send messages in it:
-                    await SendChannel.send(AuthorMention + Add, embed=em)
+                    SentMsg = await SendChannel.send(AuthorMention + Add + ", " + Reminder["Message"], embed=em)
+
+                    await asyncio.sleep(.2)
+                    await SentMsg.edit(content=AuthorMention + Add, embed=em)
 
         # Now that it's been sent, it must be deleted
         await Remind.DeleteReminder(str(RemindList[0]["RemindStamp"]))
