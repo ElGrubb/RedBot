@@ -3944,6 +3944,8 @@ class Remind:
         if not await CheckMessage(message, start="remind", prefix=True):
             return
 
+        await message.channel.trigger_typing()
+
         usablecontent = message.content[7:].strip()
 
         if type(message.channel) == discord.channel.DMChannel:
@@ -4128,6 +4130,7 @@ class Remind:
                     TempDict["AMPM"] = AMPM
                     TempDict["Original"] = OriginalNote
 
+
                     info.append(TempDict)
 
                 if "-" in CurrentPhrase:
@@ -4304,7 +4307,8 @@ class Remind:
             Hour = str(ReminderTime["Hour"])
             Minute = str(ReminderTime["Minute"])
 
-            if ReminderTime["AMPM"] == "pm" and int(Hour) <= 12:
+
+            if ReminderTime["AMPM"].lower() == "pm" and int(Hour) <= 12:
                 Hour = str( int(Hour) + 12 )
 
             if len(Hour) == 1:
@@ -4314,7 +4318,6 @@ class Remind:
                 Minute = "0" + Minute
 
             TotalString = DateString + " " + Hour + " " + Minute
-
 
             EndTimeStamp = time.strptime(TotalString, "%m %d %y %H %M")
 
@@ -4331,6 +4334,8 @@ class Remind:
 
             RemindMessage = Sys.FirstCap(originalcontent.strip())
             RemindTime = EndTimeStamp
+
+
 
         # Okay so at this point we should have a time object and a remind string... A few more failsafes before we get into the fun!
 
@@ -4357,8 +4362,11 @@ class Remind:
 
         string = "```diff\n- " + toSendDateString + "\nI say: > @" + message.author.name + ", " + RemindMessage + "```"
 
-        confirmation = await Helpers.Confirmation(message, text="Create Reminder?", extra_text=string, color=Remind.embed_color)
+        confirmation = await Helpers.Confirmation(message, text="Create Reminder?", extra_text=string, color=Remind.embed_color,
+                                                  deny_text="Remind Cancelled.")
 
+        if not confirmation:
+            return
 
         await Remind.SaveReminder(RemindTime, RemindMessage, message)
 
