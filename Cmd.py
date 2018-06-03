@@ -4384,7 +4384,7 @@ class Remind:
         string = "```diff\n- " + toSendDateString + "\nI say: > @" + message.author.name + ", " + RemindMessage + "```"
 
         confirmation = await Helpers.Confirmation(message, text="Create Reminder?", extra_text=string, color=Remind.embed_color,
-                                                  deny_text="Remind Cancelled.")
+                                                  deny_text="Remind Cancelled.", add_reaction=False)
 
         if not confirmation:
             return
@@ -4397,6 +4397,8 @@ class Remind:
         sent = await message.channel.send(embed=em)
 
         await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=DMChannel)
+
+        await message.add_reaction(Conversation.Emoji["clock"])
 
         await Helpers.QuietDelete(sent, wait=60)
 
@@ -4421,6 +4423,7 @@ class Remind:
             "Author": message.author.id,
             "Created_At": await Remind.DateStamp(datetime.now()),
             "OriginalMessage": message.content,
+            "OriginalMessageID": message.id,
             "Channel": message.channel.id
         }
 
@@ -4496,6 +4499,18 @@ class Remind:
 
         # Now that it's been sent, it must be deleted
         await Remind.DeleteReminder(str(RemindList[0]["RemindStamp"]))
+
+        # And let's try to remove that clock from the original message
+        if "OriginalMessageID" not in Reminder.keys():
+            return
+        originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
+
+        if not originalmsg:
+            return
+
+        await originalmsg.clear_reactions()
+
+        await originalmsg.add_reaction(Conversation.Emoji["check"])
 
     @staticmethod
     async def CheckForOldReminders():
