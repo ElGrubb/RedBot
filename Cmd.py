@@ -4052,6 +4052,7 @@ class Remind:
                 return
 
             if DMChannel:
+                pass
 
 
 
