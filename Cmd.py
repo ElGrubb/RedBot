@@ -648,6 +648,25 @@ class Log:
         phrase = "\n**" + type + "**"
         await Log.AppendLogged(message.id, phrase, NewColor=Log.DeleteColor)
 
+    @staticmethod
+    async def LogCommand(message, type, success, DM=False):
+        # Logs a command being done afterwards
+        CommandLog = Vars.Bot.get_channel(Sys.Channel["CommandLog"])
+
+        Title = "**Command of Type: " + type + "** executed by " + message.author.name + " in "
+
+        if DM:
+            Title += "**private DM.**"
+
+        else:
+            Title += message.channel.name + "/" + message.guild.name
+
+        description = "Content: `" + message.content + "`\nBot Response: " + success
+
+        em = discord.Embed(color=Log.SentColor, title=Title, description=description)
+
+        await CommandLog.send(embed=em)
+
 
 class Admin:
     @staticmethod
@@ -3940,7 +3959,7 @@ class Remind:
 
     @staticmethod
     async def RemindCommand(message):
-        if not await CheckMessage(message, start="remind", prefix=True):
+        if not await CheckMessage(message, start="remind ", prefix=True):
             return
 
         await message.channel.trigger_typing()
@@ -3948,8 +3967,12 @@ class Remind:
         usablecontent = message.content[7:].strip()
 
         if type(message.channel) == discord.channel.DMChannel:
-            await message.author.send("Sorry, Reminders only work in group servers so far!")
-            return
+            DMChannel = True
+        else:
+            DMChannel = False
+
+            #await message.author.send("Sorry, Reminders only work in group servers so far!")
+            #return
 
         # So we need to first figure out if the bot is given a specific time today, or an amount of time to wait.
         # Unlack usablecontent into each individual word
@@ -4058,15 +4081,12 @@ class Remind:
 
                 timeitem["Amount"] = int(timeitem["Amount"])  # Make integer Amounts
 
-                if timeitem["Unit"] in ["month", "year", "decade"]:  # Ensure only accepted units are used
+                if timeitem["Unit"] in ["month", "year", "decade", "second"]:  # Ensure only accepted units are used
                     await ReturnError(message, "Unit `" + timeitem["Unit"] + "` "
-                                               "not supported! Try: `second`, `minute`, `hour`, `day`, `week`")
+                                               "not supported! Try: `minute`, `hour`, `day`, `week`")
                     return
 
             for timeitem in timedata:
-                if timeitem["Unit"] == "second":
-                    LaterTime = LaterTime + timedelta(seconds=timeitem["Amount"])
-
                 if timeitem["Unit"] == "minute":
                     LaterTime = LaterTime + timedelta(minutes=timeitem["Amount"])
 
@@ -4285,7 +4305,6 @@ class Remind:
                     return
 
 
-
             # So, now we have ReminderDate and ReminderTime. Time to make a time object out of it
             # First, a bit of cleaning up
             Day = str(ReminderDate["Day"])
@@ -4335,11 +4354,14 @@ class Remind:
             RemindTime = EndTimeStamp
 
 
-
         # Okay so at this point we should have a time object and a remind string... A few more failsafes before we get into the fun!
 
         # First let's make sure the time hasn't happened already
         CurrentTime = datetime.now()
+
+        if not RemindTime:
+            RemindTime = datetime.now() + timedelta(minutes=15)
+            RemindMessage = Sys.FirstCap(message.content.lower()[7:].strip())
 
         if type(RemindTime) == time.struct_time:
             RemindTime = datetime.fromtimestamp(time.mktime(RemindTime))
@@ -4374,6 +4396,8 @@ class Remind:
 
         await message.channel.send(embed=em)
 
+        await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=DMChannel)
+
         return
 
     @staticmethod
@@ -4395,9 +4419,13 @@ class Remind:
             "Author": message.author.id,
             "Created_At": await Remind.DateStamp(datetime.now()),
             "OriginalMessage": message.content,
-            "Channel": message.channel.id,
-            "Guild": message.guild.id
+            "Channel": message.channel.id
         }
+
+        if type(message.channel) == discord.channel.DMChannel:  # If it's a Direct Message Channel
+            To_Add["Guild"] = None
+        else:
+            To_Add["Guild"] = message.guild.id
 
         PreviousReminders = Helpers.RetrieveData(type="Remind")
         if not PreviousReminders:
@@ -4449,7 +4477,15 @@ class Remind:
             AuthorMention = Vars.Bot.get_user(int(Reminder["Author"])).mention
 
             if SendChannel:
-                if await CheckPermissions(SendChannel, "send_messages"):
+                Good_To_Send = False
+                if type(SendChannel) == discord.channel.DMChannel:
+                    Good_To_Send = True
+
+                if not Good_To_Send:
+                    if await CheckPermissions(SendChannel, "send_messages"):
+                        Good_To_Send = True
+
+                if Good_To_Send:
                     # If the channel exists and the bot can send messages in it:
                     SentMsg = await SendChannel.send(AuthorMention + Add + ", " + Reminder["Message"], embed=em)
 

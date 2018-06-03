@@ -264,7 +264,8 @@ def Response(type, message=None):
 
 Channel = {
     "Errors": 343422937380028420,
-    "DeleteLog": 422850384088793092
+    "DeleteLog": 422850384088793092,
+    "CommandLog": 452844732109029386
 }
 
 
@@ -301,13 +302,5 @@ def DateFixer(month, day, year):
     if month > 12:
         year += 1
         month = month - 12
-
-    return month, day, year
-
-
-
-
-
-
 
     return month, day, year
