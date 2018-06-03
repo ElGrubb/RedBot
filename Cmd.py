@@ -1331,13 +1331,14 @@ class Admin:
 
 
 class Cooldown:
-    meme_types = ["meme", "quote", "nocontext", "delete"]
+    meme_types = ["meme", "quote", "nocontext", "delete", "remind"]
     data = {}
     defaults = {
         "meme": [30, 30],
         "quote": [60, 45],
         "nocontext": [5, 10],
-        "delete": [5, 3]
+        "delete": [5, 3],
+        "remind": [5, 10]
     }
 
     @staticmethod
@@ -1438,6 +1439,12 @@ class Timer:
                         await Vars.Creator.send("Error during exception, error = " + str(e))
 
                 await Remind.CheckForReminders()
+                if current_time == "00:01":
+                    channel = Vars.Bot.get_channel(Conversation.Server_IDs["Lounge"])
+
+                    megan = await channel.guild.get_member(385598883897540610)
+
+                    await channel.send("Happy Birthday " + megan.mention + "!")
 
 
 class Quotes:
@@ -3971,6 +3978,13 @@ class Remind:
         else:
             DMChannel = False
 
+        if not DMChannel: # TODO Update Cooldown to work on DM Channels
+            cd_notice = Cooldown.CheckCooldown("remind", message.author, message.guild)
+            if type(cd_notice) == int:
+                await message.channel.send('Cooldown Active, please wait: `' + Sys.SecMin(cd_notice) + '`', delete_after=5)
+                await message.add_reaction(Conversation.Emoji["x"])
+                return
+
             #await message.author.send("Sorry, Reminders only work in group servers so far!")
             #return
 
@@ -4018,6 +4032,29 @@ class Remind:
         # Now let's analyze the first thing, and see if it's a time or a number
         firstitem = contentwords[0]
         firstitemtype = None
+
+        if firstitem.startswith("<@!"):
+            SendToUser = firstitem
+            contentwords = contentwords[1:]
+            firstitem = contentwords[0]
+
+            message.content = message.content.replace(SendToUser, "").strip()
+
+        else:
+            SendToUser = None
+
+        if SendToUser:
+            SendToUser = int(SendToUser[3:].replace(">",""))
+            SendToUser = Vars.Bot.get_user(SendToUser)
+
+            if not SendToUser:
+                await ReturnError(message, "Cannot find the person you speak of!")
+                return
+
+            if DMChannel:
+
+
+
 
         try:
             firstitem = int(firstitem)
