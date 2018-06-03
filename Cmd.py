@@ -4541,6 +4541,9 @@ class Remind:
         # And let's try to remove that clock from the original message
         if "OriginalMessageID" not in Reminder.keys():
             return
+
+        if not Reminder["OriginalMessageID"]:
+            return
         originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
 
         if not originalmsg:
