@@ -4394,9 +4394,11 @@ class Remind:
         em = discord.Embed(color=Remind.embed_color, description=string)
         em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
 
-        await message.channel.send(embed=em)
+        sent = await message.channel.send(embed=em)
 
         await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=DMChannel)
+
+        await Helpers.QuietDelete(sent, wait=60)
 
         return
 
