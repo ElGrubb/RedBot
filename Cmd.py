@@ -4445,7 +4445,13 @@ class Remind:
 
         await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=DMChannel)
 
-        await message.add_reaction(Conversation.Emoji["clock"])
+        if DMChannel:
+            reaction_to_add = Conversation.Emoji["check"]
+        else:
+            reaction_to_add = Conversation.Emoji["clock"]
+
+
+        await message.add_reaction(reaction_to_add)
 
         await Helpers.QuietDelete(sent, wait=60)
 
@@ -4553,6 +4559,10 @@ class Remind:
 
         if not Reminder["OriginalMessageID"]:
             return
+
+        if type(message.channel) == discord.channel.DMChannel:
+            return
+
         originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
 
         if not originalmsg:
