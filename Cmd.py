@@ -1435,16 +1435,11 @@ class Timer:
                         today = datetime.now().strftime("%B %d")
                         print("Good Morning! It is " + today)
                         await Other.T_Weather()
-                    except exception as e:
-                        await Vars.Creator.send("Error during exception, error = " + str(e))
+                    except Exception as e:
+                        await Vars.Creator.send("Error during weather, error = " + str(e))
 
                 await Remind.CheckForReminders()
 
-                if current_time == "00:01":
-
-                    user = Vars.Bot.get_user(385598883897540610)
-
-                    await user.send("Happy Birthday!")
 
 
 class Quotes:
@@ -1638,8 +1633,8 @@ class Memes:
         ]]}
     """
     subs = {
-        'meme': "dankmemes+BikiniBottomTwitter+2meirl4meirl+youdontsurf+imgoingtohellforthis",
-        'dank': "dankmemes+BikiniBottomTwitter+2meirl4meirl+youdontsurf+imgoingtohellforthis",
+        'meme': "dankmemes+BikiniBottomTwitter+youdontsurf+imgoingtohellforthis",
+        'dank': "dankmemes+BikiniBottomTwitter+youdontsurf+imgoingtohellforthis",
         'normie': "memes+funny",
         'wholesome': "wholesomememes+eyebleach+rarepuppers",
         'aww': 'cats+cute+dogs+aww',
