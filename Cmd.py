@@ -1439,12 +1439,12 @@ class Timer:
                         await Vars.Creator.send("Error during exception, error = " + str(e))
 
                 await Remind.CheckForReminders()
+
                 if current_time == "00:01":
-                    channel = Vars.Bot.get_channel(Conversation.Server_IDs["Lounge"])
 
-                    megan = await channel.guild.get_member(385598883897540610)
+                    user = Vars.Bot.get_user(385598883897540610)
 
-                    await channel.send("Happy Birthday " + megan.mention + "!")
+                    await user.send("Happy Birthday!")
 
 
 class Quotes:
@@ -3988,9 +3988,22 @@ class Remind:
             #await message.author.send("Sorry, Reminders only work in group servers so far!")
             #return
 
+        # Let's shorten any links in the reminder
+        if "http" in usablecontent.lower():
+            temporary = usablecontent + ''
+            TempParts = temporary.strip().split(" ")
+            print("True")
+
+            for section in TempParts:
+                if section.lower().startswith("http"):  # If that word is a link:
+                    print(section)
+                    shortened = Sys.Shorten_Link(section)
+                    temporary = temporary.replace(section, shortened)
+
+            usablecontent = temporary
+
         # So we need to first figure out if the bot is given a specific time today, or an amount of time to wait.
         # Unlack usablecontent into each individual word
-        contentwords = usablecontent.split()
 
         async def ReturnError(message, error_message, sendformat=False):
             # If there is some issue, this will make things easier.
@@ -4024,6 +4037,8 @@ class Remind:
 
             return False
 
+        contentwords = usablecontent.split()
+
         if len(contentwords) < 2:
             await ReturnError(message, "You need to follow the format:", sendformat=True)
 
@@ -4052,8 +4067,7 @@ class Remind:
                 return
 
             if DMChannel:
-                pass
-
+                pass  # TODO Continue this thread
 
 
 
@@ -4155,7 +4169,7 @@ class Remind:
             while not stop:
                 CurrentPhrase = contentwords[i]
 
-                if ":" in CurrentPhrase:
+                if ":" in CurrentPhrase and not CurrentPhrase.lower().strip().startswith("http"):
                     # So this is a time
                     if CurrentPhrase.count(":") > 1:
                         await ReturnError(message, CurrentPhrase + " is not a valid time! Hr:Mn is.")
@@ -4193,7 +4207,7 @@ class Remind:
                 if "-" in CurrentPhrase:
                     CurrentPhrase = CurrentPhrase.replace("-", "/")
 
-                if "/" in CurrentPhrase:
+                if "/" in CurrentPhrase and not CurrentPhrase.lower().strip().startswith("http"):
                     # First we need to see if a year is included
                     if CurrentPhrase.count("/") >= 3:
                         await ReturnError(message, "Date is improper: Mo/Da/Year")
@@ -4378,7 +4392,7 @@ class Remind:
             EndTimeStamp = time.strptime(TotalString, "%m %d %y %H %M")
 
             # Let's deal with the message
-            originalcontent = message.content[7:len(message.content)].strip()
+            originalcontent = usablecontent.strip()
 
             if "Original" not in ReminderDate.keys():
                 ReminderDate["Original"] = ""
@@ -4399,7 +4413,7 @@ class Remind:
 
         if not RemindTime:
             RemindTime = datetime.now() + timedelta(minutes=15)
-            RemindMessage = Sys.FirstCap(message.content.lower()[7:].strip())
+            RemindMessage = Sys.FirstCap(usablecontent.strip())
 
         if type(RemindTime) == time.struct_time:
             RemindTime = datetime.fromtimestamp(time.mktime(RemindTime))
