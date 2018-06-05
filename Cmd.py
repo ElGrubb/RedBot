@@ -4560,17 +4560,22 @@ class Remind:
         if not Reminder["OriginalMessageID"]:
             return
 
-        if type(message.channel) == discord.channel.DMChannel:
-            return
+        #if type(message.channel) == discord.channel.DMChannel:
+        #    return
 
         originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
 
         if not originalmsg:
             return
 
-        await originalmsg.clear_reactions()
+        try: # TODO This is a Temporary Solution to the DM Problem
+            await originalmsg.clear_reactions()
+            await originalmsg.add_reaction(Conversation.Emoji["check"])
 
-        await originalmsg.add_reaction(Conversation.Emoji["check"])
+        except NameError:
+            return
+
+        return
 
     @staticmethod
     async def CheckForOldReminders():
