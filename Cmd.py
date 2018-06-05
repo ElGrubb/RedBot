@@ -4572,7 +4572,7 @@ class Remind:
             await originalmsg.clear_reactions()
             await originalmsg.add_reaction(Conversation.Emoji["check"])
 
-        except NameError:
+        except:
             return
 
         return
