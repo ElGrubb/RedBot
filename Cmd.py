@@ -1440,29 +1440,10 @@ class Timer:
 
                 await Remind.CheckForReminders()
 
-                if current_time == "23:55":
+                if current_time == "21:31":
                     megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("5 Minutes until a final birthday surprise.")
+                    await megan.send("Hey Megan, This is Dom. Just fixed the bot, let me know if he bothers you any more.")
 
-                if current_time == "23:56":
-                    megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("4 Minutes until a final birthday surprise.")
-
-                if current_time == "23:57":
-                    megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("3 Minutes until a final birthday surprise.")
-
-                if current_time == "23:58":
-                    megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("2 Minutes until a final birthday surprise.")
-
-                if current_time == "23:59":
-                    megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("1 Minute until a final birthday surprise.")
-
-                if current_time == "00:00":
-                    megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("Chorus kids suck, but you're too nice for them anyway. I hope you had a fantastic birthday\n`From: Jess`")
 
 
 
