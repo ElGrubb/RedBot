@@ -1440,10 +1440,6 @@ class Timer:
 
                 await Remind.CheckForReminders()
 
-                if current_time == "21:31":
-                    megan = Vars.Bot.get_user(385598883897540610)
-                    await megan.send("Hey Megan, This is Dom. Just fixed the bot, let me know if he bothers you any more.")
-
 
 
 
