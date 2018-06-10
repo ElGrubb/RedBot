@@ -3988,11 +3988,9 @@ class Remind:
         if "http" in usablecontent.lower():
             temporary = usablecontent + ''
             TempParts = temporary.strip().split(" ")
-            print("True")
 
             for section in TempParts:
                 if section.lower().startswith("http"):  # If that word is a link:
-                    print(section)
                     shortened = Sys.Shorten_Link(section)
                     temporary = temporary.replace(section, shortened)
 
@@ -4063,9 +4061,13 @@ class Remind:
                 return
 
             if DMChannel:
-                pass  # TODO Continue this thread
+                # TODO This thread should eventually talk to the person in their own DM Channel
+                await ReturnError(message, "You can only remind yourself in a DM Channel!")
+                return
 
-
+        if not SendToUser:
+            await ReturnError(message, "Cannot find the person you speak of!")
+            return
 
         try:
             firstitem = int(firstitem)
@@ -4429,7 +4431,7 @@ class Remind:
         # Okay so now we're ready to deal with the confirmation
         toSendDateString = RemindTime.strftime("%A, %B %d, %Y at %I:%M %p")
 
-        string = "```diff\n- " + toSendDateString + "\nI say: > @" + message.author.name + ", " + RemindMessage + "```"
+        string = "```diff\n- " + toSendDateString + "\nI say: > @" + SendToUser.name + ", " + RemindMessage + "```"
 
         confirmation = await Helpers.Confirmation(message, text="Create Reminder?", extra_text=string, color=Remind.embed_color,
                                                   deny_text="Remind Cancelled.", add_reaction=False)
@@ -4437,10 +4439,13 @@ class Remind:
         if not confirmation:
             return
 
-        await Remind.SaveReminder(RemindTime, RemindMessage, message)
+        await Remind.SaveReminder(RemindTime, RemindMessage, message, SendToUser)
 
         em = discord.Embed(color=Remind.embed_color, description=string)
-        em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
+        if SendToUser.id == message.author.id:
+            em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
+        else:
+            em.set_author(name="Okay, I'll Remind " + SendToUser.name, icon_url=Vars.Bot.user.avatar_url)
 
         sent = await message.channel.send(embed=em)
 
@@ -4468,7 +4473,7 @@ class Remind:
         return round(stamp)
 
     @staticmethod
-    async def SaveReminder(RemindTime, RemindMessage, message):
+    async def SaveReminder(RemindTime, RemindMessage, message, SendToUser):
         # Saves the Reminder in the data
         RemindStamp = await Remind.DateStamp(RemindTime)
         To_Add = {
@@ -4478,7 +4483,8 @@ class Remind:
             "Created_At": await Remind.DateStamp(datetime.now()),
             "OriginalMessage": message.content,
             "OriginalMessageID": message.id,
-            "Channel": message.channel.id
+            "Channel": message.channel.id,
+            "RemindPerson": SendToUser.id
         }
 
         if type(message.channel) == discord.channel.DMChannel:  # If it's a Direct Message Channel
@@ -4530,10 +4536,15 @@ class Remind:
             # For each reminder given
             em = discord.Embed(color=Remind.embed_color, description=Reminder["Message"])
             em.set_author(name="Reminder:", icon_url=Vars.Bot.user.avatar_url)
-            em.set_footer(text=Reminder["OriginalMessage"])
+
+            if Reminder["Author"] == Reminder["RemindPerson"]:
+                em.set_footer(text=Reminder["OriginalMessage"])
+            else:
+                OriginalPerson = Vars.Bot.get_user(int(Reminder["Author"]))
+                em.set_footer(text=OriginalPerson.name + ": " + Reminder["OriginalMessage"])
 
             SendChannel = Vars.Bot.get_channel(int(Reminder["Channel"]))
-            AuthorMention = Vars.Bot.get_user(int(Reminder["Author"])).mention
+            RemindPersonMention = Vars.Bot.get_user(int(Reminder["RemindPerson"])).mention
 
             if SendChannel:
                 Good_To_Send = False
@@ -4546,10 +4557,10 @@ class Remind:
 
                 if Good_To_Send:
                     # If the channel exists and the bot can send messages in it:
-                    SentMsg = await SendChannel.send(AuthorMention + Add + ", " + Reminder["Message"], embed=em)
+                    SentMsg = await SendChannel.send(RemindPersonMention + Add + ", " + Reminder["Message"], embed=em)
 
                     await asyncio.sleep(.2)
-                    await SentMsg.edit(content=AuthorMention + Add, embed=em)
+                    await SentMsg.edit(content=RemindPersonMention + Add, embed=em)
 
         # Now that it's been sent, it must be deleted
         await Remind.DeleteReminder(str(RemindList[0]["RemindStamp"]))
