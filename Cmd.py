@@ -1441,6 +1441,8 @@ class Timer:
                 await Remind.CheckForReminders()
 
 
+
+
 class Quotes:
     @staticmethod
     async def SendQuote(message):
@@ -2119,8 +2121,7 @@ class Other:
         await message.delete()
 
         if not sections_list:
-            await message.channel.send("Here's the format for a Poll: ```css\n/poll Question?\n[Emoji] Answer1\n"
-                                       "[Emoji 2] Answer 2\n[...]```")
+            await message.channel.send("Woah woah woah, you need some options")
             return
 
         # Add emojis to those that don't have them
@@ -4079,8 +4080,6 @@ class Remind:
 
         if firstitemtype == "Number" and contentwords[1].lower() in ["am", "pm"]:
             firstitemtype = "Time"  # A simple time is "3 am" instead of "3:00 am"
-            usablecontent = usablecontent.replace(str(firstitem), str(firstitem) + ":00")
-
             firstitem = contentwords[0] = str(firstitem) + ":00"
 
         # Now our goal is to develop a time object based on the given information
@@ -4188,58 +4187,14 @@ class Remind:
                             AMPM = contentwords[i + 1]
                             OriginalNote += " " + contentwords[i + 1]
 
-                    if not AMPM and int(TempDict["Hour"]) <= 12:  # If there is no given AM or PM, the bot guesses
-                        NowAMPM = datetime.now().strftime("%p").lower()
-                        currentminute = int(datetime.now().strftime("%M"))
-                        currenthour = int(datetime.now().strftime("%I"))
+                    if not AMPM:  # If there is no given AM or PM, the bot guesses
+                        if 8 < int(CurrentPhrase.split(":")[0]) < 11:
+                            AMPM = "am"
 
-                        # We're going to pick the next instance, unless its between 1:00am and 6:00am
-                        if int(TempDict["Hour"]) > currenthour:
-                            # If the hour is in the future but not too far, AMPM is the am/pm that we're currently in
-                            AMPM = NowAMPM
-
-                        elif int(TempDict["Hour"]) < currenthour:
-                            # If it's in the next am/pm, we change the sign
-                            if NowAMPM == "pm":
-                                AMPM = "am"
-                            elif NowAMPM == "am":
-                                AMPM = "pm"
-
-                        elif int(TempDict["Hour"]) == currenthour:
-                            # If the hours match:
-
-                            if int(TempDict["Minute"]) > currentminute:
-                                # If the minutes are ahead, it's the current am/pm
-                                AMPM = NowAMPM
-
-                            elif int(TempDict["Minute"]) < currentminute:
-                                # If the minutes are behind, it's 12 hours away
-                                if NowAMPM == "pm":
-                                    AMPM = "am"
-                                elif NowAMPM == "am":
-                                    AMPM = "pm"
-
-                            elif int(TempDict["Minute"]) == currentminute:
-                                # If the reminder is now, it should flip and do 12 hours in the future too
-
-                                if NowAMPM == "pm":
-                                    AMPM = "am"
-                                elif NowAMPM == "am":
-                                    AMPM = "pm"
-
-                        # Before we move on, we want to do one more thing, which is see if the reminder is for 1am - 5am
-                        # If so, we block it and make it pm. Nobody wants to be reminded then
-
-                        if AMPM == "am":
-                            if 1 <= int(TempDict["Hour"]) <= 5:
-                                # If it's between 1 and 6, (but not equal to 6)
-                                AMPM = "pm"
-
-                    if not AMPM:  # Only called if military time is used, in which it would always be pm
-                        AMPM = "pm"
-
-                    await message.channel.send("No Indication of AM or PM given, but based on your message, I'm guessing it's: `"
-                                               + AMPM + "`.", delete_after=10)
+                        elif int(CurrentPhrase.split(":")[0]) == 12:
+                            AMPM = "pm"
+                        else:
+                            AMPM = "pm"
 
                     TempDict["AMPM"] = AMPM
                     TempDict["Original"] = OriginalNote
