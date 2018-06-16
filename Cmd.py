@@ -4065,9 +4065,8 @@ class Remind:
                 return
 
         if not SendToUser:
-            SendToUser = message.author
-            # await ReturnError(message, "Cannot find the person you speak of!")
-            # return
+            await ReturnError(message, "Cannot find the person you speak of!")
+            return
 
         try:
             firstitem = int(firstitem)
