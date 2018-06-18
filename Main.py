@@ -56,11 +56,11 @@ class MyClient(discord.Client):
         await Cmd.Quotes.SendQuote(message)
         await Cmd.Quotes.QuoteCommand(message)
 
+        await Cmd.Poll.OnMessage(message)
+
         # 'OTHER' COMMANDS
         await Cmd.Other.QuickChat(message)
-        await Cmd.Other.YesNo(message)
         await Cmd.Other.Change_Color(message)
-        await Cmd.Other.Poll(message)
         await Cmd.Other.Weather(message)
         await Cmd.Other.OldWeather(message)
         await Cmd.Other.Calculate(message)
@@ -96,9 +96,6 @@ class MyClient(discord.Client):
         await Cmd.Tag.SetTag(message)
         await Cmd.Tag.TagFunction(message)
         await Cmd.Tag.ClearTagData(message)
-        # await Cmd.Tag.ImageTest(message)
-
-        #await Cmd.PipInstall(message)
 
 
     async def on_message_edit(self, before, after):
