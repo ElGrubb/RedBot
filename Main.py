@@ -48,22 +48,23 @@ class MyClient(discord.Client):
                 return
 
         await Cmd.test(message)
-        await Cmd.Help(message)
         await Cmd.Log.LogSent(message)
+
+        await Cmd.Poll.OnMessage(message)
+        await Cmd.Help.OnMessage(message)
+        await Cmd.Calculate.OnMessage(message)
 
         # 'SEND' Commands
         await Cmd.Memes.SendMeme(message)
         await Cmd.Quotes.SendQuote(message)
         await Cmd.Quotes.QuoteCommand(message)
 
-        await Cmd.Poll.OnMessage(message)
-
         # 'OTHER' COMMANDS
         await Cmd.Other.QuickChat(message)
         await Cmd.Other.Change_Color(message)
         await Cmd.Other.Weather(message)
         await Cmd.Other.OldWeather(message)
-        await Cmd.Other.Calculate(message)
+        #await Cmd.Other.Calculate(message)
         await Cmd.Other.NoContext(message)
         await Cmd.Other.ChatLinkShorten(message)
         await Cmd.Other.CountMessages(message)
@@ -172,7 +173,11 @@ class MyClient(discord.Client):
 
     async def on_raw_reaction_add(self, emoji, message_id, channel_id, user_id):
         channel = bot.get_channel(channel_id)
-        message = await channel.get_message(message_id)
+
+        try:
+            message = await channel.get_message(message_id)
+        except:
+            return
 
         if user_id == bot.user.id:
             return

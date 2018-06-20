@@ -130,7 +130,7 @@ class SeenMessages:
 
 
 async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=None, guild=None, sender=None, admin=None,
-                       include=None):
+                       include=None, markMessage=True):
     """
     Checks through the contents of a message and params to see if its good to run the function
     :param message:     The message object
@@ -216,10 +216,18 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
 
     if numberCorrect == totalPossibleCorrect:
         # Vars.Bot.loop.create_task(loadingSign(message))
-        await SeenMessages.LogFound(message.id)
+        if markMessage:
+            await SeenMessages.LogFound(message.id)
         return True
     else:
         return False
+
+def IsDMChannel(channel):
+    if type(channel) == discord.channel.DMChannel:
+        return True
+    else:
+        return False
+
 
 # Loading Sign
 async def loadingSign(message):
@@ -2258,40 +2266,6 @@ class Other:
                     await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
     @staticmethod
-    async def FakeJoin(message):
-        if not await CheckMessage(message, start="FakeJoin", prefix=True, admin=True):
-            return
-
-
-        guild = bot.get
-        channel_list = []
-        for channel in guild.text_channels:
-            channel_list.append(channel)
-        default_channel = channel_list[0]
-
-        description = "Account Created at: " + member.created_at.strftime("%H:%M:%S  on  %m-%d-%Y")
-        description += "\nJoined Server at: " + datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
-        description += '\nID: `' + str(member.id) + '`'
-        if member.bot:
-            description += '\nYou are a bot. I do not like being replaced.'
-        em = discord.Embed(description=description, colour=0xffffff)
-        em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
-        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
-
-        permissions = await CheckPermissions(default_channel, ["send_messages", "change_nickname"], return_all=True)
-
-        # Add to audit log
-        if permissions["change_nickname"]:
-            bot_member = guild.get_member(Vars.Bot.user.id)
-            old_name = bot_member.name
-            await bot_member.edit(nick="Thinking...", reason=member.name + " joined.")
-            await bot_member.edit(nick=old_name)
-
-        # Send the message
-        if permissions['send_messages']:
-            await default_channel.send("Welcome!", embed=em)
-
-    @staticmethod
     async def OldWeather(message, morning=False):
         if not morning:
             if not await CheckMessage(message, prefix=True, start="FullWeather"):
@@ -2535,6 +2509,10 @@ class Other:
         if not await CheckMessage(message, start="no context", prefix=True):
             return
 
+        if IsDMChannel(message.channel):
+            await message.channel.send("No Context only works in Guilds/Servers!")
+            return
+
         # Cooldown Shit
         cd_notice = Cooldown.CheckCooldown("nocontext", message.author, message.guild)
         if type(cd_notice) == int:
@@ -2587,54 +2565,93 @@ class Other:
 
     @staticmethod
     async def ChatLinkShorten(message):
+        """Scans chat for any mention of a link
+        Sees how long it is, and offers to shorten it if need be.
+        """
+        # Ensure the message has http in it
         if not await CheckMessage(message, include="http", prefix=False):
             return
-        string = message.content.strip()
 
         if message.author.bot:
             return
 
-        if " " in string:  # If there's a space in the message, IE more text
-            original_string = string
-            new_string = ""
-            string = string.split(" ")  # make string into a list
-            for part in string:  # For each section
-                if part.startswith("http"):  # if its the link
-                    new_string = part
-                    break
-            if not new_string:
+        if IsDMChannel(message.channel):
+            return
+
+        UsableContent = message.content.strip()
+        Links = []
+
+        # Now we need to find the link:
+        ContentWords = UsableContent.replace("\n", " ").split(" ")
+        for Word in ContentWords:
+            #print(Word)
+            if Word.lower().strip().startswith("http"):
+                Links.append(Word)
+
+        # Let's ensure that everything is shortenable
+        Shortened_Links = {}
+        for Link in Links:
+            ShortenedVersion = Sys.Shorten_Link(Link)
+
+            # Now let's create a dict that'll help us in the longrun
+            tempdict = {"Short": ShortenedVersion}
+
+            # Let's find the main url part
+            partial = Link.replace("www.", "").split("//")
+
+            if len(partial) == 1:
                 return
-            string = new_string
 
-            more_content = original_string.replace(new_string, "").strip()
-        else:
-            more_content = False
+            # Partial should now have "[Https:, therest.com/whatever]
+            MainDomain = partial[1].split("/")[0]
+            # MainDomain should now just be "en.wikipedia.org" which is exactly what we want
+            tempdict["Partial"] = MainDomain
+            tempdict["Difference"] = len(Link) - len(ShortenedVersion)
 
-        shortened_string = Sys.Shorten_Link(string)
-        saved_length = len(string) - len(shortened_string)
-        if saved_length < 20:
+            Shortened_Links[Link] = tempdict
+
+        # Now that we have a list, Links, of all the different links, let's see if the user wants
+        # to shorten it
+
+        # Reaction Stuff
+        await message.add_reaction(Conversation.Emoji["link"])
+
+        # This function will be ran on every new reaction_add to see if it's the link we want
+        def check(reaction, user):
+            if user.id == Vars.Bot.user.id:
+                return None
+            if user.id == message.author.id:
+                if reaction.message.id == message.id:
+                    if reaction.emoji == Conversation.Emoji["link"]:
+                        return reaction, user
+
+            return None
+
+        try:
+            reaction, user = await Vars.Bot.wait_for('reaction_add', check=check, timeout=60)
+        except asyncio.TimeoutError:
+            if not await Helpers.Deleted(message):
+                await message.remove_reaction(Conversation.Emoji["link"], Vars.Bot.user)
             return
-        extra_text = "It would be `" + str(saved_length) + "` characters shorter."
 
-        confirmation = await Helpers.Confirmation(message, "Would you like to shorten that link?", deny_text="Okay.",
-                                                  timeout=40, mention=message.author, extra_text=extra_text)
-        if not confirmation:
-            return
-
-        # Find domain of link
-        partial = string.split("//")[1]
-        if "www." in partial:
-            partial = partial.replace("www.", "").strip()
-        partial = partial.split(".")
-        domain = partial[0] + "." + partial[1].split("/")[0]
-
-        text = "**Shortened Link from " + message.author.name + ":  **" + shortened_string + "   (*" + domain + "*)"
-        if type(more_content) == str and more_content:
-            text += "\n**\" **" + more_content + " **\"**"
-            await message.add_reaction(Conversation.Emoji["x"])
+        # Now that we know they wanted it shortened, our first order of business
+        # is to delete the original
         await message.delete()
 
-        await message.channel.send(text)
+        # Now we need to go through our Links list and shorten all the messages
+
+
+        # Now it's time to format what the bot will send
+        NewContent = message.content
+        for link in Shortened_Links:
+            To_Replace = Shortened_Links[link]["Short"] + " *(" + Shortened_Links[link]["Partial"] + ")* "
+            NewContent = NewContent.replace(link, To_Replace)
+
+        LinkSendEmbed = discord.Embed(description=NewContent, color=message.author.color)
+        LinkSendEmbed.set_author(name=message.author.name + "#" + message.author.discriminator, icon_url=message.author.avatar_url)
+        LinkSendEmbed.set_footer(text="Redbot Link Shortener")
+
+        await message.channel.send(embed=LinkSendEmbed)
 
     @staticmethod
     async def CountMessages(message):
@@ -2947,6 +2964,7 @@ class Poll:
         LetterEmoji = ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
                     '\U0001F1EC', '\U0001F1ED', '\U0001F1EE', '\U0001F1EF']
 
+
         # Create ContentLines, that'll go through each section of this message
         UsableContent = message.content[6:].strip().lower()
         ContentLines = UsableContent.split("\n")
@@ -2957,6 +2975,7 @@ class Poll:
 
         # Okay so now we need to figure out if it is a YesNo (no options)
         if len(ContentLines) > 1:  # If there are 1 or more lines in the poll:
+            PollType = "Poll"
             # Iterate through each line, figuring out what's emoji and what's option
             for Line in ContentLines[1:]:
                 Line = Line.strip()
@@ -2977,6 +2996,7 @@ class Poll:
                 })
 
         else:  # If there were no given responses:
+            PollType = "YesNo"
             Responses = [ {
                     "Emoji": Conversation.Emoji["thumbsup"],
                     "Response": "Yes"
@@ -2984,6 +3004,7 @@ class Poll:
                     "Emoji": Conversation.Emoji["thumbsdown"],
                     "Response": "No"
                 } ]
+        PollData["Type"] = PollType
 
         # Let's run a quick test here:
         if len(Responses) > 10:
@@ -3021,7 +3042,7 @@ class Poll:
 
             Description += Response["Emoji"] + "  " + Sys.FirstCap(Response["Response"])
 
-        PollEmbed = discord.Embed(title= "Poll: " + Sys.FirstCap(PollData["Question"]), description=Description, color=Vars.Bot_Color)
+        PollEmbed = discord.Embed(title= PollType + ": " + Sys.FirstCap(PollData["Question"]), description=Description, color=Vars.Bot_Color)
         PollEmbed.set_author(name=message.author.name + "#" + message.author.discriminator,
                              icon_url=message.author.avatar_url, url="http://" + str(message.id) + ".com")
 
@@ -3040,8 +3061,6 @@ class Poll:
                 await message.author.send(DM_Message)
 
         await Poll.ManageReactions(message, PollData, SentEmbed)
-
-
 
     @staticmethod
     async def ManageReactions(message, PollData, PollMessage):
@@ -3113,7 +3132,7 @@ class Poll:
                     Description += "\n     *" + UserString + "*"
 
             # Now that we have the description, let's re make the embed
-            PollEmbed = discord.Embed(title=TitleAdd + "Poll: " + Sys.FirstCap(PollData["Question"]), description=Description,
+            PollEmbed = discord.Embed(title=TitleAdd + PolLData["Type"] + ": " + Sys.FirstCap(PollData["Question"]), description=Description,
                                       color=Color)
             PollEmbed.set_author(name=message.author.name + "#" + message.author.discriminator,
                                  icon_url=message.author.avatar_url, url="http://" + str(message.id) + ".com")
@@ -3155,6 +3174,83 @@ class Poll:
         PollMessage = await Helpers.ReGet(PollMessage)
 
         await PollMessage.clear_reactions()
+
+
+class Calculate:
+    @staticmethod
+    async def OnMessage(message):
+        await Calculate.Command(message)
+
+        return
+
+    @staticmethod
+    async def Command(message):
+        if not await CheckMessage(message, prefix="="):
+            return
+
+        if message.content.startswith("=="):  # If people are doing a divider or something
+            return
+
+        usableContent = message.content[1:]
+        if not usableContent:
+            return
+
+        await message.channel.trigger_typing()
+        res = wolfram_client.query(usableContent)
+
+        # First, let's see if there was some sort of error in the res process:
+        if res["@error"] == 'true':
+            em = discord.Embed(description="Wolfram Alpha server Error, try again later.", color=Vars.Bot_Color)
+            em.set_author(name="Calculate Error")
+            await message.channel.send(embed=em)
+            return
+
+        if res["@success"] == 'false':
+            em = discord.Embed(description="Wolfram Alpha can't seem to figure out your query. Try rephrasing.", color=Vars.Bot_Color)
+            em.set_author(name="Calculate Error")
+            await message.channel.send(embed=em)
+            return
+
+        em = discord.Embed(title="Calculate", color=Vars.Bot_Color)
+
+        PodList = []
+        for pod in res.pods:
+            bad_titles = ["AlternateForm"]
+            if pod["@id"] not in bad_titles:
+                PodList.append(pod)
+
+
+        for pod in PodList:
+            HasImage = False
+            if int(pod["@position"]) > 400:
+                break
+
+            if int(pod["@numsubpods"]) > 1:
+                subpod = pod["subpod"][0]
+            else:
+                subpod = pod["subpod"]
+
+
+            image_types = ['image', 'plot', 'musicnotation', 'visualrepresentation', 'structurediagram']
+
+            em = None
+            if not HasImage and int(pod["@position"]) > 100:
+                if 'img' in subpod:  # Graph / Plot
+                    image_link = subpod["img"]["@src"]
+                elif 'imagesource' in subpod:  # Picture
+                    image_link = subpod['imagesource']
+                else:
+                    image_link = False
+
+                if image_link:
+                    em = discord.Embed(title=pod["@title"], color=Vars.Bot_Color)
+                    em.set_image(url=image_link)
+
+            if not em:
+                em = discord.Embed(title=pod["@title"], color=Vars.Bot_Color, description=pod.text)
+
+            await message.channel.send(embed=em)
+        return
 
 
 class Tag:
@@ -4633,17 +4729,77 @@ class Remind:
 class Help:
     # Displays Help for a given command type
     @staticmethod
+    async def OnMessage(message):
+        await Help.HelpCommandGeneral(message)
+        return
+
+    @staticmethod
     async def HelpCommandGeneral(message):
         # Runs per command, just to see if its either like: /yesno help or /help yesno
         usableContent = message.content
-        if not await CheckMessage(message, prefix=True):
+        if not await CheckMessage(message, prefix=True, include="help", markMessage=False):
+            return
+        if not message.content[1:5].lower() == "help" and not " help" in message.content.lower():
             return
 
         usableContent = usableContent[1:]
 
-        seperatedWords = usableContent.lower().split(" ")
+        seperatedWords = usableContent.split(" ")
 
-        # TODO Help command
+        HasHelp = 0
+
+        for word in seperatedWords:
+            if word.lower().strip() == "help":
+                HasHelp = word
+
+        if not HasHelp:
+            return
+
+        usableContent = usableContent.replace(HasHelp, "").strip().lower()
+
+        if not usableContent.strip():
+            await Help.HelpGUI(message)
+            return
+
+        HelpText = Conversation.Help
+
+        if usableContent.lower().endswith("s"):
+            usableContent = usableContent[0:len(usableContent)-1]
+        if usableContent.lower().endswith("ed"):
+            usableContent = usableContent[0:len(usableContent)-2]
+
+
+        if usableContent not in HelpText.keys():
+            em = discord.Embed(description="I can't find `"+ usableContent + "` in my data. You can just do /help to "
+                                                                             "see all help messages", color=Vars.Bot_Color)
+            message.add_reaction(Conversation.Emoji["x"])
+
+        else:
+            em = discord.Embed(description=HelpText[usableContent], color=Vars.Bot_Color, title=Sys.FirstCap(usableContent) + " Help")
+            em.set_thumbnail(url=Vars.Bot.user.avatar_url)
+            em.set_footer(text=message.content)
+
+        await message.channel.send(embed=em)
+
+        #await message.channel.send(usableContent)
+
+    @staticmethod
+    async def HelpGUI(message):
+        # Summoned by help command, shows each help section with clickable arrows
+        HelpText = Conversation.Help
+
+        HelpString = ""
+        for key in HelpText:
+            HelpString += "\n*- " + Sys.FirstCap(key) + "*"
+
+        em = discord.Embed(description="There are many different extentions to this command: " + HelpString,
+                           title="Help Command", color=Vars.Bot_Color)
+        em.set_thumbnail(url=Vars.Bot.user.avatar_url)
+        em.set_footer(text=message.content)
+
+        await message.channel.send(embed=em)
+
+
 
 
 
@@ -4702,7 +4858,7 @@ async def test(message):
     #raise TypeError("Testing!")
     return
 
-async def Help(message):
+async def Helpeee(message):
     if not await CheckMessage(message, start="help", prefix=True):
         return
     # Has a cycle for the help

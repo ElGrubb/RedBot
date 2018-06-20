@@ -109,7 +109,8 @@ Emoji = {
     "tag": "\U0001f5d2",
     "TriangleRight": "\U000025b6",
     "TriangleLeft": "\U000025c0",
-    "SkipRight": "\U000023e9"
+    "SkipRight": "\U000023e9",
+    "link": '\U0001f517'
 }
 
 # Nice Tries
@@ -401,4 +402,82 @@ WeatherText = {
     "Going to be sluggish today, I bet.",
     "Weather."
 ]
+}
+
+Help = {
+    "remind": "Reminders are a great way for RedBot to send you an automated message at a certain time. You can create"
+              " a reminder in two ways:"
+              "\n\n**First Way**: Remind in an amount of time:"
+              "\nFormat: /remind [(amount) (unit)] (message to be reminded)"
+              "\n```/remind 2 minutes Wake Up"
+              "\n/remind 3 hours 2 minutes Take out the trash"
+              "\n/remind 3 days 2 minutes 121 hours Make fake commands```"
+              "\n\n**Second Way**: Remind *at* a certain time / date:"
+              "\nFormat: /remind (time) (date) (message to be reminded   - You don't need both time and date"
+              "\n```/remind 3 PM work on your essay"
+              "\n/remind 5/17/18 Create fake reminders"
+              "\n/remind 12:45 AM 6/12/18 You best be sleeping```",
+    "help": "The help command is the best way to learn how to use me. You can call it in two ways:"
+            "\n```/help```"
+            "\nThis way generates a rotating listing of all of the help commands"
+            "\n```/help {item}"
+            "\n/help todo```"
+            "\n This way gives you the help of a specific command set",
+    "meme": "I can send you memes. "
+            "\n**General Format**:"
+            "\n```/send {type} meme[optional]```"
+            "\n**Available Types**:"
+            "\n- Dank\n- Normie"
+            "\n- Surreal\n- Cringe"
+            "\n- Hmmm\n- Aww"
+            "\n- Doggo",
+    "quote": "I can save and send Quotes"
+             "\n**How to Send a Quote:**"
+             "\n```/send quote```This'll prompt me to send you a saved quote in my database. I choose them at random"
+             "and try to keep them from happening too frequently."
+             "\n\n**How to save a quote:**"
+             "\nAdd this emoji as a reaction to the message: \U0001f4ac (:speech_bubble:)"
+             "\nIf 5 people add the reaction within a certain amount of time, it'll be saved."
+             "\n\n**How to Use the Quote Command**"
+             "\nThis command will start a quote saving mode. Add 5 more reactions to the sent message by me to be saved"
+             "\n```/quote @{Mention} {Quote}"
+             "\n/quote @Dom#2774 I made redbot myself```",
+    "poll": "I can create polls that make sure that nobody can answer multiple selections"
+            "\n\n**How to Create a Poll:**"
+            "\n```/poll {Question}"
+            "\n{Emoji} {Response 1}"
+            "\n{Emoji} {Response 2} \n[...]```"
+            "\nIf you don't include the emoji's, I'll automatically fill it in with letters."
+            "\n\n**How to Create a YesNo:**"
+            "\n```/yesno Do you like lemons?```"
+            "\nIf you don't include options when you type /poll, or if you do type options with /yesno, "
+            "I'll switch it to fit. With this update, Polls and YesNos are interchangable.",
+    "color": "I can change your color in this server with a role."
+             "\n\n**Command Usage:**"
+             "\n```/color #{Hex}"
+             "\n/color #FFA124```"
+             "\nMake sure I have enough permissions to make roles, order them, etc. ",
+    "weather": "I can send you the weather in lynnfield (soon will work for other locations)."
+               "\nTo get the new weather widget, type:"
+               "```/weather```"
+               "To use the old, full weather interface, type:"
+               "```/fullweather```",
+    "tag": "The Tag commands allow me to remember information and send it back to you later"
+           "\n**How to Call a Tag:**"
+           "\n```/tag {key}"
+           "\n/t {key}```"
+           "\n**How to Create a Tag:**"
+           "\nYou can create a tag by using the following command: `/settag`. Tags can have words, an image, or both in their content."
+           "\nThe key of a tag can only be one item, no spaces. If you want a multi word key, you can either seperate the words through"
+           "hyphens (-) or underscores (_)."
+           "```/settag {key} {content} {attached image}"
+           "\n/settag Key Here is the content area"
+           "\n/settag Multi-Word-Key Here is the content area```"
+           "To create an image tag, upload it as an attachment to the image."
+           "\n\n**To Edit A Tag:**"
+           "\nTo edit a tag, call the command below and I'll walk through everything with you. "
+           "```/tag edit {Key}```"
+           "\n**Other Tag Commands:**"
+           "```/tag list```"
+           "\n```/tag random```"
 }
