@@ -28,6 +28,7 @@ class MyClient(discord.Client):
             await Cmd.Vars.Creator.send(embed=em)
 
         await Cmd.Remind.CheckForOldReminders()
+        await Cmd.Poll.RefreshData()
 
 
         Cmd.Vars.Ready = True
@@ -53,6 +54,8 @@ class MyClient(discord.Client):
         await Cmd.Poll.OnMessage(message)
         await Cmd.Help.OnMessage(message)
         await Cmd.Calculate.OnMessage(message)
+        await Cmd.Remind.RemindCommand(message)
+        await Cmd.Todo.OnMessage(message)
 
         # 'SEND' Commands
         await Cmd.Memes.SendMeme(message)
@@ -64,13 +67,10 @@ class MyClient(discord.Client):
         await Cmd.Other.Change_Color(message)
         await Cmd.Other.Weather(message)
         await Cmd.Other.OldWeather(message)
-        #await Cmd.Other.Calculate(message)
         await Cmd.Other.NoContext(message)
         await Cmd.Other.ChatLinkShorten(message)
         await Cmd.Other.CountMessages(message)
 
-        # REMIND Commands
-        await Cmd.Remind.RemindCommand(message)
 
         # ADMIN Commands
         await Cmd.Admin.CopyFrom(message)
@@ -105,6 +105,7 @@ class MyClient(discord.Client):
 
     async def on_error(self, event_method, *args, **kwargs):
         argument = args[0]
+
         has_channel = True
         context = None
         # argument could be reaction, or message
@@ -166,6 +167,12 @@ class MyClient(discord.Client):
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
             return
+
+        ReactionIsForPoll = await Cmd.Poll.OnReaction(reaction, user)
+        if ReactionIsForPoll:
+            return
+
+
         if reaction.emoji == Conversation.Emoji["quote"]:
             await Cmd.Quotes.OnQuoteReaction(reaction, user)
         if reaction.emoji == Conversation.Emoji["x"]:

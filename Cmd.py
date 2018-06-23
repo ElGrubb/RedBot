@@ -537,6 +537,19 @@ class Helpers:
         return False
 
     @staticmethod
+    async def GetMsg(messageID, channelID):
+        try:
+            channel = Vars.Bot.get_channel(int(channelID))
+        except discord.NotFound:
+            return None
+
+        try:
+            newmsg = await channel.get_message(int(messageID))
+            return newmsg
+        except discord.NotFound:
+            return None
+
+    @staticmethod
     async def QuietDelete(message, wait=None):
         id = message.id
         channel = message.channel
@@ -694,6 +707,12 @@ class Log:
 
         await CommandLog.send(embed=em)
 
+    @staticmethod
+    async def ErrorLog(args): # TODO Redo Logging
+        Argument = args[0]
+        return
+        print(type(Argument))
+
 
 class Admin:
     @staticmethod
@@ -762,7 +781,7 @@ class Admin:
 
     @staticmethod
     async def GuildInfo(message):
-        if not await CheckMessage(message, start="BotGuild", prefix=True, admin=True):
+        if not await CheckMessage(message, start="guilds", prefix=True, admin=True):
             return
 
         sendmessage = "" # test this
@@ -1464,6 +1483,10 @@ class Timer:
                         await Other.T_Weather()
                     except Exception as e:
                         await Vars.Creator.send("Error during weather, error = " + str(e))
+
+                if current_time == '12:00':
+                    await Remind.CheckForOldReminders()
+                    await Poll.CleanData()
 
                 await Remind.CheckForReminders()
 
@@ -2374,137 +2397,6 @@ class Other:
         return
 
     @staticmethod
-    async def Calculate(message):
-        if not await CheckMessage(message, prefix="="):
-            return
-
-        if message.content.startswith('='):  # Remove any beginning =
-            message.content = message.content[1:len(message.content)]
-        if message.content.startswith('='):  # If there's a second, return
-            return
-        if not message.content:
-            return
-
-        await message.channel.trigger_typing()
-        res = wolfram_client.query(message.content)
-
-        if res['@success'] == 'false':  # If it can't find anything
-            msg = await message.channel.send('Hmmm, I can\'t seem to figure that one out. Try Rephrasing?')
-            return
-
-        # We're looking for input_pod and detail_pod_1
-        input_pod, result_pod, detail_pod_1 = False, False, False
-        for pod in res.pods:
-            if pod['@id'] == 'Input':
-                input_pod = pod
-            elif pod['@title'] == 'Result':
-                result_pod = pod
-            if pod['@position'] == '300':
-                detail_pod_1 = pod
-        if not result_pod:
-            try:
-                result_pod = next(res.results)
-            except:
-                result_pod = None
-                for new_pod in res.pods:
-                    if new_pod['@position'] == '200':
-                        result_pod = new_pod
-                if not result_pod:
-                    msg = await message.channel.send('Hmmm, I can\'t seem to figure that one out. Try Rephrasing?')
-                    return
-        if detail_pod_1 == result_pod:
-            detail_pod_1 = False
-
-        # So now we figure out what to write for each
-        input_text, detail_text, result_text = [], [], []
-        for subpod in input_pod.subpods:  # INPUT POD
-            input_text.append(subpod.plaintext)
-
-        for subpod in result_pod.subpods:
-            result_text.append(subpod.plaintext)
-
-        if detail_pod_1:
-            for subpod in detail_pod_1.subpods:
-                detail_text.append(subpod.plaintext)
-
-        if len(input_text) == 1:
-            input_text = input_text[0]
-        else:
-            temp_text = []
-            for part in input_text:
-                if temp_text:
-                    temp_text += '\n' + part
-                else:
-                    temp_text = part
-            input_text = temp_text
-
-        # Okay so I hate this part but I do it anyway
-        if not result_text[0]:
-            result_text = ''
-        elif len(result_text) == 1:  # Brings down to 1 text if only 1 elin list
-            result_text = result_text[0].split('\n')
-            if len(result_text) == 1:
-                result_text = result_text[0]
-
-        if not detail_text:
-            detail_text = ''
-        elif not detail_text[0]:
-            detail_text = ''
-        elif len(detail_text) == 1:  # Brings down to 1 text if only 1 elin list
-            detail_text = detail_text[0].split('\n')
-            if len(detail_text) == 1:
-                detail_text = detail_text[0]
-
-        # Okay so now we construct the answer
-        to_send = '**Input Interpretation:**  `'  # Begin the message
-        to_send += input_text + '`'
-        to_send += '\n**Result:**  ' if result_text else ''
-        if type(result_text) == list:
-            to_send += '```'
-            for part in result_text:
-                to_send += '\n' + part
-            to_send += '```'
-        elif not result_text:
-            to_send = to_send
-        else:
-            to_send += '`' + result_text + '`'
-
-        # ADD IMAGE
-        image_link = False
-        image_types = ['image', 'plot', 'musicnotation', 'visualrepresentation', 'structurediagram']
-        for pod in res.pods:  # Go through each pod
-            # Go through each pod
-            found = False
-            for prefix in image_types:
-                if prefix.lower() in pod['@id'].lower():
-                    found = True
-            if found:
-                # So if the ID is Image or Plot
-                for subpod in pod.subpods:
-                    # For each subpod, see if its image or picture (different somehow)
-                    if 'img' in subpod:  # Graph / Plot
-                        image_link = subpod['img']['@src']
-                    elif 'imagesource' in subpod:  # Picture
-                        image_link = subpod['imagesource']
-                    else:
-                        image_link = False
-        if image_link:
-            to_send += '\n**Image:** ' + Sys.Shorten_Link(image_link)
-
-        # ADD DETAIL
-        if detail_text:
-            to_send += '\n**Details: **'
-            if type(detail_text) == list:
-                to_send += '```'
-                for part in detail_text:
-                    to_send += '\n' + part
-                to_send += '```'
-            else:
-                to_send += '`' + detail_text + '`'
-
-        await message.channel.send(to_send)
-
-    @staticmethod
     async def NoContext(message):
         if not await CheckMessage(message, start="no context", prefix=True):
             return
@@ -2911,6 +2803,8 @@ class Other:
 
 
 class Poll:
+    RunningPolls = {}
+
     @staticmethod
     async def OnMessage(message):
         await Poll.PollCommand(message)
@@ -3060,120 +2954,150 @@ class Poll:
             if past_message.content != DM_Message:
                 await message.author.send(DM_Message)
 
+        PollData["SentID"] = SentEmbed.id
+        PollData["OriginalID"] = message.id
+        PollData["ChannelID"] = message.channel.id
+        PollData["MessageAuthorID"] = message.author.id
+        PollData["MessageAuthor"] = message.author.name + "#" + message.author.discriminator
+        PollData["MessageAuthorAvatarURL"] = message.author.avatar_url
+        PollData["TimeStamp"] = int(datetime.now().timestamp())
+
+
+        await Poll.AddData(PollData)
         await Poll.ManageReactions(message, PollData, SentEmbed)
 
     @staticmethod
-    async def ManageReactions(message, PollData, PollMessage):
-        """
-        Ran after poll is set up, ensures a user only can vote in one area
-        :param message: Original message the user sent
-        :param PollData: The dictionary of data that was given
-        :param PollMessage: The sent message by the bot
-        :return: True when it times out
-        """
+    async def AddData(PollData):
+        # Called internally, adds data for this running poll
+        SentID = str(PollData["SentID"])
 
-        stop_emoji = Conversation.Emoji["stop"]
 
-        # Functions
-        async def RemoveReaction(reaction, user):
-            # Can remove a reaction without needing async
-            await reaction.message.remove_reaction(reaction.emoji, user)
+        Poll.RunningPolls[SentID] = PollData
+        Helpers.SaveData(Poll.RunningPolls, "Poll")
+
+    @staticmethod
+    async def RefreshData():
+        Data = Helpers.RetrieveData("Poll")
+        if not Data:
+            Data = {}
+        Poll.RunningPolls = Data
+
+    @staticmethod
+    async def StopPollRunning(ID):
+        await Poll.RefreshData()
+
+        ID = str(ID)
+
+        if ID not in Poll.RunningPolls.keys():
             return
 
-        def CheckReaction(reaction, user):  # Checks if the reaction is valid
-            if user == Vars.Bot.user:
+        del Poll.RunningPolls[ID]
+        Helpers.SaveData(Poll.RunningPolls, "Poll")
+
+    @staticmethod
+    async def CleanData():
+        # Cleans up to make sure all data is correct, cleans polls too
+        AllPollData = Poll.RunningPolls
+
+        for key in AllPollData.keys():
+            PollData = AllPollData[key]
+            if not await Helpers.GetMsg(PollData["SentID"], PollData["ChannelID"]):
+                await Poll.StopPollRunning(key)
+
+            else:
+                DifferenceStamp = int(datetime.now().timestamp()) - int(PollData['TimeStamp'])
+                if DifferenceStamp > 60*60*24*4:  # More than two days old:
+                    msg = await Helpers.GetMsg(PollData["SentID"], PollData["ChannelID"])
+                    await Poll.FormatDescription(PollData, msg.reactions, TitleAdd="AutoClosed - ", Color=0x000000)
+
+                    await Poll.StopPollRunning(key)
+
+    @staticmethod
+    async def FormatDescription(PollData, AllMessageReactions, TitleAdd="", Color=Vars.Bot_Color):
+        # We're going to add a bit to each Responses that has a list of all members who currently have reacted to it,
+        # and add it all to FormatData
+        FormatData = []
+        PollMessage = await Helpers.GetMsg(PollData["SentID"], PollData["ChannelID"])
+
+        for Response in PollData["Responses"]:
+            temp = Response
+            for Reaction in AllMessageReactions:
+                if Response["Emoji"] == Reaction.emoji:
+                    temp["Users"] = await Reaction.users().flatten()
+
+            if "Users" not in temp.keys():
+                temp["Users"] = ""
+
+            FormatData.append(temp)
+
+        # So now we have FormatData
+        Description = ""
+        for item in FormatData:
+            if Description:
+                Description += "\n"
+
+            # Let's reconstruct each emoji, but now also include the users who reacted it
+            Description += item["Emoji"] + "  " + item["Response"]
+
+            UserString = ""
+            for User in item["Users"]:
+                if User.id != Vars.Bot.user.id:
+                    if UserString:
+                        UserString += ", "
+
+                    UserString += User.name
+            if UserString:
+                Description += "\n     *" + UserString + "*"
+
+        # Now that we have the description, let's re make the embed
+        PollEmbed = discord.Embed(title=TitleAdd + PollData["Type"] + ": " + Sys.FirstCap(PollData["Question"]),
+                                  description=Description,
+                                  color=Color)
+        PollEmbed.set_author(name=PollData["MessageAuthor"],
+                             icon_url=PollData["MessageAuthorAvatarURL"])
+
+        await PollMessage.edit(embed=PollEmbed)
+        await PollMessage.clear_reactions()
+
+
+    @staticmethod
+    async def OnReaction(reaction, user):
+        # Ran from OnReaction in Main.py, whenever someone adds a reaction to something
+
+        # First let's run some checks to ensure it's the message we're talking about
+        if str(reaction.message.id) not in Poll.RunningPolls.keys():
+            return
+
+        PollData = Poll.RunningPolls[str(reaction.message.id)]
+
+
+        PollMessage = await Helpers.GetMsg(PollData["SentID"], PollData["ChannelID"])
+
+        # If it got an emoji in the list, or stop, continue on
+        stop_emoji = Conversation.Emoji["stop"]
+        if reaction.emoji == stop_emoji:
+            if user.id == Vars.Bot.user.id or int(user.id) == int(PollData["MessageAuthorID"]):
+
+                await Poll.FormatDescription(PollData, PollMessage.reactions, TitleAdd="Closed - ", Color=0x36393e)
+                PollMessage = await Helpers.ReGet(PollMessage)
+
+                await PollMessage.clear_reactions()
+
+                await Poll.StopPollRunning(str(PollMessage.id))
                 return
 
-            # See if it's on our message
-            if reaction.message.id == PollMessage.id:
-                # See what emoji it is
-                if str(reaction.emoji) in PollData["EmojiList"]:
-                    return reaction, user
-                elif reaction.emoji == stop_emoji:
-                    # If the emoji is a stop sign, check to see who added it
-                    if user.id == message.author.id or user.id == Vars.Creator.id:
-                        return reaction, user
-                else:
-                    Vars.Bot.loop.create_task(RemoveReaction(reaction, user))
 
-        async def FormatDescription(PollData, AllMessageReactions, TitleAdd="", Color=Vars.Bot_Color):
-            # We're going to add a bit to each Responses that has a list of all members who currently have reacted to it,
-            # and add it all to FormatData
-            FormatData = []
+        # Now let's deal with the ugly reaction bit
+        AllMessageReactions = reaction.message.reactions  # Gets all the reactions on the message sorted by emoji
 
-            for Response in PollData["Responses"]:
-                temp = Response
-                for Reaction in AllMessageReactions:
-                    if Response["Emoji"] == Reaction.emoji:
-                        temp["Users"] = await Reaction.users().flatten()
+        for IndividualReaction in AllMessageReactions:
+            # If the emoji we're looking at is different from the one the user clicked:
+            if IndividualReaction.emoji != reaction.emoji:
+                # Var people is a list of everyone who voted for it
+                people = await IndividualReaction.users().flatten()
 
-                if "Users" not in temp.keys():
-                    temp["Users"] = ""
-
-                FormatData.append(temp)
-
-            # So now we have FormatData
-            Description = ""
-            for item in FormatData:
-                if Description:
-                    Description += "\n"
-
-                # Let's reconstruct each emoji, but now also include the users who reacted it
-                Description += item["Emoji"] + "  " + item["Response"]
-
-                UserString = ""
-                for User in item["Users"]:
-                    if User.id != Vars.Bot.user.id:
-                        if UserString:
-                            UserString += ", "
-
-                        UserString += User.name
-                if UserString:
-                    Description += "\n     *" + UserString + "*"
-
-            # Now that we have the description, let's re make the embed
-            PollEmbed = discord.Embed(title=TitleAdd + PolLData["Type"] + ": " + Sys.FirstCap(PollData["Question"]), description=Description,
-                                      color=Color)
-            PollEmbed.set_author(name=message.author.name + "#" + message.author.discriminator,
-                                 icon_url=message.author.avatar_url, url="http://" + str(message.id) + ".com")
-
-            await PollMessage.edit(embed=PollEmbed)
-
-        stop = False
-        while not stop:
-            try:
-                reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=1200, check=CheckReaction)
-            except asyncio.TimeoutError:
-                stop = "Timed Out"
-                break
-
-            # If it got an emoji in the list, or stop, continue on
-            if reaction.emoji == stop_emoji:
-                stop = "Stopped"
-                break
-
-            # Now let's deal with the ugly reaction bit
-            AllMessageReactions = reaction.message.reactions  # Gets all the reactions on the message sorted by emoji
-
-            for IndividualReaction in AllMessageReactions:
-                # If the emoji we're looking at is different from the one the user clicked:
-                if IndividualReaction.emoji != reaction.emoji:
-                    # Var people is a list of everyone who voted for it
-                    people = await IndividualReaction.users().flatten()
-
-                    if user in people:
-
-                        await RemoveReaction(IndividualReaction, user)
-
-            PollMessage = await Helpers.ReGet(PollMessage)
-
-        if await Helpers.Deleted(PollMessage):
-            return
-
-        await FormatDescription(PollData, PollMessage.reactions, TitleAdd = "Closed - ", Color=0x36393e)
-        PollMessage = await Helpers.ReGet(PollMessage)
-
-        await PollMessage.clear_reactions()
+                if user in people:
+                    await reaction.message.remove_reaction(IndividualReaction.emoji, user)
 
 
 class Calculate:
@@ -4479,6 +4403,13 @@ class Remind:
             Month = str(ReminderDate["Month"])
             Year = str(ReminderDate["Year"])
 
+            Hour = str(ReminderTime["Hour"])
+            Minute = str(ReminderTime["Minute"])
+
+            if Hour == "12" and AMPM == "AM":
+                Hour = "0"
+                Day = str(int(Day) + 1)
+
             if len(Year) > 2:
                 Year = Year[-2 : len(Year)]  # Ensure we just have the last two digits of the date
 
@@ -4490,12 +4421,11 @@ class Remind:
 
             DateString = Month + " " + Day + " " + Year
 
-            Hour = str(ReminderTime["Hour"])
-            Minute = str(ReminderTime["Minute"])
-
-
             if ReminderTime["AMPM"].lower() == "pm" and int(Hour) <= 12:
                 Hour = str( int(Hour) + 12 )
+
+            if int(Hour) == 24:
+                Hour = "12"
 
             if len(Hour) == 1:
                 Hour = "0" + Hour
@@ -4650,6 +4580,8 @@ class Remind:
 
     @staticmethod
     async def SendReminder(RemindList, Now, Add=""):
+        SentMsg = None
+
         for Reminder in RemindList:
             # For each reminder given
             em = discord.Embed(color=Remind.embed_color, description=Reminder["Message"])
@@ -4690,12 +4622,11 @@ class Remind:
         if not Reminder["OriginalMessageID"]:
             return
 
-        #if type(message.channel) == discord.channel.DMChannel:
-        #    return
-
         originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
 
         if not originalmsg:
+            return
+        if not SentMsg:
             return
 
         try: # TODO This is a Temporary Solution to the DM Problem
@@ -4703,9 +4634,40 @@ class Remind:
             await originalmsg.add_reaction(Conversation.Emoji["check"])
 
         except:
-            return
+            pass
 
         return
+
+        # Now we do the emojis
+        emoji_ten   = '\U0001f51f'
+        emoji_clock = '\U000023f2'
+        emoji_list = [emoji_ten, emoji_clock]
+
+        for emoji in emoji_list:
+            await SentMsg.add_reaction(emoji)
+
+        async def RemoveReaction(reaction, user):
+            if not await Helpers.Deleted(reaction.message):
+                await reaction.message.remove_reaction(user, reaction.emoji)
+
+        def Check(reaction, user):
+            if user.id == int(Reminder["RemindPerson"]):
+                if reaction.message.id == SentMsg.id:
+                    if reaction.emoji in emoji_list:
+                        return reaction, user
+
+            Vars.Bot.loop.create_task(RemoveReaction(reaction, user))
+
+
+        Stop = False
+        while not Stop:
+            try:
+                reaction, user = Vars.Bot.wait_for("reaction_add", check=Check, timeout=60)
+
+            except asyncio.TimeoutError:
+                if not await Helpers.Deleted(origionalmsg):
+                    await SentMsg.clear_reactions
+                return
 
     @staticmethod
     async def CheckForOldReminders():
@@ -4724,6 +4686,32 @@ class Remind:
                     delta = Now - int(Reminder)
                     delta = round(delta/60)
                     await Remind.SendReminder(RemindData[str(Reminder)], Now, Add=", Sorry, I am " + str(delta) + " minutes late due to an outage")
+
+
+class Todo:
+    @staticmethod
+    async def OnMessage(message):
+        await Todo.Command(message)
+
+    @staticmethod
+    async def RetrieveData():
+        "Called Internally to get all of the Todo Data"
+        Data = Helpers.RetrieveData(type="Todo")
+        if not Data:
+            return {}
+
+        else:
+            return Data
+
+    @staticmethod
+    async def Command(message):
+        if not await CheckMessage(message, prefix=True, start="todo"):
+            return
+
+        usableContent = message.content[5:].strip()
+
+        TodoData = Todo.RetrieveData()
+
 
 
 class Help:
@@ -4780,6 +4768,7 @@ class Help:
             em.set_footer(text=message.content)
 
         await message.channel.send(embed=em)
+        await SeenMessages.LogFound(message.id)
 
         #await message.channel.send(usableContent)
 
@@ -4798,12 +4787,6 @@ class Help:
         em.set_footer(text=message.content)
 
         await message.channel.send(embed=em)
-
-
-
-
-
-
 
 
 class On_React:
@@ -4828,127 +4811,17 @@ class On_React:
         elif user.id in Ranks.Admins:
             try:
                 await Log.LogDelete(message, "Requested Delete by " + user.name)
-                await message.add_reaction(Conversation.Emoji['check'])
-                await asyncio.sleep(.4)
                 await message.delete()
-
-
-                await asyncio.sleep(5)
             except Exception:
                 pass
             return
 
 
 async def test(message):
-    # print(message.attachments[0])
-
-
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
 
-    em = discord.Embed(title="Hello", description="I am redbot EEEEEEEEEEEEEEEEEE.\n"*25)
-    em.set_thumbnail(url=Vars.Bot.user.avatar_url)
-    await message.channel.send(embed=em)
+    await message.add_reaction(Conversation.Emoji["\u20e3"])
 
 
-    #await Remind.CheckForReminders()
     return
-
-    await Other.T_Graduation()
-    #raise TypeError("Testing!")
-    return
-
-async def Helpeee(message):
-    if not await CheckMessage(message, start="help", prefix=True):
-        return
-    # Has a cycle for the help
-    channel = message.channel
-
-    # Set up Emojis
-    Big_Back = '\U000023ee'
-    Back = '\U000025c0'
-    Stop = '\U000023f9'
-    Next = '\U000025b6'
-    Big_Next = '\U000023ed'
-    emoji_list = [Big_Back, Back, Stop, Next, Big_Next]
-
-    current_page = 0
-
-    help_data = Helpers.RetrieveData(type="Help_Text")
-    if not help_data:
-        await channel.send("Error Retrieving Data", delete_after=5)
-        return
-
-    msg = None
-    stop_cycle = False
-    while not stop_cycle:  # While user still wants the help embed
-        title = help_data[current_page]["title"]
-        description = ""
-        description = help_data[current_page]["body"]
-        if help_data[current_page]["color"] == 'bot':
-            color = Vars.Bot_Color
-        else:
-            color = 0xFFFFFF
-        em = discord.Embed(title=title, timestamp=datetime.now(), colour=color, description=description)
-        em.set_author(name=Vars.Bot.user.name, icon_url=Vars.Bot.user.avatar_url)
-        if help_data[current_page]["footer"]:
-            em.set_footer(text=help_data[current_page]["footer"])
-
-        # Send the embed
-        if msg:
-            await msg.edit(embed=None)
-            await msg.edit(embed=em)
-            msg = await channel.get_message(msg.id)
-        elif not msg:
-            msg = await channel.send(embed=em)
-            # Add Reaction
-            for emoji in emoji_list:
-                await msg.add_reaction(emoji)
-
-        # Add emoji of what page you're on
-        await msg.add_reaction(help_data[current_page]["emoji"])
-
-        # Check Function
-        async def remove_reaction(init_reaction, init_user):
-            # Can remove a reaction without needing async
-            await init_reaction.message.remove_reaction(init_reaction.emoji, init_user)
-            return
-
-        def check(init_reaction, init_user):
-            if init_reaction.message.id != msg.id:
-                return
-            if init_user.id == Vars.Bot.user.id:
-                return
-            if init_reaction.emoji in emoji_list and init_user.id == message.author.id:
-                return True
-            else:
-                Vars.Bot.loop.create_task(remove_reaction(init_reaction, init_user))
-
-        # Wait for Reaction
-        try:
-            reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=60, check=check)
-
-        except asyncio.TimeoutError:
-            # If timed out
-            await msg.clear_reactions()
-            break
-        await msg.remove_reaction(reaction.emoji, user)
-        await msg.remove_reaction(help_data[current_page]["emoji"], Vars.Bot.user)
-
-        if reaction.emoji == Big_Back:
-            current_page = 0
-        elif reaction.emoji == Back:
-            current_page -= 1
-            if current_page < 0:
-                current_page = len(help_data) - 1
-        elif reaction.emoji == Stop:
-            await msg.clear_reactions()
-            stop_cycle = True
-            break
-        elif reaction.emoji == Next:
-            current_page += 1
-            if current_page >= len(help_data):
-                current_page = 0
-        elif reaction.emoji == Big_Next:
-            current_page = len(help_data) - 1
-

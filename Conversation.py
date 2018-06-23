@@ -479,5 +479,5 @@ Help = {
            "```/tag edit {Key}```"
            "\n**Other Tag Commands:**"
            "```/tag list```"
-           "\n```/tag random```"
+           "```/tag random```"
 }
