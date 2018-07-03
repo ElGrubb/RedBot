@@ -416,7 +416,9 @@ Help = {
               "\nFormat: /remind (time) (date) (message to be reminded   - You don't need both time and date"
               "\n```/remind 3 PM work on your essay"
               "\n/remind 5/17/18 Create fake reminders"
-              "\n/remind 12:45 AM 6/12/18 You best be sleeping```",
+              "\n/remind 12:45 AM 6/12/18 You best be sleeping```"
+              "\n\n**Images**"
+              "\nYou can upload an image to be reminded with, as well.",
     "help": "The help command is the best way to learn how to use me. You can call it in two ways:"
             "\n```/help```"
             "\nThis way generates a rotating listing of all of the help commands"
@@ -479,5 +481,20 @@ Help = {
            "```/tag edit {Key}```"
            "\n**Other Tag Commands:**"
            "```/tag list```"
-           "```/tag random```"
+           "```/tag random```",
+    "upload": "The Upload command is very simple. Type \"/Upload\" along with the image, and I'll"
+              " upload it to the Imgur servers and give you the link. \nMany different commands use"
+              " image uploading, such as Tags and Reminders, so I'll be sure to make it"
+              " all look the same to you :)",
+    "calculate": "The Calculator command type allows me to search the web to find an answer to a query."
+                 "\n**How to use Calculate**"
+                 "\nSimply start any query message \"=\""
+                 "\n```= 5x^2 + 3x + 15= 0```"
+                 "```= Radius of the Sun```"
+                 "```= CH4```"
+                 "```= Why did the Chicken Cross the road?```"
+                 "```= Define \"Omphaloskepsis\"```"
+                 "\nI search Wolfram Alpha for all of the queries, so there is a broad selection of things "
+                 "you can ask, including:"
+                 "\n- Mathematics\n- Chemistry\n- Physics\n- Language\n- Computational Science\n- etc"
 }

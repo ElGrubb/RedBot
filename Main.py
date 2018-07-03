@@ -1,5 +1,5 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback, asyncio
+import discord, random, traceback, asyncio, sys
 from datetime import datetime, timedelta
 
 
@@ -63,14 +63,7 @@ class MyClient(discord.Client):
         await Cmd.Quotes.QuoteCommand(message)
 
         # 'OTHER' COMMANDS
-        await Cmd.Other.QuickChat(message)
-        await Cmd.Other.Change_Color(message)
-        await Cmd.Other.Weather(message)
-        await Cmd.Other.OldWeather(message)
-        await Cmd.Other.NoContext(message)
-        await Cmd.Other.ChatLinkShorten(message)
-        await Cmd.Other.CountMessages(message)
-
+        await Cmd.Other.OnMessage(message)
 
         # ADMIN Commands
         await Cmd.Admin.CopyFrom(message)
@@ -135,8 +128,12 @@ class MyClient(discord.Client):
 
         error_text = "**ERROR**: *" + Sys.Response(Conversation.Error_Response).strip() + "*"
 
-        to_send = str(traceback.format_exc())
-        to_send = "```py" + to_send + "```"
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
+
+        to_send = tblist[-2].strip()
+
+        to_send = "```py\n" + to_send + "```"
         to_send = to_send.replace("C:\\Users\\spong\\", "")
         to_send = to_send.replace("C:/Users/spong/", "").replace("Desktop", "")
         still_up = "`Function stopped mid process. Bot still active`"

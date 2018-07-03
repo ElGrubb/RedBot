@@ -130,7 +130,7 @@ class SeenMessages:
 
 
 async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=None, guild=None, sender=None, admin=None,
-                       include=None, markMessage=True):
+                       include=None, markMessage=True, CalledInternally=False):
     """
     Checks through the contents of a message and params to see if its good to run the function
     :param message:     The message object
@@ -148,8 +148,9 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
     numberCorrect = 0
 
     # Check Seen
-    if await SeenMessages.CheckSeen(message.id):
-        return False
+    if not CalledInternally:
+        if await SeenMessages.CheckSeen(message.id):
+            return False
 
     # PREFIX
     hasPrefix, content = 0, message.content
@@ -205,7 +206,7 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
     # Admin
     if admin:
         totalPossibleCorrect += 1
-        if message.author.id in Ranks.Admins:
+        if int(message.author.id) in Ranks.Admins:
             numberCorrect += 1
 
     # Include
@@ -213,6 +214,10 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
         totalPossibleCorrect += 1
         if include.lower() in content.lower():
             numberCorrect += 1
+
+    if not start:
+        #print(numberCorrect, totalPossibleCorrect)
+        pass
 
     if numberCorrect == totalPossibleCorrect:
         # Vars.Bot.loop.create_task(loadingSign(message))
@@ -580,6 +585,56 @@ class Helpers:
                 BuiltString += SplitContent
 
             sectionlist.append(content[5])
+
+    @staticmethod
+    async def DownloadAndUpload(message, attachment, title="Uploaded from RedBot"):
+        # Called from within Bot
+
+        # Create Images Folder if not already created
+        if not os.path.isdir("Images"):
+            os.makedirs("Images")
+
+        DiscordURL = attachment.url.lower()
+        if DiscordURL.endswith("/"):
+            DiscordURL = DiscordURL[0:len(DiscordURL)-1]
+
+        ImageSuffixes = [".png", ".jpg", ".jpeg", ".gif"]
+        HasSuffix = False
+        for Suffix in ImageSuffixes:
+            if DiscordURL.endswith(Suffix):
+                HasSuffix = True
+
+        if not HasSuffix:
+            await message.channel.send("Cannot read image!")
+            return False
+
+
+        Progress = await message.channel.send("**Image Progress:** Downloading onto RedBot Servers...")
+        await message.channel.trigger_typing()
+
+        Image_Title = str(random.randrange(100000, 99999999))  +  ".jpg"
+        Image_PATH = "Images\\" + Image_Title
+
+        # Download Image
+        await attachment.save(Image_PATH)# + Image_Title)
+
+        await Progress.edit(content="**Image Progress:** Contacting Imgur...")
+
+        # Prepare Imgur Client
+        CLIENT_ID = Sys.Read_Personal(data_type='Imgur_Client')
+
+        # Actually upload it
+        await Progress.edit(content="**Image Progress:** Uploading to Imgur Servers...")
+        im = pyimgur.Imgur(CLIENT_ID)
+        uploaded_image = im.upload_image(Image_PATH, title=title)
+
+        # Delete Local File
+        await Progress.edit(content="**Image Progress:** Deleting Local File...")
+        os.remove(Image_PATH)
+
+        await Helpers.QuietDelete(Progress)
+
+        return uploaded_image
 
 
 class Log:
@@ -1552,7 +1607,7 @@ class Quotes:
         if not await CheckMessage(message, start="quote", prefix=True):
             return
         if len(message.mentions) == 0:
-            await message.channel.send("Please follow the correct format: `/quote @Redbot How are you?`",
+            await message.channel.send("Please follow the correct format: `/quote @RedBot How are you?`",
                                        delete_after=5)
             return
         elif len(message.mentions) > 1:
@@ -1621,7 +1676,7 @@ class Quotes:
             await reaction.message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
             await reaction.message.clear_reactions()
             return
-        if await CheckMessage(reaction.message, prefix=True):
+        if await CheckMessage(reaction.message, prefix=True, CalledInternally=True):
             await reaction.message.channel.send("Quoting Commands confuses me!", delete_after=5)
             await reaction.message.clear_reactions()
             return
@@ -1894,6 +1949,17 @@ class Memes:
 
 
 class Other:
+    @staticmethod
+    async def OnMessage(message):
+        await Other.QuickChat(message)
+        await Other.Change_Color(message)
+        await Other.Weather(message)
+        await Other.OldWeather(message)
+        await Other.NoContext(message)
+        await Other.ChatLinkShorten(message)
+        await Other.CountMessages(message)
+        await Other.Upload(message)
+
     @staticmethod
     async def PrepareWeatherData():
         """
@@ -2541,7 +2607,7 @@ class Other:
 
         LinkSendEmbed = discord.Embed(description=NewContent, color=message.author.color)
         LinkSendEmbed.set_author(name=message.author.name + "#" + message.author.discriminator, icon_url=message.author.avatar_url)
-        LinkSendEmbed.set_footer(text="Redbot Link Shortener")
+        LinkSendEmbed.set_footer(text="RedBot Link Shortener")
 
         await message.channel.send(embed=LinkSendEmbed)
 
@@ -2765,29 +2831,34 @@ class Other:
                 if HourCounter > 24:
                     break
 
+
                 HourCounter += 1
 
-            # Now we have Start and maybe End
-            PrecipMessage = ""
-            StartText = SelectList(Phrases["PrecipitationStart"])
-            if "Type" not in Start.keys():
-                Start["Type"] = "Rain"
-            if "Hour" not in Start.keys():
-                Start["Hour"] = "Today"
-            StartText = StartText.replace("%Type%", Start["Type"]).replace("%Time%", Start["Hour"])
-            StartText = StartText.replace("%Date%", Start["Date"]).replace("%Chance%",
+            if Start:
+
+                # Now we have Start and maybe End
+                PrecipMessage = ""
+                StartText = SelectList(Phrases["PrecipitationStart"])
+                if "Type" not in Start.keys():
+                    Start["Type"] = "Rain"
+                if "Hour" not in Start.keys():
+                    Start["Hour"] = "Today"
+                if "Date" not in Start.keys():
+                    Start["Date"] = "soon"
+                StartText = StartText.replace("%Type%", Start["Type"]).replace("%Time%", Start["Hour"])
+                StartText = StartText.replace("%Date%", Start["Date"]).replace("%Chance%",
                                                                            str(int(Start["Probability"] * 100)) + "%")
 
-            if End:
-                EndText = SelectList(Phrases["PrecipitationEnd"]).replace("%Time%", End["Hour"]).replace("%Date%",
+                if End:
+                    EndText = SelectList(Phrases["PrecipitationEnd"]).replace("%Time%", End["Hour"]).replace("%Date%",
                                                                                                          End["Date"])
-                # EndText = EndText[0].lower() + EndText[1:]
-            else:
-                EndText = ""
+                    # EndText = EndText[0].lower() + EndText[1:]
+                else:
+                    EndText = ""
 
-            PrecipMessage = StartText + " " + SelectList(Phrases["Transitions"]) + " " + EndText + "."
+                PrecipMessage = StartText + " " + SelectList(Phrases["Transitions"]) + " " + EndText + "."
 
-            msg += "\n - " + PrecipMessage
+                msg += "\n - " + PrecipMessage
 
         # Tomorrow's Forecast
         Summary = WeatherDict["Daily"][1]["Data"]["summary"]
@@ -2800,6 +2871,65 @@ class Other:
         else:
             await message.channel.send(embed=em)
         return
+
+    @staticmethod
+    async def Upload(message):
+        if not await CheckMessage(message, prefix=True, start="Upload"):
+            return
+        # This function will upload an image to imgur and give the user a link
+        UsableContent = message.content[7:].strip()
+        if not UsableContent:
+            UsableContent = "Uploaded Image from RedBot"
+
+        if message.attachments:
+            HasAttachment = message.attachments[0]
+
+        else:
+            SentMsg = await message.channel.send("Please send the image you would like me to upload:")
+
+
+            # If there's no attachment, we're going to wait here and prompt for one.
+            Stop = False
+
+            def Check(NewMsg):
+                # This function checks to make sure the authors are the same and its in the same channel
+                if message.author.id == NewMsg.author.id and message.channel.id == NewMsg.channel.id:
+
+                    if NewMsg.attachments:
+
+                        return True
+
+            while not Stop:
+
+                try:
+                    NewMessage = await Vars.Bot.wait_for("message", timeout=60, check=Check)
+                except asyncio.TimeoutError:
+                    await Helpers.QuietDelete(NewMessage)
+                    await message.channel.send("Upload Timed Out", delete_after=10)
+
+                    if not Helpers.Deleted(message):
+                        await message.add_reaction(Conversation.Emoji["x"])
+                    return
+
+                # If there is a NewMessage with an attachment:
+                if NewMessage:
+                    HasAttachment = NewMessage.attachments[0]
+                    break
+
+        if not HasAttachment:
+            await message.channel.send("Whoops, something went wrong. Hmmm")
+            return
+
+        # But now we have an attachment
+        ImageURL = await Helpers.DownloadAndUpload(message, HasAttachment, title=UsableContent)
+
+        if ImageURL:
+            em = discord.Embed(color=Vars.Bot_Color, description = ImageURL.link, title="Here is your uploaded image:")
+            em.set_image(url=ImageURL.link)
+            em.set_footer(text="Powered by Imgur | " + message.author.name)
+            await message.channel.send(embed=em)
+        else:
+            await message.channel.send("Something went horribly wrong.")
 
 
 class Poll:
@@ -2964,7 +3094,6 @@ class Poll:
 
 
         await Poll.AddData(PollData)
-        await Poll.ManageReactions(message, PollData, SentEmbed)
 
     @staticmethod
     async def AddData(PollData):
@@ -3023,6 +3152,8 @@ class Poll:
             temp = Response
             for Reaction in AllMessageReactions:
                 if Response["Emoji"] == Reaction.emoji:
+                    temp["Users"] = await Reaction.users().flatten()
+                elif str(Response["Emoji"]) == str(Reaction.emoji):
                     temp["Users"] = await Reaction.users().flatten()
 
             if "Users" not in temp.keys():
@@ -3259,7 +3390,7 @@ class Tag:
         # ATTACHMENTS
         if message.attachments:
             HasAttachment = True
-            AttachmentUploaded = await Tag.DownloadAndUpload(message, message.attachments[0])
+            AttachmentUploaded = await Helpers.DownloadAndUpload(message, message.attachments[0])
 
             if not AttachmentUploaded:
                 HasAttachment = False
@@ -3292,7 +3423,7 @@ class Tag:
             return
 
         # Verify that they're an admin
-        IsAdmin = await CheckMessage(message, prefix=True, admin=True)
+        IsAdmin = await CheckMessage(message, prefix=True, admin=True, CalledInternally=True)
 
         if IsAdmin:
             yes_text = None
@@ -3509,7 +3640,7 @@ class Tag:
         # TagData = AllTagData[TagKey]
         if TagData["Admin"]:
             # If it's an admin only tag:
-            IsAdmin = await CheckMessage(message, prefix=True, admin=True)
+            IsAdmin = await CheckMessage(message, prefix=True, admin=True, CalledInternally=True)
             if not IsAdmin:
                 await message.channel.send("This is an admin-only tag! Sorry.")
                 await message.add_reaction(Conversation.Emoji["x"])
@@ -3537,56 +3668,6 @@ class Tag:
             return
 
         Helpers.SaveData({}, type="Tag")
-
-    @staticmethod
-    async def DownloadAndUpload(message, attachment):
-        # Called from within Bot
-
-        # Create Images Folder if not already created
-        if not os.path.isdir("Images"):
-            os.makedirs("Images")
-
-        DiscordURL = attachment.url.lower()
-        if DiscordURL.endswith("/"):
-            DiscordURL = DiscordURL[0:len(DiscordURL)-1]
-
-        ImageSuffixes = [".png", ".jpg", ".jpeg", ".gif"]
-        HasSuffix = False
-        for Suffix in ImageSuffixes:
-            if DiscordURL.endswith(Suffix):
-                HasSuffix = True
-
-        if not HasSuffix:
-            print(DiscordURL)
-            await message.channel.send("Cannot read image!")
-            return False
-
-
-        Progress = await message.channel.send("**Image Detected!** Downloading...")
-
-        Image_Title = str(random.randrange(100000, 99999999))  +  ".jpg"
-        Image_PATH = "Images\\" + Image_Title
-
-        # Download Image
-        await attachment.save(Image_PATH)# + Image_Title)
-
-        await Progress.edit(content="**Image Detected!** Uploading...")
-        await message.channel.trigger_typing()
-
-        # Prepare Imgur Client
-        CLIENT_ID = Sys.Read_Personal(data_type='Imgur_Client')
-
-        # Actually upload it
-        im = pyimgur.Imgur(CLIENT_ID)
-        uploaded_image = im.upload_image(Image_PATH, title="From RedBot")
-        await Progress.edit(content=uploaded_image.link)
-
-        # Delete Local File
-        os.remove(Image_PATH)
-
-        await Helpers.QuietDelete(Progress)
-
-        return uploaded_image
 
     @staticmethod
     async def ListTag(message):
@@ -3922,7 +4003,7 @@ class Tag:
                 await message.channel.send("You forgot to attach an image, bud.")
                 return
 
-            ImageLink = await Tag.DownloadAndUpload(message, NewImage)
+            ImageLink = await Helpers.DownloadAndUpload(message, NewImage)
             NewImage = ImageLink.link
             TagData["Image"] = NewImage
 
@@ -3976,7 +4057,7 @@ class Tag:
 
         if TagData["Admin"]:
             # If it's an admin only tag:
-            IsAdmin = await CheckMessage(message, prefix=True, admin=True)
+            IsAdmin = await CheckMessage(message, prefix=True, admin=True, CalledInternally=True)
             if not IsAdmin:
                 await message.channel.send("This is an admin-only tag! Sorry.")
                 await message.add_reaction(Conversation.Emoji["x"])
@@ -4023,6 +4104,16 @@ class Remind:
 
             #await message.author.send("Sorry, Reminders only work in group servers so far!")
             #return
+
+        # Let's take a look for any images in the Reminds
+        if message.attachments:
+            IsImage = message.attachments[0]
+            # Save IsImage
+            IsImage = await Helpers.DownloadAndUpload(message, IsImage)
+            IsImage = IsImage.link
+        else:
+            IsImage = None
+
 
         # Let's shorten any links in the reminder
         if "http" in usablecontent.lower():
@@ -4482,18 +4573,21 @@ class Remind:
         string = "```diff\n- " + toSendDateString + "\nI say: > @" + SendToUser.name + ", " + RemindMessage + "```"
 
         confirmation = await Helpers.Confirmation(message, text="Create Reminder?", extra_text=string, color=Remind.embed_color,
-                                                  deny_text="Remind Cancelled.", add_reaction=False)
+                                                  deny_text="Remind Cancelled.", add_reaction=False, image=IsImage)
 
         if not confirmation:
             return
 
-        await Remind.SaveReminder(RemindTime, RemindMessage, message, SendToUser)
+        await Remind.SaveReminder(RemindTime, RemindMessage, message, SendToUser, IsImage)
 
         em = discord.Embed(color=Remind.embed_color, description=string)
         if SendToUser.id == message.author.id:
             em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
         else:
             em.set_author(name="Okay, I'll Remind " + SendToUser.name, icon_url=Vars.Bot.user.avatar_url)
+
+        if IsImage:
+            em.set_image(url=IsImage)
 
         sent = await message.channel.send(embed=em)
 
@@ -4521,7 +4615,7 @@ class Remind:
         return round(stamp)
 
     @staticmethod
-    async def SaveReminder(RemindTime, RemindMessage, message, SendToUser):
+    async def SaveReminder(RemindTime, RemindMessage, message, SendToUser, Image):
         # Saves the Reminder in the data
         RemindStamp = await Remind.DateStamp(RemindTime)
         To_Add = {
@@ -4532,7 +4626,8 @@ class Remind:
             "OriginalMessage": message.content,
             "OriginalMessageID": message.id,
             "Channel": message.channel.id,
-            "RemindPerson": SendToUser.id
+            "RemindPerson": SendToUser.id,
+            "Image": Image
         }
 
         if type(message.channel) == discord.channel.DMChannel:  # If it's a Direct Message Channel
@@ -4584,6 +4679,10 @@ class Remind:
 
         for Reminder in RemindList:
             # For each reminder given
+            ContentMessage = Reminder["Message"]
+            if "Image" in Reminder.keys():
+                if Reminder["Image"]:
+                    ContentMessage += " [Image]"
             em = discord.Embed(color=Remind.embed_color, description=Reminder["Message"])
             em.set_author(name="Reminder:", icon_url=Vars.Bot.user.avatar_url)
 
@@ -4592,6 +4691,10 @@ class Remind:
             else:
                 OriginalPerson = Vars.Bot.get_user(int(Reminder["Author"]))
                 em.set_footer(text=OriginalPerson.name + ": " + Reminder["OriginalMessage"])
+
+            if "Image" in Reminder.keys():
+                if Reminder["Image"]:
+                    em.set_image(url=Reminder["Image"])
 
             SendChannel = Vars.Bot.get_channel(int(Reminder["Channel"]))
             RemindPersonMention = Vars.Bot.get_user(int(Reminder["RemindPerson"])).mention
@@ -4607,7 +4710,7 @@ class Remind:
 
                 if Good_To_Send:
                     # If the channel exists and the bot can send messages in it:
-                    SentMsg = await SendChannel.send(RemindPersonMention + Add + ", " + Reminder["Message"], embed=em)
+                    SentMsg = await SendChannel.send(RemindPersonMention + Add + ", " + ContentMessage, embed=em)
 
                     await asyncio.sleep(.2)
                     await SentMsg.edit(content=RemindPersonMention + Add, embed=em)
@@ -4711,7 +4814,6 @@ class Todo:
         usableContent = message.content[5:].strip()
 
         TodoData = Todo.RetrieveData()
-
 
 
 class Help:
@@ -4820,8 +4922,7 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
+    raise TypeError
 
-    await message.add_reaction(Conversation.Emoji["\u20e3"])
-
-
+    await message.add_reaction(Conversation.Emoji["check"])
     return
