@@ -2017,8 +2017,8 @@ class Other:
 
     @staticmethod
     async def StatusChange():
-        CurrentHour = datetime.now().hour
-        print(CurrentHour)
+        CurrentHour = (Helpers.EmbedTime()).hour
+        print(CurrentHour, " beep")
 
         # Okay let's go between possible times
         if 6 <= CurrentHour <= 10:  # Between 6 o clock and 10:
