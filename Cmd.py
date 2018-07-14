@@ -652,9 +652,11 @@ class Helpers:
 
 
     @staticmethod
-    def EmbedTime():
-        print(Vars.Bot.user.name)
-        return datetime.now() + timedelta(hours=4)
+    def EmbedTime(utc=True):
+        if utc:
+            return datetime.now() + timedelta(hours=4)
+        else:
+            return datetime.now()
 
 
 class Log:
@@ -2016,8 +2018,8 @@ class Other:
 
     @staticmethod
     async def StatusChange():
-        CurrentHour = (Helpers.EmbedTime()).hour
-        print(CurrentHour, " beep")
+        CurrentHour = (datetime.now()).hour
+        print(CurrentHour)
 
         # Okay let's go between possible times
         if 6 <= CurrentHour <= 10:  # Between 6 o clock and 10:
