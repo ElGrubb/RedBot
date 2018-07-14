@@ -1593,7 +1593,7 @@ class Timer:
         await asyncio.sleep(10)
         old_time, current_time = None, None
         # while not Vars.Crash:
-        while not StopThreadTwo:
+        while not Timer.StopThreadTwo:
             await asyncio.sleep(3)
             old_time = current_time
             current_time = Timer.DigitTime()
