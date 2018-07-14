@@ -655,8 +655,7 @@ class Helpers:
     def EmbedTime():
         print(Vars.Bot.user.name)
         return datetime.now() - timedelta(hours=4)
-        else:
-            return datetime.now()# + timedelta(hours=4)
+
 
 class Log:
     LogChannel = None
