@@ -1245,7 +1245,14 @@ class Admin:
         Helpers.SaveData(info, type="System")
 
         # Restart
-        await Vars.Bot.logout()
+
+        Timer.StopThreadTwo = True
+        while Timer.Running:
+            Timer.StopThreadTwo = True
+            await asyncio.sleep(.5)  # Documentation
+
+        await asyncio.sleep(5)
+
         os.execv(sys.executable, ['python3'] + sys.argv)
         return
 
@@ -1297,7 +1304,7 @@ class Admin:
 
         await asyncio.sleep(3)
         print("Restarting RedBot for a requested update.")
-        os.execv(sys.executable, ['python'] + sys.argv)
+        os.execv(sys.executable, ['python3'] + sys.argv)
         await Vars.Bot.logout()
         return
 
