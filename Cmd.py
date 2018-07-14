@@ -1615,7 +1615,7 @@ class Timer:
                 await Remind.CheckForReminders()
 
                 if current_time.endswith(":01") or current_time.endswith(":45"):
-                    await Other.StatusChange()
+                    await Other.StatusChange()  # NEvermind
 
         Timer.Running = False
         print("Stopped TimeThread.")
