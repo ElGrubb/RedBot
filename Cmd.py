@@ -1305,7 +1305,6 @@ class Admin:
 
         print("Logging Out")
         os.execv(sys.executable, ['python'] + sys.argv)
-        print("Adding it back in")  # hi
         await Vars.Bot.logout()
         print("Returning")
         return
@@ -5590,6 +5589,8 @@ class On_React:
 async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
+
+    print("Hello there")
 
     await asyncio.sleep(10)
     0/0
