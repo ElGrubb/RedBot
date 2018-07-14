@@ -1304,9 +1304,9 @@ class Admin:
 
 
         print("Logging Out")
-        await Vars.Bot.logout()
-        print("Adding it back in")
         os.execv(sys.executable, ['python'] + sys.argv)
+        print("Adding it back in")
+        await Vars.Bot.logout()
         print("Returning")
         return
 
