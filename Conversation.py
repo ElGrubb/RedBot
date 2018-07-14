@@ -179,29 +179,30 @@ WeatherResponse = [
 ]
 
 Error_Response = [
-    "Seems like I ran into some sort of problem. Creating Report...",
-    "Uh oh, I broke. Creating Report...",
-    "Something went wrong, in a major way. Whoops. Here's the info",
-    "Real news, I hit an error. Ouch",
+    "Seems like I ran into some sort of problem. Here's all you need to know:",
+    "Uh oh, I broke. Creating Report:",
+    "Something went wrong, like in a major way. Whoops. Here's the info:",
+    "Real news, I hit an error. Ouch:",
     "OUCH, that hurt. Anyone want to help?",
     "Beaming down information now:",
-    "Paging Dom, I hit some sort of error",
+    "Paging Dom, I hit some sort of error:",
     "Recovered after `1` Error. That hurt.",
-    "What a day. Jeez",
-    "Everyone has errors, move along please.",
-    "If you look for too long you get hypnotized",
-    "Ran into a tree, wait...",
-    "Even bots need rest days",
-    "It's been a long day, but about as long as every other day.",
-    "Sorry!",
+    "What a day. Here's the report:",
+    "Everyone has errors, move along.",
+    "Even bots need rest days:",
+    "It's been a long day, but about as long as every other day:",
+    "Sorry! Here's my error code:",
     "Something went wrong...",
-    "Ow.",
-    "Shit happens",
-    "What the fuck just happened",
-    "Someone call the police!",
+    "Ouch.",
+    "Shit happens...",
+    "What the fuck just happened.",
     "Wrong button.",
-    "Nice try!"
+    "Nice try!",
+    "Beep Bop Beep.",
+    "I encountered some sort of bug. Here's the report:",
+    "Don't worry, I'm okay. Just this scratch:"
 ]
+
 
 Server_IDs = {
     'Dmakir': 215639569071210496,
@@ -418,7 +419,14 @@ Help = {
               "\n/remind 5/17/18 Create fake reminders"
               "\n/remind 12:45 AM 6/12/18 You best be sleeping```"
               "\n\n**Images**"
-              "\nYou can upload an image to be reminded with, as well.",
+              "\nYou can upload an image to be reminded with, as well."
+              "\n\n**Reminder Snoozing**:"
+              "\nYou can snooze a reminder after it is sent by clicking one of the reactions on a message. "
+              "\nDifferent reminders can have different reactions. The common 3 are: "
+              "\n- Snooze for 5 minutes"
+              "\n- Snooze for 10 minutes"
+              "\n- Intelligent Snooze (Cloud) - Uses RedBot Logic based on a few factors to decide how long to snooze you for."
+              "\n*Part of the allure of Intelligent Snooze is that it won't tell you when it's going to remind you.",
     "help": "The help command is the best way to learn how to use me. You can call it in two ways:"
             "\n```/help```"
             "\nThis way generates a rotating listing of all of the help commands"
@@ -481,7 +489,15 @@ Help = {
            "```/tag edit {Key}```"
            "\n**Other Tag Commands:**"
            "```/tag list```"
-           "```/tag random```",
+           "```/tag random```"
+           "\n\n**Personal Tags**:"
+           "\nYou can now make and save tags that *only you* can call and see. There are a whole set of commands that mirror"
+           " the normal tag commands to reflect these Personal Tags."
+           "\n```css\n/setptag <Key> <Content> <Image Attachment>```"
+           "```css\n/ptag <Key>  # To call a Personal Tag```"
+           "```css\n/ptag edit <Key>  # To edit a Personal Tag```"
+           "```css\n/ptag list  # To see a list of all of your Personal Tags```"
+           "And every /ptag command can also be called through /pt",
     "upload": "The Upload command is very simple. Type \"/Upload\" along with the image, and I'll"
               " upload it to the Imgur servers and give you the link. \nMany different commands use"
               " image uploading, such as Tags and Reminders, so I'll be sure to make it"
@@ -498,3 +514,66 @@ Help = {
                  "you can ask, including:"
                  "\n- Mathematics\n- Chemistry\n- Physics\n- Language\n- Computational Science\n- etc"
 }
+
+
+UpdateNotes = [
+    {
+        "Name": "Tag Changes",
+        "Content": "- Tags are more reliable and quicker"
+                   "\n- **New Personal Tab Type**"
+                   "\n  - Tags that are only callable and savable by you"
+                   "\n  - /setptag (or /psettag) <key> <content> <image attachment>"
+                   "\n  - /ptag <key> To call it"
+                   "\n  - Each /PTag command can be shortened to /PT just like /Tag -> /T"
+                   "\n- Faster Image Uploading"
+                   "\n- Better compression; up to 6 word keys and 1000 word content"
+    },
+    {
+        "Name": "Remind Changes",
+        "Content": "- Reminders can now have an attached image just like tags"
+                   "\n- Smarter interpretation of intended reminding time"
+                   "\n  - I no longer need to Confirm the remind time with you. One command and it's set to go"
+                   "\n  - Fixed numerous bugs relating to 12:00 AM/PM"
+                   "\n- Updated what I send as a push notification when reminding"
+                   "\n- **Snooze Reminders:**"
+                   "\n  - Upon being reminded, you'll be given the option to snooze it and be reminded again, another time."
+                   "\n  - Featuring 5 minutes, 10 minutes, or the snooze button, which intelligently picks a time, but you won't know when that is."
+    },
+    {
+        "Name": "Calculate Changes",
+        "Content": "-Complete rewrite of the calculate command"
+                   "\n- Up to 2x faster at requesting and interpreting data"
+                   "\n- I now send much more information in a visually intuitive way"
+                   "\n- Better compliance with the Wolfram Alpha API system"
+                   "\n- Actually reliable now"
+    },
+    {
+        "Name": "Polls / Yesno Changes",
+        "Content": "- Polls and Yesnos have been brought together in a single system function"
+                   "\n- Commands work exactly as before, except on the inside they're the same"
+                   "\n- This means they're faster, smarter, and harder to break."
+                   "\n  - Example: '/poll Do you like RedBot' with no options will automatically turn into a yesno with "
+                   "a thumbs up and thumbs down. And vice versa."
+                   "\n- Support for custom emojis as options"
+                   "\n- Infinite:"
+                   "\n  - All Polls/Yesnos are now able to be 'infinite'."
+                   "\n  - As defined by Discord Bot API, to protect me, they'll realistically last for about 4 days after inactivity."
+    },
+    {
+        "Name": "Help Command Addition",
+        "Content": "- You can now do /help (type) to receive detailed usage of commands."
+    },
+    {
+        "Name": "Image Uploading",
+        "Content": "- I am now fully partnered with Imgur to provide faster and smarter image uploading."
+                   "\n- You can type /upload and attach an image to have me begin to upload it"
+                   "\n- Or, if you send an image without a command, I'll provide a button for you to click if you'd like it to be uploaded"
+    },
+    {
+        "Name": "Link Shortening",
+        "Content": "- I have now partnered with TinyURL fully to give you faster and more intelligent link shortening."
+                   "\n- If you send a message with text and links, I'll ensure everything stays in its place"
+                   "\n- I now provide smarter and better link url preview abilities"
+                   "\n- You can now shorten as many links as you can fit in one message. Good luck fooling me ;)"
+    }
+]

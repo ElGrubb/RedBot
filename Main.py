@@ -8,8 +8,7 @@ class MyClient(discord.Client):
         print("Admin Code: " + str(Cmd.Vars.AdminCode))
         join = 'Logged on as {0}'.format(self.user)
         print(join + "\n" + "="*len(join))
-        game = discord.Game(name="v" + Cmd.Vars.Version + "  |  @Dom")
-        await bot.change_presence(status=discord.Status.online, game=game)
+        await Cmd.Other.StatusChange()
 
         Cmd.Vars.Creator = Cmd.Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
         # Check if it just restarted:
@@ -29,6 +28,7 @@ class MyClient(discord.Client):
 
         await Cmd.Remind.CheckForOldReminders()
         await Cmd.Poll.RefreshData()
+        await Cmd.Poll.CleanData()
 
 
         Cmd.Vars.Ready = True
@@ -56,6 +56,7 @@ class MyClient(discord.Client):
         await Cmd.Calculate.OnMessage(message)
         await Cmd.Remind.RemindCommand(message)
         await Cmd.Todo.OnMessage(message)
+        await Cmd.Tag.OnMessage(message)
 
         # 'SEND' Commands
         await Cmd.Memes.SendMeme(message)
@@ -85,11 +86,6 @@ class MyClient(discord.Client):
         await Cmd.Admin.GuildInfo(message)
 
         await Cmd.Admin.SinglePrivateMessage(message)
-
-        # TAG Commands
-        await Cmd.Tag.SetTag(message)
-        await Cmd.Tag.TagFunction(message)
-        await Cmd.Tag.ClearTagData(message)
 
 
     async def on_message_edit(self, before, after):
@@ -126,20 +122,80 @@ class MyClient(discord.Client):
         else:
             has_channel = False
 
-        error_text = "**ERROR**: *" + Sys.Response(Conversation.Error_Response).strip() + "*"
-
         exc_type, exc_value, exc_traceback = sys.exc_info()
         tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
 
-        to_send = tblist[-2].strip()
+        NewTBList = []
+        for item in tblist:
+            if "site-packages\discord" not in item:
+                temp = item.replace("\\", "/")
+                temp = temp.replace("C:/Users/spong/Desktop", "").replace("/home/pi/Desktop", "")
+                temp = temp.replace("File \"/", "")
+                temp = temp.replace("RedBot/", "").replace("GoldBot/", "")
 
-        to_send = "```py\n" + to_send + "```"
-        to_send = to_send.replace("C:\\Users\\spong\\", "")
-        to_send = to_send.replace("C:/Users/spong/", "").replace("Desktop", "")
-        still_up = "`Function stopped mid process. Bot still active`"
-        message = error_text + "\n" + to_send + still_up + "\n" + Cmd.Vars.Creator.mention
+                temp = "\"" + temp.strip()
+
+                temp = temp.replace("\n", ":\n")
+                NewTBList.append(temp)
+
+        NewTBList = NewTBList[1:]
+
+        ErrorMessage = NewTBList[-1][1:]
+
+        NewTBList = NewTBList[0 : len(NewTBList) - 1]
+
+        FullTraceBack = "\n".join(NewTBList)
+        FullTraceBack += "\n" + ErrorMessage
+
+        # First we send the small error message, and then the big boys come out
+        description = Sys.Response(Conversation.Error_Response).strip()
+        description += "\n    *`" + ErrorMessage + "`*"
+        em = discord.Embed(color=Cmd.Vars.Bot_Color, description=description)
+        em.set_author(name="RedBot Error", icon_url=bot.user.avatar_url, url="http://www.github.com/ElGrubb/RedBot")
+
+        em.set_footer(text="Don't worry, I'm still running, but I have terminated the command. ")
+
+        send = "```py\n" + FullTraceBack + "```"
+
+
+        try:
+            await channel.send(embed=em)
+        except discord.NotFound:
+            pass
+
+
+        # Full Error Report time:
+        UserName = ""
+        UserID = ""
+        OriginalMsg = ""
+
+        if Cmd.IsDMChannel(channel):
+            ChannelName = "Private DM"
+            GuildName = "Direct Message"
+
+        else:
+            ChannelName = "#" + channel.name + " *(" + str(channel.id) + ")*"
+            GuildName = channel.guild.name + " *(" + str(channel.guild.id) + ")*"
+
+
+        FullError = ""
+        FullError += datetime.now().strftime("%b %d %Y %r") + \
+                     "\n**Location:** " + ChannelName + " in " + GuildName + \
+                     "\n**Context:** " + context
+
+
+        FullError += "```py\n" + FullTraceBack + "```"
+
 
         crash_channel = bot.get_channel(Sys.Channel["Errors"])
+
+        await crash_channel.send(FullError)
+
+
+
+        return
+
+
 
         # Log in #Crashes
         to_log = datetime.now().strftime("%b %d %Y %r") + "\n**Location:**  "
@@ -149,7 +205,7 @@ class MyClient(discord.Client):
 
         if has_channel:
             if await Cmd.CheckPermissions(channel, "send_messages"):
-                await channel.send(message)
+                await channel.send(embed=em)
             else:
                 has_channel = False
         if not has_channel:
@@ -175,7 +231,13 @@ class MyClient(discord.Client):
         if reaction.emoji == Conversation.Emoji["x"]:
             await Cmd.On_React.On_X(reaction, user)
 
-    async def on_raw_reaction_add(self, emoji, message_id, channel_id, user_id):
+    async def on_raw_reaction_add(self, payload):
+        message_id = payload.message_id
+        channel_id = payload.channel_id
+        user_id = payload.user_id
+        guild_id = payload.guild_id
+        emoji = payload.emoji
+
         channel = bot.get_channel(channel_id)
 
         try:
