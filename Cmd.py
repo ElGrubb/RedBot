@@ -1273,17 +1273,12 @@ class Admin:
         if not await Helpers.Confirmation(message, "Update?", deny_text="Update Cancelled", timeout=20):
             return
 
-        print("Working")
-
         channel = message.channel
         g = git.cmd.Git(os.getcwd())
         output = g.pull()
 
-        print("Pulled")
-
         to_send = "`" + output + "`"
         await channel.send(output)
-        print("Sent")
 
         if "Already" in output:
             return
@@ -1294,19 +1289,16 @@ class Admin:
             "Type": "Update",
             "Channel_ID": message.channel.id
         }
-        print("Saved Info")
         Helpers.SaveData(info, type="System")
-        print("Killing TimeThread")
         Timer.StopThreadTwo = True
         while Timer.Running:
             Timer.StopThreadTwo = True
             await asyncio.sleep(.5) # Documentation
 
 
-        print("Logging Out")
+        print("Restarting RedBot for a requested update.")
         os.execv(sys.executable, ['python'] + sys.argv)
         await Vars.Bot.logout()
-        print("Returning")
         return
 
     @staticmethod
@@ -1588,6 +1580,7 @@ class Timer:
 
     @staticmethod
     async def TimeThread():
+        print("Started TimeThread")
         Timer.Running = True
         await asyncio.sleep(10)
         old_time, current_time = None, None
@@ -1617,7 +1610,6 @@ class Timer:
                     await Other.StatusChange()  # NEvermind
 
         Timer.Running = False
-        print("Stopped TimeThread.")
 
 
 class Quotes:
