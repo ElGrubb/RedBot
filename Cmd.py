@@ -653,7 +653,10 @@ class Helpers:
 
     @staticmethod
     def EmbedTime():
-        return datetime.now() + timedelta(hours=4)
+        if Vars.Bot.user.name == "RedBot":
+            return datetime.now()
+        else:
+            return datetime.now() + timedelta(hours=4)
 
 class Log:
     LogChannel = None
@@ -1645,7 +1648,7 @@ class Quotes:
         # Right now itll always return true
         return True
 
-        hour = await Helpers.EmbedTime()
+        hour = await Helpers.EmbedTime().hour
         if 1 < hour < 6:
             return False
         else:
