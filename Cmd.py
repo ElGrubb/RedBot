@@ -654,7 +654,7 @@ class Helpers:
     @staticmethod
     def EmbedTime():
         print(Vars.Bot.user.name)
-        return datetime.now() - timedelta(hours=4)
+        return datetime.now() + timedelta(hours=4)
 
 
 class Log:
