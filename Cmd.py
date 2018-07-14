@@ -1295,7 +1295,7 @@ class Admin:
             Timer.StopThreadTwo = True
             await asyncio.sleep(.5) # Documentation
 
-
+        await asyncio.sleep(3)
         print("Restarting RedBot for a requested update.")
         os.execv(sys.executable, ['python'] + sys.argv)
         await Vars.Bot.logout()
@@ -3097,10 +3097,9 @@ class Other:
         await message.add_reaction(UploadEmoji)
 
         def Check(reaction, user):
-            if user.id == message.author.id:
-                if reaction.message.id == message.id:
-                    if not user.bot:
-                        return True
+            if reaction.message.id == message.id:
+                if not user.bot:
+                    return True
             return False
 
         Stop = False
