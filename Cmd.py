@@ -1643,7 +1643,7 @@ class Quotes:
         # Right now itll always return true
         return True
 
-        hour = datetime.now().hour
+        hour = await Helpers.EmbedTime()
         if 1 < hour < 6:
             return False
         else:
