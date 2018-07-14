@@ -1354,6 +1354,8 @@ class Admin:
 
     @staticmethod
     async def OnUpdate(channel):
+
+        return
         tempTagList = await Tag.RetrieveTagList()
         for TagKey in tempTagList.keys():
             tempTagList[TagKey]["Personal"] = False
