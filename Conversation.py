@@ -575,5 +575,15 @@ UpdateNotes = [
                    "\n- If you send a message with text and links, I'll ensure everything stays in its place"
                    "\n- I now provide smarter and better link url preview abilities"
                    "\n- You can now shorten as many links as you can fit in one message. Good luck fooling me ;)"
+    },
+    {
+        "Name": "General Interactivity",
+        "Content": "I am now smarter, funnier, faster, stronger, etc. "
+                   "\n- Working with me feels more natural, and follows a specific design language to be more cohesive"
+                   "\n- I now display unique statuses in the Online Players Bar that reflect both me, the time, and you."
+                   "\n- It is now much easier to issue quick updates to me, so bugs happen way less."
+                   "\n- And for the bugs that do occur, the error messages are small, to the point, and the recording of error data"
+                   " is larger, and much more informative to my creator."
+                   "\nIn total, Version 5 is the best, and most helpful, version of RedBot yet. "
     }
 ]

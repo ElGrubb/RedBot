@@ -3126,16 +3126,32 @@ class Other:
     async def UpdateNotes(message):
         if not await CheckMessage(message, start="updatenotes", prefix=True):
             return
-        em = discord.Embed(color=Vars.Bot_Color)
-        em.set_thumbnail(url=Vars.Bot.user.avatar_url)
-        em.set_author(name="RedBot v" + Vars.Version, icon_url=Vars.Bot.user.avatar_url)
+
+        ColorListing = [ Sys.Colors["RedBot"],
+                         Sys.Colors["GoldBot"],
+                         0x27AE60,
+                         0x5499C7,
+                         0x9B59B6
+        ]
 
         UpdateFull = Conversation.UpdateNotes
-        for Note in UpdateFull:
-            em.add_field(name=Note["Name"], value=Note["Content"], inline=True)
+        while len(ColorListing) < len(UpdateFull) + 1:
+            ColorListing = ColorListing + ColorListing
 
 
+        em = discord.Embed(color=ColorListing[0], description="Here are all of my update notes for this version.")
+        em.set_thumbnail(url=Vars.Bot.user.avatar_url)
+        em.set_author(name="RedBot v" + Vars.Version, icon_url=Vars.Bot.user.avatar_url)
         await message.channel.send(embed=em)
+
+        i = 0
+        for Note in UpdateFull:
+            i += 1
+            em = discord.Embed(color=ColorListing[i], description=Note["Content"])
+            em.set_author(name=Note["Name"], icon_url=Vars.Bot.user.avatar_url)
+
+
+            await message.channel.send(embed=em)
 
 
 class Poll:
