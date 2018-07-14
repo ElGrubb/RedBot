@@ -1296,6 +1296,13 @@ class Admin:
         }
         print("Saved Info") # Documentation
         Helpers.SaveData(info, type="System")
+        print("Killing TimeThread")
+        Timer.StopThreadTwo = True
+        while Timer.Running:
+            Timer.StopThreadTwo = True
+            await asyncio.sleep(.5)
+
+
         print("Logging Out")
         await Vars.Bot.logout()
         print("Adding it back in")
@@ -1572,6 +1579,8 @@ class Cooldown:
 
 
 class Timer:
+    StopThreadTwo = False
+    Running = False
     @staticmethod
     def DigitTime():
         hour = time.strftime('%H')
@@ -1580,10 +1589,11 @@ class Timer:
 
     @staticmethod
     async def TimeThread():
+        Timer.Running = True
         await asyncio.sleep(10)
         old_time, current_time = None, None
         # while not Vars.Crash:
-        while True:
+        while not StopThreadTwo:
             await asyncio.sleep(3)
             old_time = current_time
             current_time = Timer.DigitTime()
@@ -1606,6 +1616,9 @@ class Timer:
 
                 if current_time.endswith(":01") or current_time.endswith(":45"):
                     await Other.StatusChange()
+
+        Timer.Running = False
+        print("Stopped TimeThread.")
 
 
 class Quotes:
