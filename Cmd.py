@@ -1246,7 +1246,7 @@ class Admin:
 
         # Restart
         await Vars.Bot.logout()
-        os.execv(sys.executable, ['python'] + sys.argv)
+        os.execv(sys.executable, ['python3'] + sys.argv)
         return
 
     @staticmethod
