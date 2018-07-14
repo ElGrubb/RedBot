@@ -5590,7 +5590,7 @@ async def test(message):
     if not await CheckMessage(message, prefix=True, start="test", admin=True):
         return
 
-    print("Hello there")
+    print("Hello eeeeeee")
 
     await asyncio.sleep(10)
     0/0
