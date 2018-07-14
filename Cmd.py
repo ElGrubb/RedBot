@@ -1273,12 +1273,17 @@ class Admin:
         if not await Helpers.Confirmation(message, "Update?", deny_text="Update Cancelled", timeout=20):
             return
 
+        print("Working")
+
         channel = message.channel
         g = git.cmd.Git(os.getcwd())
         output = g.pull()
 
+        print("Pulled")
+
         to_send = "`" + output + "`"
         await channel.send(output)
+        print("Sent")
 
         if "Already" in output:
             return
@@ -1289,9 +1294,13 @@ class Admin:
             "Type": "Update",
             "Channel_ID": message.channel.id
         }
+        print("Saved Info")
         Helpers.SaveData(info, type="System")
+        print("Logging Out")
         await Vars.Bot.logout()
+        print("Adding it back in")
         os.execv(sys.executable, ['python'] + sys.argv)
+        print("Returning")
         return
 
     @staticmethod
@@ -2019,7 +2028,6 @@ class Other:
     @staticmethod
     async def StatusChange():
         CurrentHour = (datetime.now()).hour
-        print(CurrentHour)
 
         # Okay let's go between possible times
         if 6 <= CurrentHour <= 10:  # Between 6 o clock and 10:
