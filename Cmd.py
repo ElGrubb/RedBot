@@ -1294,13 +1294,13 @@ class Admin:
             "Type": "Update",
             "Channel_ID": message.channel.id
         }
-        print("Saved Info") # Documentation
+        print("Saved Info")
         Helpers.SaveData(info, type="System")
         print("Killing TimeThread")
         Timer.StopThreadTwo = True
         while Timer.Running:
             Timer.StopThreadTwo = True
-            await asyncio.sleep(.5)
+            await asyncio.sleep(.5) # Documentation
 
 
         print("Logging Out")
