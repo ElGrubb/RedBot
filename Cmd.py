@@ -1294,7 +1294,7 @@ class Admin:
             "Type": "Update",
             "Channel_ID": message.channel.id
         }
-        print("Saved Info")
+        print("Saved Info") # Documentation
         Helpers.SaveData(info, type="System")
         print("Logging Out")
         await Vars.Bot.logout()
