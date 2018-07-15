@@ -2054,7 +2054,7 @@ class Other:
             New_Status = random.choice(["Making Dinner", "Preparing Sunset", "Good Evening", "Great Evening", "Hello"])
 
         elif 19 < CurrentHour <= 21:
-            New_Status = random.choice("Great Evening", "Good Evening", "Sun Setting", "Running Repair", "Having Dessert", "Running Well", "No Errors")
+            New_Status = random.choice(["Great Evening", "Good Evening", "Sun Setting", "Running Repair", "Having Dessert", "Running Well", "No Errors"])
 
         elif 21 <= CurrentHour <= 24:
             New_Status = random.choice(["Go to Sleep", "Go to Bed", "You Sleep", "Sweet Dreams", "Good Night", "Great Night", "The Stars", "You Best Be Sleeping"])
