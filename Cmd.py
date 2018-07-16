@@ -2063,7 +2063,6 @@ class Other:
             New_Status = random.choice(["You Up?", "Go to Sleep", "Hello.", "It's Late.", "Get some sleep", "It's Quiet Right Now", "Silent Night", "Sweet Dreams",
                                         "I Don't Sleep so You Can", ":)"])
 
-
         elif 5 == CurrentHour:
             New_Status = random.choice(["A few more hours", "Up So Soon?", "Preparing Weather Data", "Dawn", "Watching Sunrise"])
 
@@ -2275,7 +2274,7 @@ class Other:
         channel = message.channel
         # Reply with Response
         if chat_function['type'] == 'reply':
-            await channel.send(Sys.FirstCap(chat_function['use']))
+            await channel.send(chat_function['use'])
             return
         # Reply with Random Response
         elif chat_function['type'] == 'conversation':

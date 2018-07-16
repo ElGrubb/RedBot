@@ -337,6 +337,12 @@ QuickChat = [
       "type": "reply",
       "use": "Watch Your Language!",
       "chance": 5
+    },
+    {
+        "trigger": "this is so sad alexa play despacito",
+        "type": "reply",
+        "use": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+        "chance": 100
     }
   ]
 
