@@ -19,7 +19,7 @@ class MyClient(discord.Client):
         await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
         Cmd.Vars.start_time = datetime.utcnow()
 
-        if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
+        if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":  # vs GOLDBOT
             string = "I have just started up"
             if isupdate:
                 string += ". Updated."
