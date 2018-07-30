@@ -3,6 +3,8 @@ import asyncio, random, time, discord, json, praw
 from datetime import datetime, timedelta
 import forecastio, os, sys, git, wolframalpha, traceback, urllib.request, pyimgur
 
+from functools import wraps
+
 # Reddit
 reddit = praw.Reddit('bot1')
 
@@ -30,14 +32,18 @@ class Ranks:
         267070013096198144   # RedBot
     ]
 
+    CreatorID = 239791371110580225
 
-class Vars:
+
+class Vars:  # Just a default class to hold a lot of the information that'll be accessed system-wide
+    Version = "5.00"
+    Command_Prefixes = ["/", "!", "?", "."]
+
     AdminCode = random.randint(0, 4000)
     Bot = None
     Disabled = False
     Disabler = None
     start_time = None
-    Version = "5.00"
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
@@ -129,6 +135,135 @@ class SeenMessages:
         return False
 
 
+def Command(Admin=False, Start=None, Prefix=True, Include=None, NotInclude=None, ChannelID=None, GuildID=None, AuthorID=None,
+            MarkMessage=True, CalledInternally=False, Attachment=None):
+    def Command_Decorator(func):
+        async def Function_Wrapper(Context):
+            """
+            Called before a function as so:
+            @Command(info)
+            async def Function(Context)
+
+            :param Admin: Bool          Should this be an admin-only command?
+            :param Start: str/list      Should the message start with something?
+            :param Prefix: bool/str/list    Should the message have a command prefix? If so, what kind?
+            :param Include: str         Is there something the message should have in it? .lower()
+            :param NotInclude: str      Is there something the message should NOT have in it? .lower()
+            :param ChannelID: int / list    Is it channel specific?
+            :param GuildID: int / list      Is it guild specific?
+            :param AuthorID: int / list     Is it author specific?
+            :param MarkMessage: bool     Should the system mark the message as used for the command if successful?
+            :param CalledInternally: bool   Should the system notice if it's marked or not
+            :param Attachment: bool / none  Bool if it matters if there's an attachment, if not, None
+            :return: 
+            """
+            if not CalledInternally:  # Return if already called
+                if await SeenMessages.CheckSeen(Context.Message.id):
+                    return False
+
+            if Admin:  # Desired: Admin
+                if not Context.IsAdmin:
+                    return
+
+            if Start:  # If there's a certain way the message should start
+                if type(Start) == list:  # Multiple Possibilities
+                    Found = False
+                    for PotentialStart in Start:  # Iterate through them, seeing if any apply
+                        if Context.StrippedContent.startswith(PotentialStart.lower()):
+                            Found = True  # If so, break and set Found to True so it doesn't return
+                            break
+
+                    if not Found:  # Return if no Potential Start is Found
+                        return
+
+                elif type(Start) == str:  # If there's only one possiblity for how it should start
+                    if not Context.StrippedContent.startswith(Start.lower()):  # If it doesn't start that way, return.
+                        return
+
+            if Prefix:  # Desired: Command Prefix "  /  ?  .  "
+                if type(Prefix) == bool:  # If they just want the standard prefix
+                    if not Context.HasPrefix:
+                        return
+
+                elif type(Prefix) == str:  # If there's a specific prefix they're looking for:
+                    if not Context.Message.content.strip().startswith(Prefix):
+                        return
+
+                elif type(Prefix) == list:  # If there's a whole group of possible prefixes to use
+                    Found = False
+                    # Iterate through each item in the list until we find the prefix desired
+                    for PotentialPrefix in Prefix:
+                        if Context.Message.content.strip().lower().startswith(Prefix.lower()):
+                            Found = True
+                            break
+                    if not Found:
+                        return
+
+            elif not Prefix:  # Or if the command doesn't want a prefix
+                if Context.HasPrefix:  # And it has one:
+                    return
+
+            if Include:  # Desired: This str in the message
+                if Include.lower() not in Context.StrippedContent:
+                    return
+
+            if NotInclude:  # Desired: This str not in the message
+               if NotInclude.lower() in Context.StrippedContent:
+                   return
+
+            if ChannelID:
+                if type(ChannelID) == str:  # If it's a string, make it an integer
+                    ChannelID_List = [int(ChannelID)]
+                elif type(ChannelID) == int:  # If it's not in a list, make it into a list
+                    ChannelID_List = [ChannelID]
+                elif type(ChannelID) == list:
+                    ChannelID_List = ChannelID
+
+                if Context.Message.channel.id not in ChannelID_List:  # If the ID is not in the list:
+                    return
+
+            if GuildID:
+                if type(GuildID) == str:  # If it's a string, make it an integer, then a list
+                    GuildID_List = [int(GuildID)]
+                elif type(GuildID) == int:  # If it's not in a list, make it into a list
+                    GuildID_List = [GuildID]
+                elif type(GuildID) == list:
+                    GuildID_List = GuildID
+
+                if Context.Message.guild.id not in GuildID_List:  # If the ID is not in the list:
+                    return
+
+            if AuthorID:
+                if type(AuthorID) == str:  # If it's a string, make it an integer
+                    AuthorID_List = [int(AuthorID)]
+                elif type(AuthorID) == int:  # If it's not in a list, make it into a list
+                    AuthorID_List = [AuthorID]
+                elif type(AuthorID) == list:
+                    AuthorID_List = AuthorID
+
+                if Context.Message.author.id not in AuthorID_List:  # If the ID is not in the list:
+                    return
+
+            if type(Attachment) == bool:
+                if Attachment:
+                    if not Context.Message.attachments:
+                        return False
+                elif not Attachment:
+                    if Context.Message.attachments:
+                        return False
+
+            # If we've reached this point, all criteria MUST be met, so we can finally run the function.
+            if MarkMessage:
+                await SeenMessages.LogFound(Context.Message.id)
+
+            # ========================
+            await func(Context)  # ===
+            # ========================
+
+        return Function_Wrapper
+    return Command_Decorator
+
+
 async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=None, guild=None, sender=None, admin=None,
                        include=None, markMessage=True, CalledInternally=False, returnCutContent=False):
     """
@@ -155,7 +290,7 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
     # PREFIX
     hasPrefix, content = 0, message.content
     totalPossibleCorrect += 1
-    for possiblePrefix in Conversation.Command_Prefixes:  # For each possible prefix:
+    for possiblePrefix in Vars.Command_Prefixes:  # For each possible prefix:
         if message.content.startswith(possiblePrefix):  # If message has it
             hasPrefix += 1  # Add one to this
 
@@ -250,7 +385,7 @@ async def loadingSign(message):
 
 class Helpers:
     @staticmethod
-    async def Confirmation(message, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
+    async def Confirmation(Context, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
                            return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
                            add_reaction=True, image=None, color=Vars.Bot_Color, footer_text=None):
         """
@@ -263,6 +398,7 @@ class Helpers:
         :param mention: If the bot should mention the player in the beginning
         :return: Returns True if Yes, False if No, and None if timed out. 
         """
+        message = Context.Message
         if type(message) == discord.message.Message:
             author = message.author
             channel = message.channel
@@ -294,43 +430,36 @@ class Helpers:
             em.set_image(url=image)
         # Send message and add emojis
 
-        msg = await channel.send(before_message, embed=em)
+        QuestionMsg = await channel.send(before_message, embed=em)
 
-        await msg.add_reaction(ContinueEmoji)
-        await msg.add_reaction(CancelEmoji)
+        await QuestionMsg.add_reaction(ContinueEmoji)
+        await QuestionMsg.add_reaction(CancelEmoji)
 
-        def check(reaction, user):  # Will be used to validate answers
-            # Returns if user is initial user and reaction is either of those
-            if reaction.message.id != msg.id:
-                return
-            if user == author and str(reaction.emoji) in [CancelEmoji, ContinueEmoji]:
-                return reaction, user
+        ReactionInfo = await Helpers.WaitForReaction(reaction_emoji=[ContinueEmoji, CancelEmoji], message=QuestionMsg,
+                                                     users_id=message.author.id, timeout=timeout, remove_wrong=True)
 
-        try:
-            # Wait for the reaction(s)
-            reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=timeout, check=check)
 
-        except asyncio.TimeoutError:
-            # If it times out
-            try:
-                await msg.delete()
-            except discord.errors.NotFound:
-                pass
+        if not ReactionInfo:
+            await Helpers.QuietDelete(message)
             await channel.send(deny_text, delete_after=5)
+
             if return_timeout:
                 return "Timed Out"
             else:
                 return False
 
+        reaction = ReactionInfo["Reaction"]
+        user = ReactionInfo["User"]
+
         # If they hit the X
         if reaction.emoji == CancelEmoji:
-            await msg.delete()
+            await QuestionMsg.delete()
             await channel.send(deny_text, delete_after=5)
             return False
 
         # If they hit the check
         elif reaction.emoji == ContinueEmoji:
-            await msg.delete()
+            await QuestionMsg.delete()
             if not deleted_original_message:
                 if is_message and add_reaction:
                     await message.add_reaction(ContinueEmoji)
@@ -538,7 +667,7 @@ class Helpers:
             return None
 
     @staticmethod
-    async def Deleted(message):
+    async def Deleted(message: discord.Message):
         id = message.id
         channel = message.channel
         try:
@@ -650,13 +779,101 @@ class Helpers:
 
         return uploaded_image
 
-
     @staticmethod
     def EmbedTime(utc=True):
         if utc:
             return datetime.now() + timedelta(hours=4)
         else:
             return datetime.now()
+
+    @staticmethod
+    async def WaitForReaction(reaction_emoji = None, message: discord.Message = None, users_id=[], timeout: int = 60,
+                              emoji_num: int = 1, remove_wrong: bool = False):
+        """
+        Will wait for a reaction that fits the criteria
+        :param reaction_emoji: 
+        :param message: 
+        :param users_id: 
+        :param timeout: 
+        :return: None, if timeout, dict if success
+        """
+        if type(reaction_emoji) != list:
+            reaction_emoji = [reaction_emoji]
+
+        if type(users_id) != list:
+            users_id = [users_id]
+
+        FinalInfo = None
+
+        async def RemoveReaction(reaction):
+            if not IsDMChannel(reaction.message.channel):
+                if not await Helpers.Deleted(reaction.message):
+                    await reaction.message.remove_reaction(reaction.emoji, user)
+
+
+        def check(init_reaction, init_user):  #  A mini function ran per reaction add
+            # First, let's ensure it's not a bot
+            if init_user.bot:
+                return False
+
+            if reaction_emoji:  # If the reaction emoji is not in the emoji list
+                if init_reaction.emoji not in reaction_emoji:
+                    return False
+
+            if message:  # If the message is the same
+                if init_reaction.message.id != message.id:
+
+                    return False
+
+            if users_id:  # If the user is correct
+                if int(init_user.id) not in users_id:
+                    return False
+
+            if emoji_num > 1:  # If there's a certain number of emoji to hit
+                if init_reaction.count < emoji_num:
+                    return False
+
+            return True
+
+
+        Found = False
+        while not Found:
+            try:
+                # Wait for the reaction(s)
+                reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=timeout, check=check)
+                return {"Reaction": reaction, "User": user}
+
+            except asyncio.TimeoutError:
+                return None
+
+    @staticmethod
+    async def RemoveBotReactions(message):
+        if await Helpers.Deleted(message):
+            return True
+
+        message = await Helpers.ReGet(message)
+
+        for reaction in message.reactions:
+            async for user in reaction.users():
+
+                if user.id == Vars.Bot.user.id:
+                    await message.remove_reaction(reaction.emoji, user)
+
+    @staticmethod
+    async def RemoveAllReactions(message):
+        if IsDMChannel(message.channel):
+            await Helpers.RemoveBotReactions(message)
+            return
+
+        if await Helpers.Deleted(message):
+            return True
+
+        # TODO Add functionality if it doesn't have all perms, becubceause that could be very bad for it
+        await message.clear_reactions()
+
+
+
+
 
 
 class Log:
@@ -814,14 +1031,14 @@ class Log:
 
 class Admin:
     @staticmethod
-    async def Delete(message):
+    @Command(Start="Delete", Prefix=True, Admin=True)
+    async def Delete(Context):
         """
         Deletes a certain number of messages
         :param message: The original message
         :return: returns nothing
         """
-        if not await CheckMessage(message, start="Delete", prefix=True, admin=True):
-            return
+        message = Context.Message
 
         # Clean up the message
         content = message.content.lower().replace("delete", "")
@@ -850,7 +1067,7 @@ class Admin:
             return
 
         if content > 9:
-            confirmation = await Helpers.Confirmation(message, "Delete " + str(content) + " messages?",
+            confirmation = await Helpers.Confirmation(Context, "Delete " + str(content) + " messages?",
                                                       deny_text="Deletion Cancelled", timeout=20)
         else:
             confirmation = True
@@ -878,9 +1095,9 @@ class Admin:
 
 
     @staticmethod
-    async def GuildInfo(message):
-        if not await CheckMessage(message, start="guilds", prefix=True, admin=True):
-            return
+    @Command(Start="Guilds", Prefix=True, Admin=True)
+    async def GuildInfo(Context):
+        message = Context.Message
 
         sendmessage = "" # test this
 
@@ -902,9 +1119,9 @@ class Admin:
         await Helpers.SendLongMessage(message.channel, sendmessage)
 
     @staticmethod
-    async def CopyFrom(message):
-        if not await CheckMessage(message, start="Copy", prefix=True, admin=True):
-            return
+    @Command(Start="Copy", Prefix=True, Admin=True)
+    async def CopyFrom(Context):
+        message = Context.Message
 
         content = message.content[5:].strip()
         if "embed" in content:
@@ -985,9 +1202,9 @@ class Admin:
         await SendChannel.send(Vars.Creator.mention)
 
     @staticmethod
-    async def PermissionsIn(message):
-        if not await CheckMessage(message, start="PermissionsIn", prefix=True, admin=True):
-            return
+    @Command(Start="PermissionsIn", Prefix=True, Admin=True)
+    async def PermissionsIn(Context):
+        message = Context.Message
 
         guild = message.guild
         content = message.content[15:]
@@ -1002,37 +1219,38 @@ class Admin:
 
 
     @staticmethod
-    async def Stop(message):
+    @Command(Start="stop", Prefix=True, Admin=True)
+    async def Stop(Context):
         """
         Stops the Bot
         :param message: Message.content
         :return: Returns nothing
         """
-        if not await CheckMessage(message, start="stop", prefix=True, admin=True):
-            return
+        message = Context.Message
 
         # Check to make sure the user confirms it
-        confirmation = await Helpers.Confirmation(message, "Shut Down?", deny_text="Shut Down Cancelled")
+        confirmation = await Helpers.Confirmation(Context, "Shut Down?", deny_text="Shut Down Cancelled")
         if confirmation:
             await Vars.Bot.change_presence(status=discord.Status.offline)  # Status to offline
             await Vars.Bot.logout()  # Log off
 
     @staticmethod
-    async def LeaveServer(message):
-        if not await CheckMessage(message, start="leave", prefix=True, admin=True):
-            return
+    @Command(Start="leave", Prefix=True, Admin=True)
+    async def LeaveServer(Context):
+        message = Context.Message
 
         text = "Leave " + message.guild.name + "?"  # Says "Leave Red Playground?"
-        confirmation = await Helpers.Confirmation(message, text, deny_text="I will stay.")  # Waits for confirmation
+        confirmation = await Helpers.Confirmation(Context, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
             await message.guild.leave()  # Leaves
 
     @staticmethod
-    async def ForceLeave(message):
-        if not await CheckMessage(message, start="ForceLeave", prefix=True, admin=True):
-            return
+    @Command(Start="ForceLeave", Prefix=True, Admin=True)
+    async def ForceLeave(Context):
+        message = Context.Message
+
         ChannelToLeave = int(message.content[11:])  # Channel within Guild
         ChannelToLeave = Vars.Bot.get_channel(ChannelToLeave)
         GuildToLeave = ChannelToLeave.guild
@@ -1056,10 +1274,11 @@ class Admin:
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time + " from " + GuildToLeave.name)  # Sends goodbye)
 
     @staticmethod
-    async def Disable(message):
-        if not await CheckMessage(message, prefix=True, admin=True, start="Disable"):
-            return False
-        if not await Helpers.Confirmation(message, "Disable?", deny_text="Will Stay Enabled."):
+    @Command(Start="Disable", Prefix=True, Admin=True)
+    async def Disable(Context):
+        message = Context.Message
+
+        if not await Helpers.Confirmation(Context, "Disable?", deny_text="Will Stay Enabled."):
             return
 
         Vars.Disabled = True
@@ -1080,7 +1299,7 @@ class Admin:
 
         # If still disabled:
         to_send = message.author.mention + ", would you like to Re-Enable?"
-        confirmation = await Helpers.Confirmation(message, to_send, timeout=30, return_timeout=True, deleted_original_message=True)
+        confirmation = await Helpers.Confirmation(Context, to_send, timeout=30, return_timeout=True, deleted_original_message=True)
         if not confirmation:  # If they say X, stay disabled:
             await message.channel.send("Will stay disabled indefinitely. ", delete_after=5)
             return
@@ -1110,9 +1329,10 @@ class Admin:
         await message.channel.delete_messages([msg, message])
 
     @staticmethod
-    async def Talk(message):
-        if not await CheckMessage(message, start="Talk", prefix=True, admin=True):
-            return
+    @Command(Start="Talk", Prefix=True, Admin=True)
+    async def Talk(Context):
+        message = Context.Message
+
         """
         /talk server=server serverino, channel=hotel_lobby, Hello
         """
@@ -1190,7 +1410,7 @@ class Admin:
             channel = await Ask('channel', message, given_guild=guild)
         if guild and channel:
             if delay:
-                response = await Helpers.Confirmation(message, "Click when ready", timeout=120)
+                response = await Helpers.Confirmation(Context, "Click when ready", timeout=120)
                 if not response:
                     return
             await channel.send(content)
@@ -1206,9 +1426,10 @@ class Admin:
         #             server_name = part
 
     @staticmethod
-    async def Status(message):
-        if not await CheckMessage(message, prefix=True, start="status", admin=True):
-            return
+    @Command(Start="Status", Prefix=True, Admin=True)
+    async def Status(Context):
+        message = Context.Message
+
         sentTime = message.created_at
         receivedTime = datetime.utcnow()
         difference = receivedTime - sentTime
@@ -1227,10 +1448,11 @@ class Admin:
         await message.channel.send(embed=em)
 
     @staticmethod
-    async def Restart(message):
-        if not await CheckMessage(message, prefix=True, start="restart", admin=True):
-            return
-        confirmation = await Helpers.Confirmation(message, "Restart?", deny_text="Restart Cancelled")
+    @Command(Start="Restart", Prefix=True, Admin=True)
+    async def Restart(Context):
+        message = Context.Message
+
+        confirmation = await Helpers.Confirmation(Context, "Restart?", deny_text="Restart Cancelled")
         if not confirmation:
             return
         # Add check to message
@@ -1274,10 +1496,11 @@ class Admin:
         return False
 
     @staticmethod
-    async def Update(message, fromBot=False):
-        if not await CheckMessage(message, prefix=True, admin=True, start="update"):
-            return
-        if not await Helpers.Confirmation(message, "Update?", deny_text="Update Cancelled", timeout=20):
+    @Command(Start="Update", Prefix=True, Admin=True)
+    async def Update(Context, fromBot=False):
+        message = Context.Message
+
+        if not await Helpers.Confirmation(Context, "Update?", deny_text="Update Cancelled", timeout=20):
             return
 
         channel = message.channel
@@ -1309,20 +1532,21 @@ class Admin:
         return
 
     @staticmethod
-    async def SaveDataFromMessage(message):
+    @Command(Start="SaveData", Prefix=True, Admin=True)
+    async def SaveDataFromMessage(Context):
         # BROKEN!
         """
         Guides through the process of saving data to the remote bot from a discord message.
         :param message: The message object
         :return: Nothing, but should save the data.
         """
-        if not await CheckMessage(message, start="SaveData", prefix=True, admin=True):
-            return
+        message = Context.Message
+
         channel = message.channel
 
         currentData = Helpers.RetrieveData()
 
-        if not await Helpers.Confirmation(message, "THIS IS BROKEN. CONTINUE?"):
+        if not await Helpers.Confirmation(Context, "THIS IS BROKEN. CONTINUE?"):
             return
 
         def check(m):
@@ -1337,13 +1561,13 @@ class Admin:
 
         looking_for = Sys.FirstCap(response.content).strip().replace(" ", "_")
         if looking_for not in currentData:
-            confirmation = await Helpers.Confirmation(message, "Cannot find data type. Continue?", timeout=30)
+            confirmation = await Helpers.Confirmation(Context, "Cannot find data type. Continue?", timeout=30)
             if not confirmation:
                 # If they do not want to continue
                 return
 
         to_load = ""
-        is_long = await Helpers.Confirmation(message, "Is it longer than 2000?")
+        is_long = await Helpers.Confirmation(Context, "Is it longer than 2000?")
         if not is_long:
             msg = await channel.send("Please send the json.dumps string.")
             response = await Vars.Bot.wait_for("message", check=check)
@@ -1391,9 +1615,9 @@ class Admin:
         pass
 
     @staticmethod
-    async def SendData(message):
-        if not await CheckMessage(message, start="download data", prefix=True, admin=True):
-            return
+    @Command(Start="Download Data", Prefix=True, Admin=True)
+    async def SendData(Context):
+        message = Context.Message
 
         content = message.content[1:].replace("download data", "").strip()
         data = Helpers.RetrieveData()
@@ -1408,10 +1632,10 @@ class Admin:
             else:
                 data = data[content]
 
-        if not await Helpers.Confirmation(message, "Send data?"):
+        if not await Helpers.Confirmation(Context, "Send data?"):
             return
 
-        pretty_print = await Helpers.Confirmation(message, "Do you want it to be pretty print?")
+        pretty_print = await Helpers.Confirmation(Context, "Do you want it to be pretty print?")
 
         # Prepare data
         if pretty_print:
@@ -1434,15 +1658,16 @@ class Admin:
             await message.channel.send(send_string)
 
     @staticmethod
-    async def ChangePersonal(message):
-        if not await CheckMessage(message, start="change personal", prefix=True, admin=True):
-            return
+    @Command(Start="Change Personal", Prefix=True, Admin=True)
+    async def ChangePersonal(Context):
+        message = Context.Message
+
         if message.author != Vars.Creator:
             return
 
         content = message.content[16:].strip()
 
-        if not await Helpers.Confirmation(message, "Add " + content + " To Personal? Cannot be reversed."):
+        if not await Helpers.Confirmation(Context, "Add " + content + " To Personal? Cannot be reversed."):
             return
 
         content = content.split(":")
@@ -1466,11 +1691,11 @@ class Admin:
         await message.channel.send("Success. ", delete_after=20)
 
     @staticmethod
-    async def Broadcast(message):
-        if not await CheckMessage(message, admin=True, prefix=True, start="broadcast"):
-            return
+    @Command(Start="Broadcast", Prefix=True, Admin=True)
+    async def Broadcast(Context):
+        message = Context.Message
 
-        if not await Helpers.Confirmation(message, "Are you sure you want to broadcast?"):
+        if not await Helpers.Confirmation(Context, "Are you sure you want to broadcast?"):
             return
 
         message.content = message.content[1:].replace("broadcast", "").strip()
@@ -1478,9 +1703,9 @@ class Admin:
         await Helpers.MessageAdmins(message.content)
 
     @staticmethod
-    async def SinglePrivateMessage(message):
-        if not await CheckMessage(message, admin=True, prefix=True, start="p "):
-            return
+    @Command(Start="p ", Admin=True, Prefix=True)
+    async def SinglePrivateMessage(Context):
+        message = Context.Message
         # This will delete any message that starts with /p after 20 seconds
 
         await message.add_reaction(Conversation.Emoji["x"])
@@ -1621,7 +1846,8 @@ class Timer:
 
 class Quotes:
     @staticmethod
-    async def SendQuote(message):
+    @Command(Prefix=True, Start="send quote")
+    async def SendQuote(Context):
         """
         Sends random quote from the file
         Quote JSON Format:
@@ -1630,8 +1856,7 @@ class Quotes:
         :param message: MSG Object
         :return: Nothing
         """
-        if not await CheckMessage(message, prefix=True, start="send quote"):
-            return
+        message = Context.Message
 
         # Cooldown
         cd_notice = Cooldown.CheckCooldown("quote", message.author, message.guild)
@@ -1676,9 +1901,10 @@ class Quotes:
             return True
 
     @staticmethod
-    async def QuoteCommand(message):
-        if not await CheckMessage(message, start="quote", prefix=True):
-            return
+    @Command(Start="quote", Prefix=True)
+    async def QuoteCommand(Context):
+        message = Context.Message
+
         if len(message.mentions) == 0:
             await message.channel.send("Please follow the correct format: `/quote @RedBot How are you?`",
                                        delete_after=5)
@@ -1690,6 +1916,12 @@ class Quotes:
         if not await Quotes.CheckTime():
             await message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
             await message.delete()
+
+        if Context.InDM:
+            await message.channel.send("Are you really trying to create a quote... with just a robot?\nThat's sad.")
+            return
+
+
         # Seperate reactioned user from the message
         mention_user = message.mentions[0]
         content = message.clean_content[7:].replace("@" + mention_user.display_name, '').strip()
@@ -1747,16 +1979,16 @@ class Quotes:
 
         if not await Quotes.CheckTime():
             await reaction.message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
-            await reaction.message.clear_reactions()
+            await Helpers.RemoveAllReactions(reaction.message)
             return
         if await CheckMessage(reaction.message, prefix=True, CalledInternally=True):
             await reaction.message.channel.send("Quoting Commands confuses me!", delete_after=5)
-            await reaction.message.clear_reactions()
+            await Helpers.RemoveAllReactions(reaction.message)
             return
 
         if len(reaction.message.content) > 500:
             await reaction.message.channel.send("Simply too long to quote.", delete_after=5)
-            await reaction.message.clear_reactions()
+            await Helpers.RemoveAllReactions(reaction.message)
             return
 
         if reaction.count >= 5:
@@ -1822,9 +2054,9 @@ class Memes:
     }
 
     @staticmethod
-    async def SendMeme(message, is_repeat=False):
-        if not await CheckMessage(message, start="send", notInclude="quote", prefix=True):
-            return
+    @Command(Start="send", Prefix=True, NotInclude="quote")
+    async def SendMeme(Context, is_repeat=False):
+        message = Context.Message
         # If the channel is private
         if str(message.channel).startswith("Direct Message"):
             await message.channel.send("Meme Sending only supported in group servers.", delete_after=5)
@@ -1958,13 +2190,13 @@ class Memes:
             except asyncio.TimeoutError:
                 continue_on = False  # Don't continue
                 try:
-                    await msg.clear_reactions()
+                    await Helpers.RemoveAllReactions(msg)
                 except discord.errors.NotFound:
                     pass
                 return
 
             # If a reaction is added:
-            await msg.clear_reactions()
+                await Helpers.RemoveAllReactions(msg)
             if reaction.emoji == info:  # INFO
                 used_info = True
                 new_msg = link + '\n'
@@ -2023,18 +2255,18 @@ class Memes:
 
 class Other:
     @staticmethod
-    async def OnMessage(message):
-        await Other.QuickChat(message)
-        await Other.Change_Color(message)
-        await Other.Weather(message)
-        await Other.OldWeather(message)
-        await Other.NoContext(message)
-        await Other.ChatLinkShorten(message)
-        await Other.LinkShortenCommand(message)
-        await Other.CountMessages(message)
-        await Other.Upload(message)
-        await Other.AutoUpload(message)
-        await Other.UpdateNotes(message)
+    async def OnMessage(Context):
+        await Other.QuickChat(Context)
+        await Other.Change_Color(Context)
+        await Other.Weather(Context)
+        await Other.OldWeather(Context)
+        await Other.NoContext(Context)
+        await Other.ChatLinkShorten(Context)
+        await Other.LinkShortenCommand(Context)
+        await Other.CountMessages(Context)
+        await Other.Upload(Context)
+        await Other.AutoUpload(Context)
+        await Other.UpdateNotes(Context)
 
     @staticmethod
     async def StatusChange():
@@ -2077,9 +2309,11 @@ class Other:
             # 1 in 200 chance, 0.5%
             ActivityType = discord.ActivityType.listening
             New_Status = random.choice(["You Closely", "You.", "Them"])
+            StatusPrefix = ""
         if Variance == 37 or Variance == 38:
             ActivityType = discord.ActivityType.watching
             New_Status = random.choice(["You...", "You.", "Them", "It Closely", "The Thing"])
+            StatusPrefix = ""
 
         if 100 < Variance < 200 and 8 < CurrentHour < 20:
             New_Status = random.choice(["Online", "Bot Active", "No Issues", "Hello", "Hello, Human.", "Active", "Ready"])
@@ -2117,9 +2351,10 @@ class Other:
         working_on_hour = int(time.strftime('%I'))
 
     @staticmethod
-    async def Change_Color(message):
-        if not await CheckMessage(message, prefix=True, start="color"):
-            return
+    @Command(Prefix=True, Start="color")
+    async def Change_Color(Context):
+        message = Context.Message
+
         send_message = ""
 
         perm = await CheckPermissions(message.channel, ['manage_roles', 'send_messages'])
@@ -2254,7 +2489,9 @@ class Other:
         return
 
     @staticmethod
-    async def QuickChat(message):
+    async def QuickChat(Context):
+        message = Context.Message
+
         if message.author.id in Ranks.Bots:
             return
 
@@ -2489,10 +2726,9 @@ class Other:
                     await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
     @staticmethod
-    async def OldWeather(message, morning=False):
-        if not morning:
-            if not await CheckMessage(message, prefix=True, start="FullWeather"):
-                return
+    @Command(Prefix=True, Start="fullweather")
+    async def OldWeather(Context):
+        message = Context.Message
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
         byHour = forecast.hourly()
         byCurrent = forecast.currently()
@@ -2560,8 +2796,7 @@ class Other:
         default_channel = channel_list[0]
 
         if default_channel:
-            #await Other.OldWeather(default_channel, morning=True)
-            await Other.Weather(None, channel=default_channel)
+            await Other.SendWeather(default_channel)
 
     @staticmethod
     async def T_Graduation():
@@ -2597,11 +2832,11 @@ class Other:
         return
 
     @staticmethod
-    async def NoContext(message):
-        if not await CheckMessage(message, start="no context", prefix=True):
-            return
+    @Command(Start="No Context", Prefix=True)
+    async def NoContext(Context):
+        message = Context.Message
 
-        if IsDMChannel(message.channel):
+        if Context.InDM:
             await message.channel.send("No Context only works in Guilds/Servers!")
             return
 
@@ -2656,10 +2891,11 @@ class Other:
         msg = await message.channel.send(embed=em)
 
     @staticmethod
-    async def ChatLinkShorten(message, command=False):
+    async def ChatLinkShorten(Context, command=False):
         """Scans chat for any mention of a link
         Sees how long it is, and offers to shorten it if need be.
         """
+        message = Context.Message
         # Ensure the message has http in it
         if not command:
             if not await CheckMessage(message, include="http", prefix=False):
@@ -2673,8 +2909,6 @@ class Other:
         if message.author.bot:
             return
 
-        #if IsDMChannel(message.channel):
-        #    return
 
         UsableContent = message.content.strip()
         Links = []
@@ -2750,27 +2984,27 @@ class Other:
         await message.channel.send(embed=LinkSendEmbed)
 
     @staticmethod
-    async def LinkShortenCommand(message):
-        if not await CheckMessage(message, start="shorten", prefix=True):
-            return
+    @Command(Start="shorten", Prefix=True)
+    async def LinkShortenCommand(Context):
         """
         Shortens a given link using TinyUrl
         """
-        message.content = message.content[8:].strip()
-        await Other.ChatLinkShorten(message, command=True)
+
+        Context.Message.content = Context.Message.content[8:].strip()
+        await Other.ChatLinkShorten(Context, command=True)
 
 
 
     @staticmethod
-    async def CountMessages(message):
-        if not await CheckMessage(message, start="Count", prefix=True):
-            return
+    @Command(Start="Count", Prefix=True)
+    async def CountMessages(Context):
+        message = Context.Message
 
         stop_emoji = Conversation.Emoji["blue_book"]
         text = "I will count messages until I see a " + stop_emoji + " reaction. My limit is: `2500` messages."
         description = "Click the Check when you're ready!"
 
-        if not await Helpers.Confirmation(message, text=text, deny_text="Count cancelled", timeout=120,
+        if not await Helpers.Confirmation(Context, text=text, deny_text="Count cancelled", timeout=120,
                                           extra_text=description):
             return
         await message.channel.trigger_typing()
@@ -2787,11 +3021,12 @@ class Other:
         await message.channel.send(str(final_count) + " messages.")
 
     @staticmethod
-    async def Weather(message, channel=None):
-        if not channel:
-            if not await CheckMessage(message, start="weather", prefix=True):
-                return
+    @Command(Start="weather", Prefix=True)
+    async def Weather(Context):
+        await Other.SendWeather(Context.Message.channel)
 
+    @staticmethod
+    async def SendWeather(channel):
         # Obtain Forecast Dataset
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
 
@@ -3015,17 +3250,15 @@ class Other:
         msg += "\n - **Tomorrow:** " + Summary
 
         em = discord.Embed(description=msg, colour=0x498fff, timestamp=Helpers.EmbedTime() + timedelta(hours=4))
-        #em.set_author(name=WeatherDict["Daily"][0]["Data"]["summary"])
-        if channel:
-            await channel.send(embed=em)
-        else:
-            await message.channel.send(embed=em)
+
+        await channel.send(embed=em)
+
         return
 
     @staticmethod
-    async def Upload(message):
-        if not await CheckMessage(message, prefix=True, start="Upload"):
-            return
+    @Command(Prefix=True, Start="Upload")
+    async def Upload(Context):
+        message = Context.Message
         # This function will upload an image to imgur and give the user a link
         UsableContent = message.content[7:].strip()
         if not UsableContent:
@@ -3082,11 +3315,9 @@ class Other:
             await message.channel.send("Something went horribly wrong.")
 
     @staticmethod
-    async def AutoUpload(message):
-        if not message.attachments:
-            return
-        if await CheckMessage(message, prefix=True, CalledInternally=True):
-            return
+    @Command(Prefix=False, Attachment=True)
+    async def AutoUpload(Context):
+        message = Context.Message
 
         suffixes = [".png", ".jpg", ".jpeg", ".gif", ".ico"]
         IsImage = False
@@ -3116,10 +3347,10 @@ class Other:
 
             except asyncio.TimeoutError:
                 if not await Helpers.Deleted(message):
-                    await message.clear_reactions()
+                    await Helpers.RemoveAllReactions(message)
                     return
 
-        await message.clear_reactions()
+        await Helpers.RemoveAllReactions(message)
         if await Helpers.Deleted(message):
             raise FileNotFoundError("I cannot find the message with the image. Was it deleted?")
 
@@ -3128,9 +3359,9 @@ class Other:
 
 
     @staticmethod
-    async def UpdateNotes(message):
-        if not await CheckMessage(message, start="updatenotes", prefix=True):
-            return
+    @Command(Start="UpdateNotes", Prefix=True)
+    async def UpdateNotes(Context):
+        message = Context.Message
 
         ColorListing = [ Sys.Colors["RedBot"],
                          Sys.Colors["GoldBot"],
@@ -3163,11 +3394,12 @@ class Poll:
     RunningPolls = {}
 
     @staticmethod
-    async def OnMessage(message):
-        await Poll.PollCommand(message)
+    async def OnMessage(Context):
+        await Poll.PollCommand(Context)
 
     @staticmethod
-    async def PollCommand(message):
+    @Command(Prefix=True, Start=["poll", "yesno"])
+    async def PollCommand(Context):
         """
         /poll Which Emoji is cooler?
         :car: The car Emoji
@@ -3175,9 +3407,10 @@ class Poll:
         :param message: the input message
         :return: Nothing
         """
-        if not await CheckMessage(message, prefix=True, start="poll"):
-            if not await CheckMessage(message, prefix=True, start="yesno"):
-                return
+        message = Context.Message
+        # if not await CheckMessage(message, prefix=True, start="poll"):
+        #     if not await CheckMessage(message, prefix=True, start="yesno"):
+        #         return
 
         async def PollError(cmdMessage, error: str, sendFormat: bool = True):
             """
@@ -3204,6 +3437,10 @@ class Poll:
             await cmdMessage.channel.send(embed=em)
             if not await Helpers.Deleted(cmdMessage):
                 await cmdMessage.add_reaction(Conversation.Emoji["x"])
+            return
+
+        if Context.InDM:
+            await PollError(message, "Do you really want to do a Poll with yourself in a DM with a robot? \nThat's just sad.", sendFormat=False)
             return
 
         await message.channel.trigger_typing()
@@ -3415,7 +3652,7 @@ class Poll:
                              icon_url=PollData["MessageAuthorAvatarURL"])
 
         await PollMessage.edit(embed=PollEmbed)
-        await PollMessage.clear_reactions()
+        await Helpers.RemoveAllReactions(PollMessage)
 
 
     @staticmethod
@@ -3460,15 +3697,15 @@ class Poll:
 
 class Calculate:
     @staticmethod
-    async def OnMessage(message):
-        await Calculate.Command(message)
+    async def OnMessage(Context):
+        await Calculate.Command(Context)
 
         return
 
     @staticmethod
-    async def Command(message):
-        if not await CheckMessage(message, prefix="="):
-            return
+    @Command(Prefix="=")
+    async def Command(Context):
+        message = Context.Message
 
         if message.content.startswith("=="):  # If people are doing a divider or something
             return
@@ -3559,11 +3796,11 @@ class Calculate:
 
 class Tag:
     @staticmethod
-    async def OnMessage(message):
+    async def OnMessage(Context):
 
-        await Tag.SetTag(message)
-        await Tag.TagFunction(message)
-        await Tag.ClearTagData(message)
+        await Tag.SetTag(Context)
+        await Tag.TagFunction(Context)
+        await Tag.ClearTagData(Context)
 
         return
 
@@ -3591,13 +3828,14 @@ class Tag:
             return AllPTags[str(id)]
 
     @staticmethod
-    async def SetTag(message):
+    @Command(Prefix=True, Start=["settag", "st ", "setptag", "spt ", "psettag"])
+    async def SetTag(Context):
+        message = Context.Message
+
         PersonalTag = False
-        if not await CheckMessage(message, start=["settag", "st"], prefix=True):  # admin=True):
-            if not await CheckMessage(message, start=["setptag", "spt", "psettag"], prefix=True):
-                return
+        if Context.StrippedContent.startswith(("setptag", "spt", "psettag")):
             PersonalTag = True
-        # Creates the Tag given, starts a TagVote if not an admin.
+            # Creates the Tag given, starts a TagVote if not an admin.
 
         async def ReturnError(message, error_message, sendformat=False):
             # If there is some issue, this will make things easier.
@@ -3748,7 +3986,7 @@ class Tag:
                 if not PersonalTag:
                     PersonalTagData = await Tag.RetrievePTagList(id=message.author.id)
                     if TagKey not in PersonalTagData.keys():
-                        confirmation = await Helpers.Confirmation(message, "Tag already exists. Create Personal Tag?")
+                        confirmation = await Helpers.Confirmation(Context, "Tag already exists. Create Personal Tag?")
                         if confirmation:
                             PersonalTag = True
                             TagData = await Tag.RetrievePTagList(id=message.author.id)
@@ -3774,7 +4012,7 @@ class Tag:
                 command = "/tag"
                 footer_text = "Everyone will be able to call this tag."
             Extra_Text = "```You Send:  > " + command + " " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
-            Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+            Confirmation = await Helpers.Confirmation(Context, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
                                                   deny_text="Tag Creation Cancelled", yes_text=yes_text,
                                                   image=image, footer_text=footer_text)
             if not Confirmation:
@@ -3953,11 +4191,12 @@ class Tag:
             return None
 
     @staticmethod
-    async def TagFunction(message):
+    @Command(Prefix=True, Start=["t ", "tag", "pt ", "ptag"])
+    async def TagFunction(Context):
+        message = Context.Message
+
         PersonalTag = False
-        if not await CheckMessage(message, start=["t ", "tag"], prefix=True):
-            if not await CheckMessage(message, start=["pt ", "ptag"], prefix=True):
-                return
+        if Context.StrippedContent.startswith(("pt ", "ptag")):
             PersonalTag = True
 
         content = message.content[1:]
@@ -3997,7 +4236,7 @@ class Tag:
             return
         if "edit" == TagKey.split(" ")[0]:
             # /tag edit ___
-            await Tag.EditTag(message, TagKey, PersonalTag=PersonalTag)
+            await Tag.EditTag(Context, TagKey, PersonalTag=PersonalTag)
             return
         if TagKey == "random":
             await Tag.RandomTag(message, PersonalTag=PersonalTag)
@@ -4037,11 +4276,11 @@ class Tag:
         return
 
     @staticmethod
-    async def ClearTagData(message):
-        if not await CheckMessage(message, start="ClearTagData", admin=True, prefix=True):
-            return
+    @Command(Start="ClearTagData", Admin=True, Prefix=True)
+    async def ClearTagData(Context):
+        message = Context.Message
 
-        if not await Helpers.Confirmation(message, "Are you sure you want to clear?"):
+        if not await Helpers.Confirmation(Context, "Are you sure you want to clear?"):
             return
 
         Helpers.SaveData({}, type="Tag")
@@ -4165,7 +4404,7 @@ class Tag:
 
             except asyncio.TimeoutError:
                 # If timed out
-                await ListMsg.clear_reactions()
+                await Helpers.RemoveAllReactions(ListMsg)
                 StopWhileLoop = True  # Ensure it won't loop again
                 break  # Break Loop
 
@@ -4269,7 +4508,9 @@ class Tag:
         return
 
     @staticmethod
-    async def EditTag(message, TagKey, PersonalTag=False):
+    async def EditTag(Context, TagKey, PersonalTag=False):
+        message = Context.Message
+
         if PersonalTag:
             AllTagData = await Tag.RetrievePTagList(id=message.author.id)
         else:
@@ -4358,7 +4599,7 @@ class Tag:
 
         # Delete tag if requested
         if EditMode == "Delete":
-            if not await Helpers.Confirmation(message, "Delete " + TagType + "? " + TagKey):
+            if not await Helpers.Confirmation(Context, "Delete " + TagType + "? " + TagKey):
                 return
             AllTagData.pop(TagKey)
             await SaveData(AllTagData, PersonalTag)
@@ -4472,7 +4713,7 @@ class Tag:
         if not TagData["Color"]:
             TagData["Color"] = Vars.Bot_Color
         Extra_Text = "```You Send:  > " + Command + TagData["Key"] + "\nI Respond: > " + TagData["Content"].replace("```", "\'\'\'") + "```"
-        Confirmation = await Helpers.Confirmation(message, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+        Confirmation = await Helpers.Confirmation(Context, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
                                                   deny_text= TagType + " Edit Cancelled",
                                                   image=TagData["Image"], color=TagData["Color"])
         if not Confirmation:
@@ -4531,9 +4772,9 @@ class Remind:
     embed_color = 0x4286f4
 
     @staticmethod
-    async def RemindCommand(message):
-        if not await CheckMessage(message, start="remind ", prefix=True):
-            return
+    @Command(Start="remind", Prefix=True)
+    async def RemindCommand(Context):
+        message = Context.Message
 
         await message.channel.trigger_typing()
 
@@ -5037,7 +5278,7 @@ class Remind:
         await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=DMChannel)
 
         if DMChannel:
-            reaction_to_add = Conversation.Emoji["check"]
+            reaction_to_add = Conversation.Emoji["clock"]
         else:
             reaction_to_add = Conversation.Emoji["clock"]
 
@@ -5045,35 +5286,19 @@ class Remind:
 
         # Now we'll add the x to cancel the reminder
         await sent.add_reaction(Conversation.Emoji["x"])
-        def Check(reaction, user):
-            if reaction.emoji == Conversation.Emoji["x"]:
-                if user.id == message.author.id:
-                    if reaction.message.id == sent.id:
-                        return True
-            return False
 
-        Stop = False
-        while not Stop:
-            try:
-                reaction, user = await Vars.Bot.wait_for("reaction_add", check=Check, timeout=50)
-                break
+        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=50, users_id=message.author.id)
+        await Helpers.RemoveBotReactions(sent)
+        await Helpers.RemoveBotReactions(message)
 
-            except asyncio.TimeoutError:
-                if not await Helpers.Deleted(sent):
-                    await sent.clear_reactions()
-
-                reaction, user = None, None
-                break
-
-        if reaction and user:
+        if React_Info:
             await Remind.DeleteSpecificReminder(ReminderData)
             await Helpers.QuietDelete(sent)
             await message.channel.send("I have deleted the reminder. Try again?", delete_after=10)
             if not await Helpers.Deleted(message):
-                await message.clear_reactions()
                 await message.add_reaction(Conversation.Emoji["x"])
 
-        await Helpers.QuietDelete(sent, wait=60)
+        await Helpers.QuietDelete(sent, wait=10)
 
         return
 
@@ -5239,6 +5464,12 @@ class Remind:
             RemindPerson = Vars.Bot.get_user(int(Reminder["RemindPerson"]))
             RemindPersonMention = RemindPerson.mention
 
+            if not SendChannel:
+                if not Reminder["Guild"]:
+                    # If there's no guild, it's a DM Reminder
+                    await RemindPerson.create_dm()
+                    SendChannel = RemindPerson.dm_channel
+
             if SendChannel:
                 Good_To_Send = False
                 if type(SendChannel) == discord.channel.DMChannel:
@@ -5269,12 +5500,8 @@ class Remind:
             if not SentMsg:
                 return
 
-            try:  # TODO This is a Temporary Solution to the DM Problem
-                await originalmsg.clear_reactions()
-                await originalmsg.add_reaction(Conversation.Emoji["check"])
-
-            except:
-                pass
+            await Helpers.RemoveAllReactions(originalmsg)
+            await originalmsg.add_reaction(Conversation.Emoji["check"])
 
             thread = Vars.Bot.loop.create_task(Remind.SentReminderActions(Reminder, originalmsg, SendChannel, SentMsg, RemindPerson))
 
@@ -5289,7 +5516,6 @@ class Remind:
         if Reminder["Repeat"] > 2:
             return
 
-
         # Now we do the emojis
         emoji_five   = '5\u20e3'
         emoji_ten    = '\U0001f51f'
@@ -5299,9 +5525,8 @@ class Remind:
         for emoji in emoji_list:
             await SentMsg.add_reaction(emoji)
 
-
         async def RemoveReaction(reaction, user):
-            if not await Helpers.Deleted(reaction.message):
+            if not await Helpers.Deleted(reaction.message) and not IsDMChannel(SendChannel):
                 await reaction.message.remove_reaction(reaction.emoji, user)
 
         def Check(reaction, user):
@@ -5321,9 +5546,7 @@ class Remind:
                 break
 
             except asyncio.TimeoutError:
-                if not await Helpers.Deleted(SentMsg):
-                    await SentMsg.clear_reactions()
-                return
+                await Helpers.RemoveAllReactions(SentMsg)
 
         if reaction.emoji == emoji_five:
             NewTime = datetime.now() + timedelta(minutes=5)
@@ -5419,10 +5642,8 @@ class Remind:
         if footer:
             em.set_footer(text=footer)
 
-
-
         sent = await SendChannel.send(embed=em)
-        await SentMsg.clear_reactions()
+        await Helpers.RemoveBotReactions(SentMsg)
 
 
 
@@ -5448,8 +5669,8 @@ class Remind:
 
 class Todo:
     @staticmethod
-    async def OnMessage(message):
-        await Todo.Command(message)
+    async def OnMessage(Context):
+        await Todo.Command(Context)
 
     @staticmethod
     async def RetrieveData():
@@ -5462,9 +5683,9 @@ class Todo:
             return Data
 
     @staticmethod
-    async def Command(message):
-        if not await CheckMessage(message, prefix=True, start="todo"):
-            return
+    @Command(Prefix=True, Start="todo")
+    async def Command(Context):
+        messasge = Context.Message
 
         usableContent = message.content[5:].strip()
 
@@ -5474,16 +5695,17 @@ class Todo:
 class Help:
     # Displays Help for a given command type
     @staticmethod
-    async def OnMessage(message):
-        await Help.HelpCommandGeneral(message)
+    async def OnMessage(Context):
+        await Help.HelpCommandGeneral(Context)
         return
 
     @staticmethod
-    async def HelpCommandGeneral(message):
+    @Command(Prefix=True, Include="help", MarkMessage=False)
+    async def HelpCommandGeneral(Context):
+        message = Context.Message
         # Runs per command, just to see if its either like: /yesno help or /help yesno
         usableContent = message.content
-        if not await CheckMessage(message, prefix=True, include="help", markMessage=False):
-            return
+
         if not message.content[1:5].lower() == "help" and not " help" in message.content.lower():
             return
 
@@ -5598,15 +5820,17 @@ class On_React:
                 pass
             return
 
+from functools import wraps
 
-async def test(message):
-    if not await CheckMessage(message, prefix=True, start="test", admin=True):
-        return
 
-    print("Hello eeeeeee")
-
-    await asyncio.sleep(10)
-    0/0
-
-    await message.add_reaction(Conversation.Emoji["check"])
+@Command(Admin=True, Start="Test", Prefix=True)
+async def test(Context):
+    chicken = await Helpers.Confirmation(Context, "Hello")
+    if chicken:
+        print("Ok")
     return
+
+
+@Command(Admin=True, Start="Test", Prefix=True)
+async def test2(Context, CountTime):
+    print(time.clock() - CountTime)

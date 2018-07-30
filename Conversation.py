@@ -1,5 +1,4 @@
-Command_Prefixes = ["/", "!", "?", "."]
-
+# This document has plenty of different responses and long items that would be too much to put in the standard Cmd.py, Main.py, or Sys.py
 
 # HELLOS
 Hellos = [

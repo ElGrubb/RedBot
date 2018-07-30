@@ -1,6 +1,89 @@
 import Sys, Cmd, Conversation
-import discord, random, traceback, asyncio, sys
+import discord, random, traceback, asyncio, sys, time
 from datetime import datetime, timedelta
+
+
+class ContextMessage:
+    "Okay so this class is made whenever a message is sent"
+
+    __slots__ = ['HasPrefix', 'IsAdmin', 'InDM', 'IsCreator', 'OriginalContent', "Message", 'StrippedContent', "Deleted"]
+
+    def __init__(self, message):
+        self.Message = message
+        self.OriginalContent = message.content
+        self.StrippedContent = message.content.strip().lower()
+
+        self.HasPrefix = False
+        self.IsAdmin = False
+        self.InDM = False
+        self.IsCreator = False
+
+        self.Deleted = False
+
+        if message.content:
+            if message.content.strip()[0] in Cmd.Vars.Command_Prefixes:
+                self.HasPrefix = True
+                self.StrippedContent = self.StrippedContent[1:]
+
+        if message.author.id in Cmd.Ranks.Admins:
+            self.IsAdmin = True
+
+        if type(message.channel) == discord.channel.DMChannel:
+            self.InDM = True
+
+        if message.author.id == Cmd.Ranks.CreatorID:
+            self.IsCreator = True
+
+        return
+
+    def To_Dict(self):
+        # returns Dictionary containing the important stuff
+        temp = {
+            "Message_ID": self.Message.id,
+            "Channel_ID": self.Message.channel.id,
+            "Author_ID": self.Message.author.id,
+
+            "OriginalContent": self.OriginalContent,
+            "Content": self.Message.content,
+
+            "HasPrefix": self.HasPrefix,
+            "InDM": self.InDM,
+            "IsAdmin": self.IsAdmin,
+            "IsCreator": self.IsCreator
+        }
+
+        if self.InDM:
+            temp["Guild_ID"] = None
+        else:
+            temp["Guild_ID"] = self.Message.guild.id
+
+        return temp
+
+    async def Refresh(self):
+        # Refreshes the self.Message to ensure it's up to date
+        id = self.Message.id
+        channel = self.Message.channel
+        try:
+            newmsg = await channel.get_message(id)
+            self.Message = newmsg
+            return self.Message
+
+        except discord.NotFound:
+            self.Deleted = True
+
+    async def IsDeleted(self):
+        if self.Deleted:
+            return True
+
+        id = self.Message.id
+        try:
+            channel = self.Message.channel
+            newmsg = await channel.get_message(id)
+        except discord.NotFound:
+            self.Deleted = True
+            return True
+
+        return False
 
 
 class MyClient(discord.Client):
@@ -34,13 +117,17 @@ class MyClient(discord.Client):
         Cmd.Vars.Ready = True
 
     async def on_message(self, message):
-        if message.author == bot.user:
+        if message.author.bot:
             return
 
         if not Cmd.Vars.Ready:  # Ensures the bot is ready to go if a message is sent
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             if not Cmd.Vars.Ready:  # If, after a second, it's not ready, the bot returns this thread
                 return
+
+
+        # Set Up ContextMessage
+        Context = ContextMessage(message)
 
         if Cmd.Vars.Disabled:
             await Cmd.Log.LogSent(message)
@@ -48,44 +135,45 @@ class MyClient(discord.Client):
             if not Continue:
                 return
 
-        await Cmd.test(message)
+        await Cmd.test(Context)
+
         await Cmd.Log.LogSent(message)
 
-        await Cmd.Poll.OnMessage(message)
-        await Cmd.Help.OnMessage(message)
-        await Cmd.Calculate.OnMessage(message)
-        await Cmd.Remind.RemindCommand(message)
-        await Cmd.Todo.OnMessage(message)
-        await Cmd.Tag.OnMessage(message)
+        await Cmd.Poll.OnMessage(Context)
+        await Cmd.Help.OnMessage(Context)
+        await Cmd.Calculate.OnMessage(Context)
+        await Cmd.Remind.RemindCommand(Context)
+        await Cmd.Todo.OnMessage(Context)
+        await Cmd.Tag.OnMessage(Context)
 
         # 'SEND' Commands
-        await Cmd.Memes.SendMeme(message)
-        await Cmd.Quotes.SendQuote(message)
-        await Cmd.Quotes.QuoteCommand(message)
+        await Cmd.Memes.SendMeme(Context)
+        await Cmd.Quotes.SendQuote(Context)
+        await Cmd.Quotes.QuoteCommand(Context)
 
         # 'OTHER' COMMANDS
-        await Cmd.Other.OnMessage(message)
+        await Cmd.Other.OnMessage(Context)
 
         # ADMIN Commands
-        await Cmd.Admin.CopyFrom(message)
-        await Cmd.Admin.Delete(message)
-        await Cmd.Admin.Stop(message)
-        await Cmd.Admin.LeaveServer(message)
-        await Cmd.Admin.ForceLeave(message)
-        await Cmd.Admin.Disable(message)
-        await Cmd.Admin.Talk(message)
-        await Cmd.Admin.Status(message)
-        await Cmd.Admin.Restart(message)
-        await Cmd.Admin.Update(message)
-        await Cmd.Admin.SaveDataFromMessage(message)
-        await Cmd.Admin.SendData(message)
-        await Cmd.Admin.ChangePersonal(message)
-        await Cmd.Admin.Broadcast(message)
-        await Cmd.Admin.PermissionsIn(message)
+        await Cmd.Admin.CopyFrom(Context)
+        await Cmd.Admin.Delete(Context)
+        await Cmd.Admin.Stop(Context)
+        await Cmd.Admin.LeaveServer(Context)
+        await Cmd.Admin.ForceLeave(Context)
+        await Cmd.Admin.Disable(Context)
+        await Cmd.Admin.Talk(Context)
+        await Cmd.Admin.Status(Context)
+        await Cmd.Admin.Restart(Context)
+        await Cmd.Admin.Update(Context)
+        await Cmd.Admin.SaveDataFromMessage(Context)
+        await Cmd.Admin.SendData(Context)
+        await Cmd.Admin.ChangePersonal(Context)
+        await Cmd.Admin.Broadcast(Context)
+        await Cmd.Admin.PermissionsIn(Context)
 
-        await Cmd.Admin.GuildInfo(message)
+        await Cmd.Admin.GuildInfo(Context)
 
-        await Cmd.Admin.SinglePrivateMessage(message)
+        await Cmd.Admin.SinglePrivateMessage(Context)
 
 
     async def on_message_edit(self, before, after):
@@ -254,6 +342,9 @@ class MyClient(discord.Client):
 
         # If the reaction was added to a message not in the cache
         # Now to find the reaction and user
+        if Cmd.IsDMChannel(channel):
+            return
+
         user = channel.guild.get_member(user_id)
         reaction = None
         given_emoji = emoji.name
