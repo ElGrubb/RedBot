@@ -5832,7 +5832,7 @@ class Call:
         # called from Main.py, whenever a user joins a call or changes something
         if Call.CurrentCallChannels:
             if before.channel != after.channel:
-                await Call.CallChannelConfig(member, before, after)
+                await Call.CallChannelAdd(member, before, after)
 
 
     @staticmethod
@@ -5857,6 +5857,11 @@ class Call:
             overwrites = {}
             for member in To_Be_Added:
                 overwrites[member] = discord.PermissionOVerwrite(read_messages=True)
+
+
+    @staticmethod
+    async def CallChannelAdd(member, before, after):
+        pass
 
 
 
