@@ -3855,7 +3855,7 @@ class Tag:
 
         # Format: /settag cheese-and-stuff https://www.cheese.com
         content = message.content[1:].strip()
-        for item in ["settag", "st", "setptag", "psettag"]:
+        for item in ["settag", "st", "setptag", "psettag", "spt"]:
             if content.lower().startswith(item):
                 content = content[len(item):].strip()
 
@@ -3895,7 +3895,7 @@ class Tag:
 
         # User: > .t TagKey
         # Bot : > TagContent
-        TagKey = content.split(" ")[0].strip().lower()
+        TagKey = content.split(" ")[0].split("\n")[0].strip().lower()
         TagContent = content[len(TagKey):].strip()
 
         TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
@@ -5820,7 +5820,47 @@ class On_React:
                 pass
             return
 
-from functools import wraps
+class Call:
+    CurrentCallChannels = []
+
+    @staticmethod
+    async def OnMessage(Context):
+        await Call.CreateCallChannel(Context)
+
+    @staticmethod
+    async def on_voice_state_update(member, before, after):
+        # called from Main.py, whenever a user joins a call or changes something
+        if Call.CurrentCallChannels:
+            if before.channel != after.channel:
+                await Call.CallChannelConfig(member, before, after)
+
+
+    @staticmethod
+    @Command(Start="CreateCallChannel", Prefix=True, Admin=True)
+    async def CreateCallChannel(Context):
+        message = Context.Message
+
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            guild.me: discord.PermissionOverwrite(read_messages=True)
+        }
+
+        CallChannel = await guild.create_text_channel('secret', overwrites=overwrites)
+
+        To_Be_Added = []
+        for member in guild.members:
+            if member.voice.channel:
+                To_Be_Added.append(member)
+
+        if To_Be_Added:
+            overwrites = {}
+            for member in To_Be_Added:
+                overwrites[member] = discord.PermissionOVerwrite(read_messages=True)
+
+
+
+
 
 
 @Command(Admin=True, Start="Test", Prefix=True)

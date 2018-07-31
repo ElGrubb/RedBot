@@ -145,6 +145,7 @@ class MyClient(discord.Client):
         await Cmd.Remind.RemindCommand(Context)
         await Cmd.Todo.OnMessage(Context)
         await Cmd.Tag.OnMessage(Context)
+        await Cmd.Call.OnMessage(Context)
 
         # 'SEND' Commands
         await Cmd.Memes.SendMeme(Context)
