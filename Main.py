@@ -125,13 +125,12 @@ class MyClient(discord.Client):
             if not Cmd.Vars.Ready:  # If, after a second, it's not ready, the bot returns this thread
                 return
 
-
         # Set Up ContextMessage
         Context = ContextMessage(message)
 
         if Cmd.Vars.Disabled:
             await Cmd.Log.LogSent(message)
-            Continue = await Cmd.Admin.Enable(message)
+            Continue = await Cmd.Admin.Enable(Context)
             if not Continue:
                 return
 
@@ -199,15 +198,15 @@ class MyClient(discord.Client):
             context = "**Message** by  `" + argument.author.name + "`   `" + str(argument.author.id) + \
                       "`   saying   `" + argument.content[0:80] + "`  "
 
-        elif type(argument) == discord.emoji.PartialReactionEmoji:
-            channel = bot.get_channel(args[2])
-            message = await channel.get_message(args[1])
-            adder = channel.guild.get_member(args[3])
-            context = "**Partial Reaction** on message by  `" + message.author.name + "`  saying  `" + message.content[0:40]
-            try:
-                context += " `\nReaction was  `" + argument.name + "`  by  `" + adder.name + "`"
-            except:
-                context += "` \nError Retrieving Reaction Info"
+        #elif type(argument) == discord.emoji.PartialReactionEmoji:
+        #    channel = bot.get_channel(args[2])
+        #    message = await channel.get_message(args[1])
+        #    adder = channel.guild.get_member(args[3])
+        #    context = "**Partial Reaction** on message by  `" + message.author.name + "`  saying  `" + message.content[0:40]
+        #    try:
+        #        context += " `\nReaction was  `" + argument.name + "`  by  `" + adder.name + "`"
+        #    except:
+        #        context += "` \nError Retrieving Reaction Info"
         else:
             has_channel = False
 
@@ -364,7 +363,6 @@ class MyClient(discord.Client):
         if reaction:
             await self.on_reaction_add(reaction, user)
 
-
     async def on_message_delete(self, message):
         await Cmd.Other.On_Message_Delete(message)
 
@@ -394,10 +392,12 @@ class MyClient(discord.Client):
         color = discord.Colour(Cmd.Vars.Bot_Color)
         await red_role.edit(color=color)
 
-
     async def on_guild_remove(self, guild):
         creator = Cmd.Vars.Creator
         await creator.send("I have officially left " + guild.name)
+
+    async def on_voice_state_update(self, member, before, after):
+        await Cmd.Call.on_voice_state_update(member, before, after)
 
 
 async def getBot():

@@ -36,7 +36,7 @@ class Ranks:
 
 
 class Vars:  # Just a default class to hold a lot of the information that'll be accessed system-wide
-    Version = "5.00"
+    Version = "5.10"
     Command_Prefixes = ["/", "!", "?", "."]
 
     AdminCode = random.randint(0, 4000)
@@ -73,7 +73,7 @@ async def CheckPermissions(channel, nec, return_all=False):
 
     for item in nec:  # For each required in the command
         if item not in Perm_Dict:  # If its a nonexistant permission
-            raise KeyError("Permission not normal one")
+            raise KeyError("Permission not accepted")
 
     if return_all and len(nec) > 1:
         to_return = {}
@@ -1310,19 +1310,19 @@ class Admin:
             return
 
     @staticmethod
-    async def Enable(message):
-        if not await CheckMessage(message, prefix=True, admin=True, start="Enable"):
-            if message.author == Vars.Creator:
-                return True
-            else:
-                return False
+    @Command(Start="Enable", Admin=True, Prefix=True)
+    async def Enable(Context):
+        message = Context.Message
+
         if Vars.Disabler:
             if message.author.id != Vars.Disabler and message.author.id != Vars.Creator.id:
                 return False
 
         Vars.Disabled = False
         Vars.Disabler = None
-        await Vars.Bot.change_presence(status=discord.Status.online)
+
+        await Other.StatusChange()
+
         msg = await message.channel.send('Bot Enabled.')
         await asyncio.sleep(5)
         await msg.delete()
@@ -1838,8 +1838,9 @@ class Timer:
 
                 await Remind.CheckForReminders()
 
-                if current_time.endswith(":01") or current_time.endswith(":45"):
-                    await Other.StatusChange()  # NEvermind
+                if current_time.endswith(":01") or current_time.endswith(":31"):
+                    if not Vars.Disabled:
+                        await Other.StatusChange()  # NEvermind
 
         Timer.Running = False
 
@@ -2274,29 +2275,29 @@ class Other:
 
         # Okay let's go between possible times
         if 6 <= CurrentHour <= 10:  # Between 6 o clock and 10:
-            New_Status = random.choice(["Good Morning", "Morning", "Hello", "Bright and Early"])
+            New_Status = random.choice(["Good Morning", "Morning", "Hello", "Bright and Early", "Wakey Wakey", "Wake Up!", "How'd You Sleep?", "Great Morning!", "Lovely Morning"])
 
         elif 10 < CurrentHour < 12:
-            New_Status = random.choice(["Need Coffee", "Making Lunch", "Hello", "Working Hard", "Hardly Working", "Running Smoothly"])
+            New_Status = random.choice(["Need Coffee", "Making Lunch", "Hello", "Working Hard", "Hardly Working", "Running Smoothly", "Working Well!"])
 
         elif 12 <= CurrentHour <= 16:
-            New_Status = random.choice(["Happy Afternoon", "Good Afternoon", "Eating Lunch", "Working Hard", "Great Day", "Okay Day"])
+            New_Status = random.choice(["Happy Afternoon", "Good Afternoon", "Eating Lunch", "Working Hard", "Great Day", "Good Afternoon!", "Get Some Work Done", "Get to Work!", "Good Afternoon."])
 
         elif  16 < CurrentHour <= 19:
             New_Status = random.choice(["Making Dinner", "Preparing Sunset", "Good Evening", "Great Evening", "Hello"])
 
         elif 19 < CurrentHour <= 21:
-            New_Status = random.choice(["Great Evening", "Good Evening", "Sun Setting", "Running Repair", "Having Dessert", "Running Well", "No Errors"])
+            New_Status = random.choice(["Great Evening", "Good Evening", "Sun Setting", "Running Repair", "Having Dessert", "Running Well", "Evening."])
 
         elif 21 <= CurrentHour <= 24:
-            New_Status = random.choice(["Go to Sleep", "Go to Bed", "You Sleep", "Sweet Dreams", "Good Night", "Great Night", "The Stars", "You Best Be Sleeping"])
+            New_Status = random.choice(["Go to Sleep", "It's bedtime", "Go to Bed", "Sweet Dreams", "Good Night", "Sweet Dreams", "Good Night", "Great Night", "The Stars", "You Best Be Sleeping"])
 
         elif 0 <= CurrentHour <= 4:
-            New_Status = random.choice(["You Up?", "Go to Sleep", "Hello.", "It's Late.", "Get some sleep", "It's Quiet Right Now", "Silent Night", "Sweet Dreams",
-                                        "I Don't Sleep so You Can", ":)"])
+            New_Status = random.choice(["You Up?", "Go to Sleep", "Hello.", "It's Late.", "Get Some Sleep", "It's Quiet Right Now", "Silent Night", "Sweet Dreams",
+                                        "Sleep well!", "Sweet Dreams", "I Hope You're Asleep!", ":)"])
 
         elif 5 == CurrentHour:
-            New_Status = random.choice(["A few more hours", "Up So Soon?", "Preparing Weather Data", "Dawn", "Watching Sunrise"])
+            New_Status = random.choice(["A few more hours", "Up So Soon?", "Preparing Weather Data", "Dawn", "Watching Sunrise", "Go Back to Sleep", "You Up?", "Hello."])
 
         # Now we have all of those cute ass statements
         # Let's add a bit of variance
@@ -2308,7 +2309,7 @@ class Other:
         if Variance == 36:
             # 1 in 200 chance, 0.5%
             ActivityType = discord.ActivityType.listening
-            New_Status = random.choice(["You Closely", "You.", "Them"])
+            New_Status = random.choice(["You Closely", "You.", "Them.", "The Voices"])
             StatusPrefix = ""
         if Variance == 37 or Variance == 38:
             ActivityType = discord.ActivityType.watching
@@ -2316,7 +2317,7 @@ class Other:
             StatusPrefix = ""
 
         if 100 < Variance < 200 and 8 < CurrentHour < 20:
-            New_Status = random.choice(["Online", "Bot Active", "No Issues", "Hello", "Hello, Human.", "Active", "Ready"])
+            New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Hello", "Hello, Human.", "Active", "Ready"])
 
         game = discord.Activity(type=ActivityType, name=StatusPrefix + New_Status)
         await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
@@ -5826,6 +5827,25 @@ class Call:
     @staticmethod
     async def OnMessage(Context):
         await Call.CreateCallChannel(Context)
+        await Call.DeleteChannel(Context)
+
+    @staticmethod
+    @Command(Start="DeleteChannel", Admin=True, Prefix=True)
+    async def DeleteChannel(Context):
+        Permissions = await CheckPermissions(Context.Message.channel, ["manage_channels", "manage_guild", "manage_roles",
+                                                                       "send_messages", "read_messages"], return_all=True)
+        PermissionsNeeded = [key for key in Permissions if not Permissions[key]]
+
+        if PermissionsNeeded:
+            PermissionString = ", ".join(PermissionsNeeded)
+            em = discord.Embed(description="I need the server permission(s): `" + PermissionString + "` in order to perform this action.", color=Vars.Bot_Color)
+            em.set_author(name="Permissions Error", icon_url=Vars.Bot.user.avatar_url)
+            await Context.Message.channel.send(embed=em)
+            return
+
+        confirmation = await Helpers.Confirmation(Context, "Delete this channel?")
+        if confirmation:
+            await Context.Message.channel.delete()
 
     @staticmethod
     async def on_voice_state_update(member, before, after):
@@ -5840,28 +5860,124 @@ class Call:
     async def CreateCallChannel(Context):
         message = Context.Message
 
+        guild = message.guild
 
-        overwrites = {
+        if not message.author.voice:
+            em = discord.Embed(color=Vars.Bot_Color, description="In order to create a voice call channel, I need you to be in that voice channel! ")
+            em.set_author(icon_url=Vars.Bot.user.avatar_url, name="Call Channel Error")
+
+            await message.channel.send(embed=em)
+            await message.add_reaction(Conversation.Emoji["x"])
+            return
+
+        Permissions = await CheckPermissions(Context.Message.channel, ["manage_channels", "manage_guild", "manage_roles",
+                                                                       "send_messages", "read_messages", "administrator"], return_all=True)
+
+        PermissionsNeeded = [key for key in Permissions if not Permissions[key]]
+
+        if PermissionsNeeded:
+            PermissionString = ", ".join(PermissionsNeeded)
+            em = discord.Embed(
+                description="I need the server permission(s): `" + PermissionString + "` in order to perform this action.",
+                color=Vars.Bot_Color)
+            em.set_author(name="Permissions Error", icon_url=Vars.Bot.user.avatar_url)
+            await Context.Message.channel.send(embed=em)
+            return
+
+        CurrentCall = message.author.voice.channel
+
+
+        overwrites = {  # First Off, let's ensure that the default role cannot see it and that we can
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             guild.me: discord.PermissionOverwrite(read_messages=True)
         }
 
-        CallChannel = await guild.create_text_channel('secret', overwrites=overwrites)
+        CallChannel = await guild.create_text_channel(CurrentCall.name + " Text", overwrites=overwrites, category=CurrentCall.category)  # Create this call channel
 
         To_Be_Added = []
         for member in guild.members:
-            if member.voice.channel:
+            if member.voice:
                 To_Be_Added.append(member)
 
         if To_Be_Added:
             overwrites = {}
             for member in To_Be_Added:
-                overwrites[member] = discord.PermissionOVerwrite(read_messages=True)
+                if not member.guild_permissions.administrator:
+                    await CallChannel.set_permissions(member, read_messages=True, send_messages=True)
+
+        InfoDict = {
+            "TextChannelID": CallChannel.id,
+            "VoiceChannelID": CurrentCall.id,
+            "JoinedMembers": [member.id for member in To_Be_Added],
+            "OriginalChannelID": message.channel.id
+        }
+
+
+        Call.CurrentCallChannels.append(InfoDict)
+
+        Member_Mention = [member.mention for member in To_Be_Added]
+
+        Welcome_Message = ", ".join(Member_Mention)
+        Welcome_Message = "Welcome " + Welcome_Message + " to the Call Channel for the voice channel " + \
+                          CallChannel.mention + ". Only the people who are in that voice channel, or who join, will be " \
+                                                "able to read the contents of this channel.\n\nIt'll automatically delete " \
+                                                "after everybody leaves the voice call. "
+
+        await CallChannel.send(Welcome_Message)
 
 
     @staticmethod
     async def CallChannelAdd(member, before, after):
-        pass
+        if (before.channel and not after.channel):
+            VoiceChannel = before.channel
+            Action = "Left"
+        elif (after.channel and not before.channel):
+            VoiceChannel = after.channel
+            Action = "Joined"
+
+        FoundChannelInfo = None
+        for ChannelInfo in Call.CurrentCallChannels:
+            if ChannelInfo["VoiceChannelID"] == VoiceChannel.id:
+                FoundChannelInfo = ChannelInfo
+
+        if not FoundChannelInfo:  # Ensure that it's a call channel used
+            return
+
+        TextChannel = Vars.Bot.get_channel(ChannelInfo["TextChannelID"])
+
+        if not CheckPermissions(TextChannel, ["manage_channels", "manage_guild", "manage_roles",
+                                              "send_messages", "read_messages", "administrator"]):
+            await TextChannel.send("It seems there's been a permissions change for me. Deleting all local data for this"
+                                   "channel... I will no longer supervise or manage this channel to avoid bugs.")
+            Call.CurrentCallChannels.remove(FoundChannelInfo)
+
+
+        if Action == "Joined":
+            if member.id not in FoundChannelInfo["JoinedMembers"]:
+                if not member.guild_permissions.administrator:
+                    await TextChannel.set_permissions(member, read_messages=True)
+                await TextChannel.send("Welcome " + member.mention + " to the Call and the Call Channel.")
+
+                Call.CurrentCallChannels.remove(FoundChannelInfo)
+
+                FoundChannelInfo["JoinedMembers"].append(member.id)
+                Call.CurrentCallChannels.append(FoundChannelInfo)
+
+
+        elif Action == "Left":
+            # Make a dict of each person in the call channel and if they're still in call
+            UserInTextList = [member.guild.get_member(id) for id in FoundChannelInfo["JoinedMembers"]]
+            InCallList = [1 if user.voice else 0 for user in UserInTextList]
+
+            if sum(InCallList) == 0:
+                # If nobody's in the call:
+                Call.CurrentCallChannels.remove(FoundChannelInfo)
+
+                OriginalChannel = member.guild.get_channel(FoundChannelInfo["OriginalChannelID"])
+                await OriginalChannel.send("Everyone left call, so I deleted the call channel.")
+
+                await TextChannel.delete()
+
 
 
 
