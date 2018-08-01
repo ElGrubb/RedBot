@@ -2859,7 +2859,7 @@ class Other:
             channel_list.append(channel)
         default_channel = channel_list[0]
 
-        # Uses creation timestmap
+        # Uses creation timestamp
         created_timestamp = time.mktime(guild_created_at.timetuple())
         now_timestamp = time.mktime(datetime.now().timetuple())
         difference = now_timestamp - created_timestamp
@@ -3953,7 +3953,7 @@ class Tag:
         if TagKey.lower().startswith("list"):
             try:
                 int(TagKey.split(" ")[-1])
-                await ReturnError(message, error_message="Sorry, that tag is reserved for a system function.")
+                await ReturnError(message, error_message="Sorry, that tag is reserved for a system function.", sendformat=False)
                 return
             except:
                 pass
@@ -4229,7 +4229,7 @@ class Tag:
                 pass
         if TagKey == "help":
             # If they did /tag help
-            await Tag.HelpTag(message) # todo HERE TOO
+            await Tag.HelpTag(message)
             return
         if "info" == TagKey.split(" ")[0]:
             # If the key starts with "info"
@@ -4471,6 +4471,13 @@ class Tag:
         return
 
     @staticmethod
+    async def TagErrorEmbed(textmessage):
+        em = discord.Embed(description=textmessage, color=Vars.Bot_Color, timestamp=Helpers.EmbedTime())
+        em.set_author(name="Tag Error", icon_url=Vars.Bot.user.avatar_url)
+
+        return em
+
+    @staticmethod
     async def InfoTag(message, TagKey, PersonalTag=False):
         # Display some info about the tag's creation
 
@@ -4480,6 +4487,10 @@ class Tag:
             AllTagData = await Tag.RetrieveTagList()
 
         TagKey = TagKey.replace("info", "").strip()
+
+        if not TagKey:
+            await message.channel.send(embed=await Tag.TagErrorEmbed("You need to specify a key to request the info of: ```You >> /tag info {tag key}```"))
+            return
 
         TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
         if not TagData:
@@ -4536,6 +4547,10 @@ class Tag:
         if not PersonalTag:
             if message.author.id not in Ranks.Admins:
                 return
+
+        if not TagKey:
+            await message.channel.send(embed=await Tag.TagErrorEmbed("You need to specify a key to request the edit of: ```You >> /tag edit {tag key}```"))
+            return
 
         TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
         if not TagData:
@@ -5712,7 +5727,10 @@ class Help:
 
         usableContent = usableContent[1:]
 
-        seperatedWords = usableContent.split(" ")
+        seperatedWords = usableContent.strip().split(" ")
+
+        if len(seperatedWords) > 2:
+            return
 
         HasHelp = 0
 
