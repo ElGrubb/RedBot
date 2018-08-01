@@ -5889,7 +5889,7 @@ class Call:
             return
 
         Permissions = await CheckPermissions(Context.Message.channel, ["manage_channels", "manage_guild", "manage_roles",
-                                                                       "send_messages", "read_messages", "administrator"], return_all=True)
+                                                                       "send_messages", "read_messages"], return_all=True)
 
         PermissionsNeeded = [key for key in Permissions if not Permissions[key]]
 
