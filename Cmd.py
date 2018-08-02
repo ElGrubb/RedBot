@@ -3426,6 +3426,7 @@ class Other:
         OriginalContent = OriginalContent[8:].strip()
 
         addpath = None
+        await Context.Message.channel.send(os.getcwd())
 
         if OriginalContent.lower() == "data":
             addpath = "\\Data.txt"
