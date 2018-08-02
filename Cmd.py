@@ -136,7 +136,7 @@ class SeenMessages:
 
 
 def Command(Admin=False, Start=None, Prefix=True, Include=None, NotInclude=None, ChannelID=None, GuildID=None, AuthorID=None,
-            MarkMessage=True, CalledInternally=False, Attachment=None):
+            MarkMessage=True, CalledInternally=False, Attachment=None, NoSpace=False):
     def Command_Decorator(func):
         async def Function_Wrapper(Context):
             """
@@ -167,9 +167,19 @@ def Command(Admin=False, Start=None, Prefix=True, Include=None, NotInclude=None,
 
             if Start:  # If there's a certain way the message should start
                 if type(Start) == list:  # Multiple Possibilities
+                    # First let's add the spaces
+                    if not NoSpace:
+                        NewStart = []
+                        for item in Start:
+                            NewStart.append(item.lower() + " ")
+                    else:
+                        NewStart = []
+                        for item in Start:
+                            NewStart.append(item.lower())
+
                     Found = False
-                    for PotentialStart in Start:  # Iterate through them, seeing if any apply
-                        if Context.StrippedContent.startswith(PotentialStart.lower()):
+                    for PotentialStart in NewStart:  # Iterate through them, seeing if any apply
+                        if Context.StrippedContent.startswith(PotentialStart):
                             Found = True  # If so, break and set Found to True so it doesn't return
                             break
 
@@ -177,7 +187,11 @@ def Command(Admin=False, Start=None, Prefix=True, Include=None, NotInclude=None,
                         return
 
                 elif type(Start) == str:  # If there's only one possiblity for how it should start
-                    if not Context.StrippedContent.startswith(Start.lower()):  # If it doesn't start that way, return.
+                    if not NoSpace:
+                        NewStart = Start.lower() + " "
+                    else:
+                        NewStart = Start.lower()
+                    if not Context.StrippedContent.startswith(NewStart):  # If it doesn't start that way, return.
                         return
 
             if Prefix:  # Desired: Command Prefix "  /  ?  .  "
@@ -1031,7 +1045,7 @@ class Log:
 
 class Admin:
     @staticmethod
-    @Command(Start="Delete", Prefix=True, Admin=True)
+    @Command(Start="Delete", Prefix=True, Admin=True, NoSpace=True)
     async def Delete(Context):
         """
         Deletes a certain number of messages
@@ -1095,7 +1109,7 @@ class Admin:
 
 
     @staticmethod
-    @Command(Start="Guilds", Prefix=True, Admin=True)
+    @Command(Start="Guilds", Prefix=True, Admin=True, NoSpace=True)
     async def GuildInfo(Context):
         message = Context.Message
 
@@ -1219,7 +1233,7 @@ class Admin:
 
 
     @staticmethod
-    @Command(Start="stop", Prefix=True, Admin=True)
+    @Command(Start="stop", Prefix=True, Admin=True, NoSpace=True)
     async def Stop(Context):
         """
         Stops the Bot
@@ -1235,7 +1249,7 @@ class Admin:
             await Vars.Bot.logout()  # Log off
 
     @staticmethod
-    @Command(Start="leave", Prefix=True, Admin=True)
+    @Command(Start="leave", Prefix=True, Admin=True, NoSpace=True)
     async def LeaveServer(Context):
         message = Context.Message
 
@@ -1247,7 +1261,7 @@ class Admin:
             await message.guild.leave()  # Leaves
 
     @staticmethod
-    @Command(Start="ForceLeave", Prefix=True, Admin=True)
+    @Command(Start="ForceLeave", Prefix=True, Admin=True, NoSpace=True)
     async def ForceLeave(Context):
         message = Context.Message
 
@@ -1274,7 +1288,7 @@ class Admin:
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time + " from " + GuildToLeave.name)  # Sends goodbye)
 
     @staticmethod
-    @Command(Start="Disable", Prefix=True, Admin=True)
+    @Command(Start="Disable", Prefix=True, Admin=True, NoSpace=True)
     async def Disable(Context):
         message = Context.Message
 
@@ -1310,7 +1324,7 @@ class Admin:
             return
 
     @staticmethod
-    @Command(Start="Enable", Admin=True, Prefix=True)
+    @Command(Start="Enable", Admin=True, Prefix=True, NoSpace=True)
     async def Enable(Context):
         message = Context.Message
 
@@ -1426,7 +1440,7 @@ class Admin:
         #             server_name = part
 
     @staticmethod
-    @Command(Start="Status", Prefix=True, Admin=True)
+    @Command(Start="Status", Prefix=True, Admin=True, NoSpace=True)
     async def Status(Context):
         message = Context.Message
 
@@ -1448,7 +1462,7 @@ class Admin:
         await message.channel.send(embed=em)
 
     @staticmethod
-    @Command(Start="Restart", Prefix=True, Admin=True)
+    @Command(Start="Restart", Prefix=True, Admin=True, NoSpace=True)
     async def Restart(Context):
         message = Context.Message
 
@@ -1496,7 +1510,7 @@ class Admin:
         return False
 
     @staticmethod
-    @Command(Start="Update", Prefix=True, Admin=True)
+    @Command(Start="Update", Prefix=True, Admin=True, NoSpace=True)
     async def Update(Context, fromBot=False):
         message = Context.Message
 
@@ -1607,15 +1621,12 @@ class Admin:
                 tempTagList[TagKey]["Color"] = Vars.Bot_Color
 
 
-
-
-
         Helpers.SaveData(tempTagList, type="Tag")
 
         pass
 
     @staticmethod
-    @Command(Start="Download Data", Prefix=True, Admin=True)
+    @Command(Start="Download Data", Prefix=True, Admin=True, NoSpace=True)
     async def SendData(Context):
         message = Context.Message
 
@@ -1691,7 +1702,7 @@ class Admin:
         await message.channel.send("Success. ", delete_after=20)
 
     @staticmethod
-    @Command(Start="Broadcast", Prefix=True, Admin=True)
+    @Command(Start="Broadcast", Prefix=True, Admin=True, NoSpace=True)
     async def Broadcast(Context):
         message = Context.Message
 
@@ -1703,7 +1714,7 @@ class Admin:
         await Helpers.MessageAdmins(message.content)
 
     @staticmethod
-    @Command(Start="p ", Admin=True, Prefix=True)
+    @Command(Start="p", Admin=True, Prefix=True)
     async def SinglePrivateMessage(Context):
         message = Context.Message
         # This will delete any message that starts with /p after 20 seconds
@@ -1847,7 +1858,14 @@ class Timer:
 
 class Quotes:
     @staticmethod
-    @Command(Prefix=True, Start="send quote")
+    async def OnMessage(Context):
+        # Ran on message
+        await Quotes.SendQuote(Context)
+        await Quotes.QuoteCommand(Context)
+        await Quotes.QuoteVote(Context)
+
+    @staticmethod
+    @Command(Prefix=True, Start="send quote", NoSpace= True)
     async def SendQuote(Context):
         """
         Sends random quote from the file
@@ -2033,6 +2051,11 @@ class Quotes:
 
         # So now we have a list of each quote string. Need to
 
+    @staticmethod
+    @Command(Start="QuoteVote", Prefix=True, Admin=True, NoSpace=True)
+    async def QuoteVote(Context):
+        pass
+
 
 class Memes:
     """
@@ -2056,7 +2079,7 @@ class Memes:
 
     @staticmethod
     @Command(Start="send", Prefix=True, NotInclude="quote")
-    async def SendMeme(Context, is_repeat=False):
+    async def SendMeme(Context, is_repeat=False):  # Todo Rewrite
         message = Context.Message
         # If the channel is private
         if str(message.channel).startswith("Direct Message"):
@@ -2132,7 +2155,6 @@ class Memes:
             is_image = True
         # If we're not sure if its an image, it'll not send an embed.
 
-
         # Prepare to send the message
         if not found_meme:
             await channel.send("No fresh memes. Try later.", delete_after=10)
@@ -2170,10 +2192,14 @@ class Memes:
 
         # Function to use to validate a response
         def check(init_reaction, init_user):
+            print("Checking")
             if init_reaction.message.id != msg.id:
+                print("returning")
                 return
             if init_reaction.emoji in [info, repeat] and init_user != Vars.Bot.user:
+                print("True")
                 return init_reaction, init_user
+            print("Here")
 
         # Okay so this loop continues until both reactions are used or timeout
         continue_on = True
@@ -2268,6 +2294,7 @@ class Other:
         await Other.Upload(Context)
         await Other.AutoUpload(Context)
         await Other.UpdateNotes(Context)
+        await Other.SendFile(Context)
 
     @staticmethod
     async def StatusChange():
@@ -2727,7 +2754,7 @@ class Other:
                     await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
     @staticmethod
-    @Command(Prefix=True, Start="fullweather")
+    @Command(Prefix=True, Start="fullweather", NoSpace=True)
     async def OldWeather(Context):
         message = Context.Message
         forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
@@ -2833,7 +2860,7 @@ class Other:
         return
 
     @staticmethod
-    @Command(Start="No Context", Prefix=True)
+    @Command(Start="No Context", Prefix=True, NoSpace=True)
     async def NoContext(Context):
         message = Context.Message
 
@@ -3022,7 +3049,7 @@ class Other:
         await message.channel.send(str(final_count) + " messages.")
 
     @staticmethod
-    @Command(Start="weather", Prefix=True)
+    @Command(Start="weather", Prefix=True, NoSpace=True)
     async def Weather(Context):
         await Other.SendWeather(Context.Message.channel)
 
@@ -3257,7 +3284,7 @@ class Other:
         return
 
     @staticmethod
-    @Command(Prefix=True, Start="Upload")
+    @Command(Prefix=True, Start="Upload", NoSpace=True)
     async def Upload(Context):
         message = Context.Message
         # This function will upload an image to imgur and give the user a link
@@ -3360,7 +3387,7 @@ class Other:
 
 
     @staticmethod
-    @Command(Start="UpdateNotes", Prefix=True)
+    @Command(Start="UpdateNotes", Prefix=True, NoSpace=True)
     async def UpdateNotes(Context):
         message = Context.Message
 
@@ -3389,6 +3416,29 @@ class Other:
 
 
             await message.channel.send(embed=em)
+
+    @staticmethod
+    @Command(Start="SendFile", Prefix=True, Admin=True, NoSpace=True)
+    async def SendFile(Context):
+        await Context.Message.channel.trigger_typing()
+
+        OriginalContent = Context.StrippedContent
+        OriginalContent = OriginalContent[8:].strip()
+
+        addpath = None
+
+        if OriginalContent.lower() == "data":
+            addpath = "\\Data.txt"
+
+        elif OriginalContent.lower() == "personal":
+            addpath = "\\Personal.txt"
+
+        if not addpath:
+            await Context.Message.channel.send("Please specify what file you want! files include: `data`")
+            return
+
+        newfile = discord.File(os.getcwd() + addpath)
+        await Context.Message.channel.send(file=newfile)
 
 
 class Poll:
@@ -3699,13 +3749,13 @@ class Poll:
 class Calculate:
     @staticmethod
     async def OnMessage(Context):
-        await Calculate.Command(Context)
+        await Calculate.CalcCommand(Context)
 
         return
 
     @staticmethod
     @Command(Prefix="=")
-    async def Command(Context):
+    async def CalcCommand(Context):
         message = Context.Message
 
         if message.content.startswith("=="):  # If people are doing a divider or something
@@ -3829,7 +3879,7 @@ class Tag:
             return AllPTags[str(id)]
 
     @staticmethod
-    @Command(Prefix=True, Start=["settag", "st ", "setptag", "spt ", "psettag"])
+    @Command(Prefix=True, Start=["settag", "st", "setptag", "spt", "psettag"])
     async def SetTag(Context):
         message = Context.Message
 
@@ -4192,7 +4242,7 @@ class Tag:
             return None
 
     @staticmethod
-    @Command(Prefix=True, Start=["t ", "tag", "pt ", "ptag"])
+    @Command(Prefix=True, Start=["t", "tag", "pt", "ptag"])
     async def TagFunction(Context):
         message = Context.Message
 
@@ -4277,7 +4327,7 @@ class Tag:
         return
 
     @staticmethod
-    @Command(Start="ClearTagData", Admin=True, Prefix=True)
+    @Command(Start="ClearTagData", Admin=True, Prefix=True, NoSpace=True)
     async def ClearTagData(Context):
         message = Context.Message
 
@@ -5686,7 +5736,7 @@ class Remind:
 class Todo:
     @staticmethod
     async def OnMessage(Context):
-        await Todo.Command(Context)
+        await Todo.TodoCommand(Context)
 
     @staticmethod
     async def RetrieveData():
@@ -5700,7 +5750,7 @@ class Todo:
 
     @staticmethod
     @Command(Prefix=True, Start="todo")
-    async def Command(Context):
+    async def TodoCommand(Context):
         messasge = Context.Message
 
         usableContent = message.content[5:].strip()
@@ -5848,7 +5898,7 @@ class Call:
         await Call.DeleteChannel(Context)
 
     @staticmethod
-    @Command(Start="DeleteChannel", Admin=True, Prefix=True)
+    @Command(Start="DeleteChannel", Admin=True, Prefix=True, NoSpace=True)
     async def DeleteChannel(Context):
         Permissions = await CheckPermissions(Context.Message.channel, ["manage_channels", "manage_guild", "manage_roles",
                                                                        "send_messages", "read_messages"], return_all=True)
@@ -5874,7 +5924,7 @@ class Call:
 
 
     @staticmethod
-    @Command(Start="CreateCallChannel", Prefix=True, Admin=True)
+    @Command(Start="CreateCallChannel", Prefix=True, Admin=True, NoSpace=True)
     async def CreateCallChannel(Context):
         message = Context.Message
 
@@ -6002,7 +6052,7 @@ class Call:
 
 
 
-@Command(Admin=True, Start="Test", Prefix=True)
+@Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
 async def test(Context):
     chicken = await Helpers.Confirmation(Context, "Hello")
     if chicken:
@@ -6010,6 +6060,6 @@ async def test(Context):
     return
 
 
-@Command(Admin=True, Start="Test", Prefix=True)
+@Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
 async def test2(Context, CountTime):
     print(time.clock() - CountTime)

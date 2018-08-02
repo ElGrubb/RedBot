@@ -145,11 +145,10 @@ class MyClient(discord.Client):
         await Cmd.Todo.OnMessage(Context)
         await Cmd.Tag.OnMessage(Context)
         await Cmd.Call.OnMessage(Context)
+        await Cmd.Quotes.OnMessage(Context)
 
         # 'SEND' Commands
         await Cmd.Memes.SendMeme(Context)
-        await Cmd.Quotes.SendQuote(Context)
-        await Cmd.Quotes.QuoteCommand(Context)
 
         # 'OTHER' COMMANDS
         await Cmd.Other.OnMessage(Context)
