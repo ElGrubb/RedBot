@@ -911,7 +911,6 @@ class Log:
         else:
             Log.LogChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
 
-
     @staticmethod
     async def AppendLogged(givenid, append, NewColor=None):
         Log.SetLogChannel()
@@ -1462,21 +1461,11 @@ class Admin:
         await message.channel.send(embed=em)
 
     @staticmethod
-    @Command(Start="Restart", Prefix=True, Admin=True, NoSpace=True)
-    async def Restart(Context):
-        message = Context.Message
-
-        confirmation = await Helpers.Confirmation(Context, "Restart?", deny_text="Restart Cancelled")
-        if not confirmation:
-            return
-        # Add check to message
-        await message.add_reaction(Conversation.Emoji["check"])
-
-        # Set up so it knows that it has restarted
+    async def BotRestart(type, Channel_ID):
         info = {
             "Restarted": True,
-            "Type": "Restart",
-            "Channel_ID": message.channel.id
+            "Type": type,
+            "Channel_ID": Channel_ID
         }
         Helpers.SaveData(info, type="System")
 
@@ -1491,6 +1480,20 @@ class Admin:
 
         os.execv(sys.executable, ['python3'] + sys.argv)
         return
+
+    @staticmethod
+    @Command(Start="Restart", Prefix=True, Admin=True, NoSpace=True)
+    async def Restart(Context):
+        message = Context.Message
+
+        confirmation = await Helpers.Confirmation(Context, "Restart?", deny_text="Restart Cancelled")
+        if not confirmation:
+            return
+        # Add check to message
+        await message.add_reaction(Conversation.Emoji["check"])
+
+        await Admin.BotRestart("Requested Restart", message.channel.id)
+
 
     @staticmethod
     async def CheckRestart():
@@ -1528,22 +1531,8 @@ class Admin:
             return
 
         await message.add_reaction(Conversation.Emoji["check"])
-        info = {
-            "Restarted": True,
-            "Type": "Update",
-            "Channel_ID": message.channel.id
-        }
-        Helpers.SaveData(info, type="System")
-        Timer.StopThreadTwo = True
-        while Timer.Running:
-            Timer.StopThreadTwo = True
-            await asyncio.sleep(.5) # Documentation
-
-        await asyncio.sleep(3)
-        print("Restarting RedBot for a requested update.")
-        os.execv(sys.executable, ['python3'] + sys.argv)
-        await Vars.Bot.logout()
-        return
+        print("Restarting RedBot for Requested Update")
+        await Admin.BotRestart("Update", message.channel.id)
 
     @staticmethod
     @Command(Start="SaveData", Prefix=True, Admin=True)
@@ -2295,6 +2284,7 @@ class Other:
         await Other.AutoUpload(Context)
         await Other.UpdateNotes(Context)
         await Other.SendFile(Context)
+        await Other.NewFile(Context)
 
     @staticmethod
     async def StatusChange():
@@ -3414,7 +3404,6 @@ class Other:
             em = discord.Embed(color=ColorListing[i], description=Note["Content"])
             em.set_author(name=Note["Name"], icon_url=Vars.Bot.user.avatar_url)
 
-
             await message.channel.send(embed=em)
 
     @staticmethod
@@ -3441,11 +3430,74 @@ class Other:
             addpath = Slash + "Personal.txt"
 
         if not addpath:
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
             await Context.Message.channel.send("Please specify what file you want! Files include: `data`")
             return
 
         newfile = discord.File(os.getcwd() + addpath)
         await Context.Message.channel.send(file=newfile)
+
+
+    @staticmethod
+    @Command(Start="NewFile", Prefix=True, Admin=True, NoSpace=True)
+    async def NewFile(Context):
+        # Ran to update a file
+        await Context.Message.channel.trigger_typing()
+
+        # Find out what file we're replacing
+        OriginalContent = Context.StrippedContent
+        OriginalContent = OriginalContent[8:].strip()
+
+        # Now the goal is to find out what machine we're using
+        addpath = None
+        OrigPath = os.getcwd()
+        if OrigPath.startswith("C:"):  # Being ran on a windows machine
+            Slash = "\\"
+        elif OrigPath.startswith("/home"):  # Being ran on RPI / Linux
+            Slash = "/"
+        else:
+            raise WindowsError("Cannot figure out what machine this is running on.")
+
+        # Now that we have that, we need to figure out what they're replacing (/NewFile data)
+        if OriginalContent.lower() == "data":
+            addpath = Slash + "Data.txt"
+
+        elif OriginalContent.lower() == "personal":
+            addpath = Slash + "Personal.txt"
+
+        if not addpath:
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
+            await Context.Message.channel.send("Please specify what file you want! Files include: `data`")
+            return
+
+        newfile = discord.File(os.getcwd() + addpath)
+        newfilepath = os.getcwd() + addpath
+
+        if not Context.Message.attachments:
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
+            await Context.Message.channel.send("Please also attach a file to replace the given one with")
+            return
+
+        File = Context.Message.attachments[0]
+
+        confirmation = await Helpers.Confirmation(Context, "Are you absolutely you want to replace?", extra_text=os.getcwd() + addpath, deny_text="That's what I thought. Cancelled")
+
+        if not confirmation:
+            return
+
+        await Context.Message.channel.trigger_typing()
+        await Context.Message.channel.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
+        await Log.LogChannel.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
+
+        await Context.Message.channel.trigger_typing()
+
+        os.remove(newfilepath)
+        await File.save(newfilepath)
+
+        await Context.Message.channel.send("Successful Transfer of files. Restarting now.")
+        await Admin.BotRestart("File Transfer Successful. Bot Restarted and running. New File accepted.", Context.Message.channel.id)
+
+
 
 
 class Poll:
