@@ -3426,16 +3426,22 @@ class Other:
         OriginalContent = OriginalContent[8:].strip()
 
         addpath = None
-        await Context.Message.channel.send(os.getcwd())
+        OrigPath = os.getcwd()
+        if OrigPath.startswith("C:"):  # Being ran on a windows machine
+            Slash = "\\"
+        elif OrigPath.startswith("/home"):
+            Slash = "/"
+        else:
+            raise WindowsError("Cannot figure out what machine this is running on.")
 
         if OriginalContent.lower() == "data":
-            addpath = "\\Data.txt"
+            addpath = Slash + "Data.txt"
 
         elif OriginalContent.lower() == "personal":
-            addpath = "\\Personal.txt"
+            addpath = Slash + "Personal.txt"
 
         if not addpath:
-            await Context.Message.channel.send("Please specify what file you want! files include: `data`")
+            await Context.Message.channel.send("Please specify what file you want! Files include: `data`")
             return
 
         newfile = discord.File(os.getcwd() + addpath)
