@@ -452,7 +452,6 @@ class Helpers:
         ReactionInfo = await Helpers.WaitForReaction(reaction_emoji=[ContinueEmoji, CancelEmoji], message=QuestionMsg,
                                                      users_id=message.author.id, timeout=timeout, remove_wrong=True)
 
-
         if not ReactionInfo:
             await Helpers.QuietDelete(message)
             await channel.send(deny_text, delete_after=5)
@@ -884,9 +883,6 @@ class Helpers:
 
         # TODO Add functionality if it doesn't have all perms, becubceause that could be very bad for it
         await message.clear_reactions()
-
-
-
 
 
 
@@ -1865,9 +1861,9 @@ class Quotes:
         :return: Nothing
         """
         message = Context.Message
-
-        await message.channel.send("Quote Functionality is currently TURNED OFF. :)")
-        return
+        GuildID = str(message.guild.id)
+        if GuildID == "267071439109226496":
+            GuildID = "438483635818201089"
 
         # Cooldown
         cd_notice = Cooldown.CheckCooldown("quote", message.author, message.guild)
@@ -1879,23 +1875,31 @@ class Quotes:
 
         # Get Quote Dict
         data = Helpers.RetrieveData(type="Quotes")
-        chosen_quote = data["info"][data["position"]]
+        # This returns a dictionary of server id (keys) that have a dict about position and the data
+
+        QuoteList = data[GuildID]["Data"]
+        Position = data[GuildID]["Position"]
+
+        ChosenQuote = QuoteList[Position]
 
         # Update Quote List etc
-        data["position"] += 1
-        if data["position"] >= len(data["info"]):
-            random.shuffle(data["info"])
-            data["position"] = 0
+        data[GuildID]["Position"] += 1
+        if data[GuildID]["Position"] >= len(data[GuildID]["Data"]):
+            random.shuffle(data[GuildID]["Data"])
+            data[GuildID]["Position"] = 0
         Helpers.SaveData(data, type="Quotes")
 
         # Modify the Data a bit
-        date = datetime.fromtimestamp(chosen_quote["date"])
-        quote = "**\"**" + chosen_quote["quote"] + "**\"**"
-        sender_obj = await Vars.Bot.get_user_info(chosen_quote["user_id"])
+        date = datetime.fromtimestamp(ChosenQuote["date"])
+        quote = "**\"**" + ChosenQuote["quote"] + "**\"**"
+        sender_obj = await Vars.Bot.get_user_info(ChosenQuote["user_id"])
+        guild_obj = Vars.Bot.get_guild(int(GuildID))
+        if not guild_obj:
+            guild_obj = message.guild
 
         # Prepare the Embed
         em = discord.Embed(title=quote, timestamp=date, colour=Vars.Bot_Color)
-        em.set_footer(text="Saved Quote", icon_url=message.guild.icon_url)
+        em.set_footer(text="Saved Quote", icon_url=guild_obj.icon_url)
         em.set_author(name=sender_obj.name, icon_url=sender_obj.avatar_url)
 
         await message.channel.send(embed=em)
@@ -1932,10 +1936,6 @@ class Quotes:
             await message.channel.send("Are you really trying to create a quote... with just a robot?\nThat's sad.")
             return
 
-        await message.channel.send("Quote Functionality is currently TURNED OFF. :)")
-        return
-
-
         # Seperate reactioned user from the message
         mention_user = message.mentions[0]
         content = message.clean_content[7:].replace("@" + mention_user.display_name, '').strip()
@@ -1944,12 +1944,11 @@ class Quotes:
         if content[-1] == "\"":
             content = content[0:len(content)-1]
 
-
         # Create Embed
         em = discord.Embed(title="Quote this?", timestamp=Helpers.EmbedTime(), colour=Vars.Bot_Color,
                            description="**\"**" + content + "**\"**")
         em.set_author(name=mention_user, icon_url=mention_user.avatar_url)
-        em.set_footer(text="10 minute timeout")
+        em.set_footer(text="10 minute timeout; Looking for 6 reactions total")
 
         # Send Message
         msg = await message.channel.send("Create Quote?", embed=em)
@@ -1973,13 +1972,19 @@ class Quotes:
         except asyncio.TimeoutError:
             # If it times out
             await Helpers.QuietDelete(msg)
-            await message.channel.send("Failed to receive 3 reactions", delete_after=5)
+            await message.channel.send("Failed to receive reactions", delete_after=5)
             return None
         await Helpers.QuietDelete(msg)
         if not await Helpers.Deleted(message):
             await message.add_reaction(Conversation.Emoji["check"])
 
-        await Quotes.NoteQuote(quote=content, user=mention_user)
+        data = await Quotes.NoteQuote(quote=content, user=mention_user, GuildID=message.guild.id)
+
+        em = discord.Embed(title=data['quote'], timestamp=Helpers.EmbedTime(), colour=0xFFFFFF)
+        em.set_footer(text="Saved Quote", icon_url=message.guild.icon_url)
+        em.set_author(name=mention_user.name, icon_url=mention_user.avatar_url)
+
+        await message.channel.send("Saved Quote:", embed=em)
 
     @staticmethod
     async def OnQuoteReaction(reaction, user):
@@ -1990,9 +1995,6 @@ class Quotes:
             return
         if reaction.message.author == Vars.Bot.user:
             return
-
-        await reaction.message.channel.send("Quote Functionality is currently TURNED OFF. :)")
-        return
 
         if not await Quotes.CheckTime():
             await reaction.message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
@@ -2008,14 +2010,19 @@ class Quotes:
             await Helpers.RemoveAllReactions(reaction.message)
             return
 
-        if reaction.count >= 5:
+        if reaction.count >= 1:
             await reaction.message.clear_reactions()
             await reaction.message.add_reaction(Conversation.Emoji["check"])
-            await Quotes.NoteQuote(quote=reaction.message.content, user=reaction.message.author)
-            await reaction.message.channel.send("Saved quote \"" + reaction.message.content + "\"")
+            data = await Quotes.NoteQuote(quote=reaction.message.content, user=reaction.message.author, GuildID=reaction.message.guild.id)
+
+            em = discord.Embed(title=data['quote'], timestamp=Helpers.EmbedTime(), colour=0xFFFFFF)
+            em.set_footer(text="Saved Quote", icon_url=reaction.message.guild.icon_url)
+            em.set_author(name=reaction.message.author.name, icon_url=reaction.message.author.avatar_url)
+
+            await reaction.message.channel.send("Saved quote:", embed=em)
 
     @staticmethod
-    async def NoteQuote(quote=None, user=None):
+    async def NoteQuote(quote=None, user=None, GuildID=None):
         date = datetime.now()
         timestamp = time.mktime(date.timetuple())
         quote = quote.strip()
@@ -2023,9 +2030,20 @@ class Quotes:
         user_id = user.id
 
         data = Helpers.RetrieveData(type="Quotes")
-        data['info'].append({'date': timestamp, 'quote': quote, 'user_id': user_id, 'user_name': user_name})
+
+        if str(GuildID) not in data.keys():
+            data[str(GuildID)] = {
+                "Position": 0,
+                "Data": []
+            }
+
+        QuoteDict = {'date': timestamp, 'quote': quote, 'user_id': user_id, 'user_name': user_name}
+
+        data[str(GuildID)]['Data'].append(QuoteDict)
 
         Helpers.SaveData(data_dict=data, type="Quotes")
+
+        return QuoteDict
 
     @staticmethod
     async def EditQuote(message):
