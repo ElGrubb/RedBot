@@ -1866,6 +1866,9 @@ class Quotes:
         """
         message = Context.Message
 
+        await message.channel.send("Quote Functionality is currently TURNED OFF. :)")
+        return
+
         # Cooldown
         cd_notice = Cooldown.CheckCooldown("quote", message.author, message.guild)
         if type(cd_notice) == int:
@@ -1929,6 +1932,9 @@ class Quotes:
             await message.channel.send("Are you really trying to create a quote... with just a robot?\nThat's sad.")
             return
 
+        await message.channel.send("Quote Functionality is currently TURNED OFF. :)")
+        return
+
 
         # Seperate reactioned user from the message
         mention_user = message.mentions[0]
@@ -1984,6 +1990,9 @@ class Quotes:
             return
         if reaction.message.author == Vars.Bot.user:
             return
+
+        await reaction.message.channel.send("Quote Functionality is currently TURNED OFF. :)")
+        return
 
         if not await Quotes.CheckTime():
             await reaction.message.channel.send("Quote Functionality no longer works this late at night.", delete_after=5)
@@ -2041,9 +2050,15 @@ class Quotes:
         # So now we have a list of each quote string. Need to
 
     @staticmethod
-    @Command(Start="QuoteVote", Prefix=True, Admin=True, NoSpace=True)
+    @Command(Start="OutputQuotes", Prefix=True, Admin=True, NoSpace=True)
     async def QuoteVote(Context):
-        pass
+        QuoteData = Helpers.RetrieveData(type="Quotes")
+        SendString = ""
+        for Quote in QuoteData["info"]:
+            SendString += Quote["user_name"] + "\t" + str(Quote["user_id"]) + "\t" + str(Quote["date"]) + "\t" + Quote["quote"]
+
+            SendString += "\n"
+        print(SendString)
 
 
 class Memes:
@@ -5947,6 +5962,7 @@ class On_React:
             except Exception:
                 pass
             return
+
 
 class Call:
     CurrentCallChannels = []
