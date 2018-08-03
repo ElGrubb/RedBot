@@ -1862,8 +1862,8 @@ class Quotes:
         """
         message = Context.Message
         GuildID = str(message.guild.id)
-        if GuildID == "267071439109226496":
-            GuildID = "438483635818201089"
+        #if GuildID == "267071439109226496":
+        #    GuildID = "438483635818201089"
 
         # Cooldown
         cd_notice = Cooldown.CheckCooldown("quote", message.author, message.guild)
@@ -1876,6 +1876,29 @@ class Quotes:
         # Get Quote Dict
         data = Helpers.RetrieveData(type="Quotes")
         # This returns a dictionary of server id (keys) that have a dict about position and the data
+
+        if GuildID not in data.keys():
+            em = discord.Embed(description="There are no saved quotes for this server!\n"
+                                                                "To save a quote, add a " + Conversation.Emoji["quote"] + " reaction"
+                                                                "to a message.", timestamp=Helpers.EmbedTime())
+            em.set_author(name="Quote Error", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text=message.guild.name, icon_url=message.guild.icon_url)
+            await message.channel.send(embed=em)
+            await message.add_reaction(Conversation.Emoji["x"])
+            return
+
+        QuoteCount = len(data[GuildID]["Data"])  # A measure of how many quotes the server has saved
+        if QuoteCount <= 3:
+            em = discord.Embed(description="There are only " + str(QuoteCount) + " saved quotes for this server!\n"
+                                           "To save a quote, add a " + Conversation.Emoji["quote"] + " reaction"
+                                           "to a message. Once you have more than 3 saved quotes, you can use `/send quote`.",
+                               timestamp=Helpers.EmbedTime())
+            em.set_author(name="Quote Error", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text=message.guild.name, icon_url=message.guild.icon_url)
+            await message.channel.send(embed=em)
+            await message.add_reaction(Conversation.Emoji["x"])
+            return
+
 
         QuoteList = data[GuildID]["Data"]
         Position = data[GuildID]["Position"]
@@ -2001,7 +2024,7 @@ class Quotes:
             await Helpers.RemoveAllReactions(reaction.message)
             return
         if await CheckMessage(reaction.message, prefix=True, CalledInternally=True):
-            await reaction.message.channel.send("Quoting Commands confuses me!", delete_after=5)
+            await reaction.message.channel.send("Sorry, no quoting commands. Boss's orders.", delete_after=5)
             await Helpers.RemoveAllReactions(reaction.message)
             return
 
@@ -2010,7 +2033,10 @@ class Quotes:
             await Helpers.RemoveAllReactions(reaction.message)
             return
 
-        if reaction.count >= 1:
+        if reaction.count == 1:
+            await reaction.message.channel.send("You are starting a Quote Vote! If 5 people react with that emoji, I'll save it as a quote.", delete_after=20)
+
+        if reaction.count >= 5:
             await reaction.message.clear_reactions()
             await reaction.message.add_reaction(Conversation.Emoji["check"])
             data = await Quotes.NoteQuote(quote=reaction.message.content, user=reaction.message.author, GuildID=reaction.message.guild.id)
