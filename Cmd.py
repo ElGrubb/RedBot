@@ -4960,31 +4960,32 @@ class Remind:
         await Remind.ListReminders(Context)
 
     @staticmethod
+    async def ReturnError(message, error_message, sendformat=True):
+        # If there is some issue, this will make things easier.
+        await message.add_reaction(Conversation.Emoji["x"])
+
+        if sendformat:
+            format = "```\n/remind 2 days Clean Your Room"
+            format += "\n/remind 12:45 Hello there"
+            format += "\n/remind 2 hours 35 minutes These are Examples```"
+            error_message += format
+
+        em = discord.Embed(color=Remind.embed_color, description=error_message)
+        em.set_author(name="Reminder Error", icon_url=Vars.Bot.user.avatar_url)
+
+        await message.channel.send(embed=em)
+        return
+
+    @staticmethod
     @Command(Start=["remind", "r"], Prefix=True)
     async def RemindCommand(Context):
         message = Context.Message
-
-        async def ReturnError(message, error_message, sendformat=True):
-            # If there is some issue, this will make things easier.
-            await message.add_reaction(Conversation.Emoji["x"])
-
-            if sendformat:
-                format = "```\n/remind 2 days Clean Your Room"
-                format += "\n/remind 12:45 Hello there"
-                format += "\n/remind 2 hours 35 minutes These are Examples```"
-                error_message += format
-
-            em = discord.Embed(color=Remind.embed_color, description=error_message)
-            em.set_author(name="Reminder Error", icon_url=Vars.Bot.user.avatar_url)
-
-            await message.channel.send(embed=em)
-            return
 
 
         if not Context.InDM: # TODO Update Cooldown to work on DM Channels
             cd_notice = Cooldown.CheckCooldown("remind", message.author, message.guild)
             if type(cd_notice) == int:
-                await ReturnError(message, 'Cooldown Active, please wait: `' + Sys.SecMin(cd_notice) + '`')
+                await Remind.ReturnError(message, 'Cooldown Active, please wait: `' + Sys.SecMin(cd_notice) + '`', sendformat=False)
                 await message.add_reaction(Conversation.Emoji["x"])
                 return
 
@@ -5013,12 +5014,12 @@ class Remind:
             SendToUser = Vars.Bot.get_user(SendToUser)
 
             if not SendToUser:
-                await ReturnError(message, "Cannot find the person you speak of!")
+                await Remind.ReturnError(message, "Cannot find the person you speak of!")
                 return
 
             if Context.InDM:
                 # TODO This thread should eventually talk to the person in their own DM Channel
-                await ReturnError(message, "You can only remind yourself in a DM Channel!")
+                await Remind.ReturnError(message, "You can only remind yourself in a DM Channel!")
                 return
 
         if not SendToUser:
@@ -5100,7 +5101,7 @@ class Remind:
             i += 1
 
         if not RemindTimeList:
-            await ReturnError(message, "Error parsing reminder. Please follow format:")
+            await Remind.ReturnError(message, "Error parsing reminder. Please follow format:")
             return
 
         # Now let's send along our data to the interpreter
@@ -5109,7 +5110,7 @@ class Remind:
         CurrentTime = datetime.now()
 
         if RemindTime < CurrentTime:
-            await ReturnError(message, "Given RemindTime already happened!")
+            await Remind.ReturnError(message, "Given RemindTime already happened!")
             return
 
         New_Ignored_Words = {}
@@ -5151,33 +5152,37 @@ class Remind:
 
 
         if len(RemindMsg) > 500:
-            await ReturnError(message, "Your Reminder Message is too long! Keep it less than 500 characters! \nYours is: " + len(RemindMsg))
+            await Remind.ReturnError(message, "Your Reminder Message is too long! Keep it less than 500 characters! \nYours is: " + len(RemindMsg))
             return
 
         if RemindTime > CurrentTime + timedelta(days=65):
-            await ReturnError(message, "The maximum time you can set a reminder is 2 Months!")
+            await Remind.ReturnError(message, "The maximum time you can set a reminder is 2 Months!")
             return
 
+        toSendDateString = await Remind.GiveDateString(RemindTime, CurrentTime)
 
-        # Okay so now we're ready to deal with the confirmation
-        toSendDateString = RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
+        FirstTitleString = toSendDateString
+
+
+        if SendToUser.id == message.author.id:
+            FinalTitleString = "Okay, I'll remind you."
+        else:
+            FinalTitleString = "Okay, I'll remind " + SendToUser.name + "#" + SendToUser.discriminator
 
         string = "```md\n# " + toSendDateString + "\nI say: > @" + SendToUser.name + ", " + RemindMsg + "```"
 
         ReminderData = await Remind.SaveReminder(RemindTime, RemindMsg, message, SendToUser, IsImage)
 
         em = discord.Embed(color=Remind.embed_color, description=string)
-        if SendToUser.id == message.author.id:
-            em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
-        else:
-            em.set_author(name="Okay, I'll Remind " + SendToUser.name, icon_url=Vars.Bot.user.avatar_url)
+        em.set_author(name="Scheduled Reminder:", icon_url=Vars.Bot.user.avatar_url)
 
         if IsImage:
             em.set_image(url=IsImage)
 
         em.set_footer(text="Want to cancel? Hit the X reaction below. ")
 
-        sent = await message.channel.send(embed=em)
+        sent = await message.channel.send(FirstTitleString, embed=em)
+        await sent.edit(content=FinalTitleString, embed=em)
 
         await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=Context.InDM)
 
@@ -5850,10 +5855,10 @@ class Remind:
 
         # Dates are all set, now let's do time
         # No minute
-        if not TimeData["Minute"]:
-            TimeData["Minute"] = 00
+        if TimeData["Minute"] == None:
+            TimeData["Minute"] = 1
 
-        if not TimeData["Hour"]:
+        if TimeData["Hour"] == None:
             TimeData["Hour"] = 9
 
             if not TimeData["AMPM"]:
@@ -5880,9 +5885,6 @@ class Remind:
 
             if 2 < TimeData["Hour"] < 5 and TimeData['AMPM'] == 'am':
                 TimeData["AMPM"] = 'pm'
-
-
-
 
         if HasTimeInformation and not HasDateInformation:
             TimeValue = TimeData["Hour"] * 100 + TimeData["Minute"]  # 4 digit number MiHr
@@ -5928,6 +5930,7 @@ class Remind:
             Month = str(Month)
             Year = str(Year)
 
+
             # Change "2" to "02" or "" to "00"
             for item in [Minute, Hour, Day, Month]:
                 while len(item) < 2:
@@ -5960,536 +5963,39 @@ class Remind:
 
         return dt, Ignore_List
 
+
     @staticmethod
-    @Command(Start="oldremind", Prefix=True)
-    async def OldRemindCommand(Context):
-        message = Context.Message
+    async def GiveDateString(RemindTime, CurrentTime, sendFull=False):
+        if sendFull:
+            return emindTime.strftime("%a, %b %d, %Y at %I:%M %p")
 
-        await message.channel.trigger_typing()
+        if RemindTime.strftime("%b %d") == CurrentTime.strftime("%b %d"):
+            add = "Today"
 
-        usablecontent = message.content[7:].strip()
+            if int(RemindTime.strftime("%H")) >= 18:
+                add = "Tonight"
+            elif int(RemindTime.strftime("%H")) >= 12:
+                add = "This Afternoon"
 
-        if type(message.channel) == discord.channel.DMChannel:
-            DMChannel = True
-        else:
-            DMChannel = False
+            toSendDateString = RemindTime.strftime(add + " at %I:%M %p")
 
-        if not DMChannel: # TODO Update Cooldown to work on DM Channels
-            cd_notice = Cooldown.CheckCooldown("remind", message.author, message.guild)
-            if type(cd_notice) == int:
-                await message.channel.send('Cooldown Active, please wait: `' + Sys.SecMin(cd_notice) + '`', delete_after=5)
-                await message.add_reaction(Conversation.Emoji["x"])
-                return
+        elif RemindTime.strftime("%b %d") == (CurrentTime + timedelta(days=1)).strftime("%b %d"):
+            add = "Tomorrow"
+            if int(RemindTime.strftime("%H")) >= 18:
+                add = "Tomorrow Night"
+            elif int(RemindTime.strftime("%H")) >= 12:
+                add = "Tomorrow Afternoon"
+            elif 5 <= int(RemindTime.strftime("%H")) < 11:
+                add = "Tomorrow Morning"
 
-
-        # Let's take a look for any images in the Reminds
-        if message.attachments:
-            IsImage = message.attachments[0]
-            # Save IsImage
-            IsImage = await Helpers.DownloadAndUpload(message, IsImage)
-            IsImage = IsImage.link
-        else:
-            IsImage = None
+            toSendDateString = RemindTime.strftime(add + " at %I:%M %p")
 
 
-        # Let's shorten any links in the reminder
-        if "http" in usablecontent.lower():
-            temporary = usablecontent + ''
-            TempParts = temporary.strip().split(" ")
-
-            for section in TempParts:
-                if section.lower().startswith("http"):  # If that word is a link:
-                    shortened = Sys.Shorten_Link(section)
-                    temporary = temporary.replace(section, shortened)
-
-            usablecontent = temporary
-
-        # So we need to first figure out if the bot is given a specific time today, or an amount of time to wait.
-        # Unlack usablecontent into each individual word
-
-        async def ReturnError(message, error_message, sendformat=False):
-            # If there is some issue, this will make things easier.
-            await message.add_reaction(Conversation.Emoji["x"])
-
-            if sendformat:
-                format = "```\n/remind 2 days Clean Your Room"
-                format += "\n/remind 12:45 Hello there"
-                format += "\n/remind 2 hours 35 minutes These are Examples```"
-                error_message += format
-
-            em = discord.Embed(color=Remind.embed_color, description=error_message)
-            em.set_author(name="Reminder Error", icon_url=Vars.Bot.user.avatar_url)
-
-            await message.channel.send(embed=em, delete_after=40)
-            return
-
-        def CheckUnit(string):
-            # Checks to see if the string is a real unit of time
-            string = string.lower().strip()
-            unitlist = ["second", "minute", "hour", "day", "week", "month", "year", "decade", "am", "pm"]
-
-            fulllist = []
-
-            for item in unitlist:
-                fulllist.append(item)
-                fulllist.append(item + "s")
-
-            if string.lower().strip() in fulllist:
-                return True
-
-            return False
-
-        contentwords = usablecontent.split()
-
-        if len(contentwords) < 2:
-            await ReturnError(message, "You need to follow the format:", sendformat=True)
-
-            return
-
-        # Now let's analyze the first thing, and see if it's a time or a number
-        firstitem = contentwords[0]
-        firstitemtype = None
-
-        if firstitem.startswith("<@!"):
-            SendToUser = firstitem
-            contentwords = contentwords[1:]
-            firstitem = contentwords[0]
-
-            message.content = message.content.replace(SendToUser, "").strip()
 
         else:
-            SendToUser = None
+            toSendDateString = RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
 
-        if SendToUser:
-            SendToUser = int(SendToUser[3:].replace(">",""))
-            SendToUser = Vars.Bot.get_user(SendToUser)
-
-            if not SendToUser:
-                await ReturnError(message, "Cannot find the person you speak of!")
-                return
-
-            if DMChannel:
-                # TODO This thread should eventually talk to the person in their own DM Channel
-                await ReturnError(message, "You can only remind yourself in a DM Channel!")
-                return
-
-        if not SendToUser:
-            SendToUser = message.author
-            #await ReturnError(message, "Cannot find the person you speak of!")
-            #return
-
-        try:
-            firstitem = int(firstitem)
-            firstitemtype = "Number"  # A number is associated with a unit of time to wait
-        except:
-            if ":" in firstitem:
-                firstitemtype = "Time"  # A time is a specific time to go off
-            if "/" in firstitem or "-" in firstitem:
-                firstitemtype = "Date"
-
-        if firstitemtype == "Number" and contentwords[1].lower() in ["am", "pm"]:
-            firstitemtype = "Time"  # A simple time is "3 am" instead of "3:00 am"
-            usablecontent = usablecontent.replace(contentwords[0], contentwords[0] + ":00")
-            firstitem = contentwords[0] = str(firstitem) + ":00"
-
-        # Now our goal is to develop a time object based on the given information
-        RemindTime = None  # Goal is to populate this with a time on when to populate it
-        RemindMessage = None    # Goal is to have a string here to send with the reminder
-
-
-        if firstitemtype == "Number":  # "3 hours 2 days 1 minute"
-            timedata = []  # Will be populated with all of the wait time information
-            tempMsg = []
-
-            i = 0
-            stop = False
-            while not stop:
-                if contentwords[i].isdigit():
-                    int(contentwords[i])  # Try to make it an integer, see if it's a number
-                    # If it's successful, see if the next item is a unit
-
-                    if i < len(contentwords) - 1:
-
-                        # Now that we know that we're not at the end of the message:
-                        if CheckUnit(contentwords[i+1]):
-                            # Double Check that the next item is a unit
-                            TempTimeDict = {
-                                "Amount": contentwords[i],
-                                "Unit": contentwords[i+1]
-                            }
-                            timedata.append(TempTimeDict)
-                elif CheckUnit(contentwords[i]):
-                    pass
-                else:
-                    for j in range(i, len(contentwords)):
-                        tempMsg.append(contentwords[j])
-                    stop = True
-
-                if i == len(contentwords) - 1:
-                    stop = True
-                i += 1
-
-            # Now we have a list timedata that lists all the criteria from now. We need to isolate the new message
-            # ISOLATE THE MESSAGE
-
-            NowTime = datetime.now()  # Current Time Dict
-            LaterTime = NowTime + timedelta()
-
-            for timeitem in timedata:  # Clean up timedata
-                if timeitem["Unit"].endswith("s"):  # Remove any plural units
-                    timeitem["Unit"] = timeitem["Unit"][0:len(timeitem["Unit"])-1]
-
-                timeitem["Amount"] = int(timeitem["Amount"])  # Make integer Amounts
-
-                if timeitem["Unit"] in ["month", "year", "decade", "second"]:  # Ensure only accepted units are used
-                    await ReturnError(message, "Unit `" + timeitem["Unit"] + "` "
-                                               "not supported! Try: `minute`, `hour`, `day`, `week`")
-                    return
-
-            for timeitem in timedata:
-                if timeitem["Unit"] == "minute":
-                    LaterTime = LaterTime + timedelta(minutes=timeitem["Amount"])
-
-                if timeitem["Unit"] == "hour":
-                    LaterTime = LaterTime + timedelta(hours=timeitem["Amount"])
-
-                if timeitem["Unit"] == "day":
-                    LaterTime = LaterTime + timedelta(days=timeitem["Amount"])
-
-                if timeitem["Unit"] == "week":
-                    LaterTime = LaterTime + timedelta(weeks=timeitem["Amount"])
-
-            tempString = ""
-            for item in tempMsg:
-                tempString += item + " "
-
-            RemindMessage = Sys.FirstCap(tempString.strip())
-            RemindTime = LaterTime
-
-
-        elif firstitemtype == "Time" or firstitemtype == "Date":
-            # Okay so now we're looking for any part of a Time or Date
-
-            info = []
-
-            i = 0
-            stop = False
-            while not stop:
-                CurrentPhrase = contentwords[i]
-
-                if ":" in CurrentPhrase and not CurrentPhrase.lower().strip().startswith("http"):
-                    # So this is a time
-                    if CurrentPhrase.count(":") > 1:
-                        await ReturnError(message, CurrentPhrase + " is not a valid time! Hr:Mn is.")
-                        return
-
-                    TempDict = {
-                        "Type": "Time",
-                        "Hour": CurrentPhrase.split(":")[0],
-                        "Minute": CurrentPhrase.split(":")[1]
-                    }
-
-                    OriginalNote = CurrentPhrase
-                    AMPM = None
-                    if i < len(contentwords) - 1:
-                        # As long as there's enough for another word:
-                        if contentwords[i + 1].lower().strip() in ["am", "pm"]:
-                            AMPM = contentwords[i + 1]
-                            OriginalNote += " " + contentwords[i + 1]
-
-                    if not AMPM:  # If there is no given AM or PM, the bot guesses
-                        if 8 < int(CurrentPhrase.split(":")[0]) < 11:
-                            AMPM = "am"
-
-                        elif int(CurrentPhrase.split(":")[0]) == 12:
-                            AMPM = "pm"
-                        else:
-                            AMPM = "pm"
-
-                    TempDict["AMPM"] = AMPM
-                    TempDict["Original"] = OriginalNote
-
-
-                    info.append(TempDict)
-
-                if "-" in CurrentPhrase:
-                    CurrentPhrase = CurrentPhrase.replace("-", "/")
-
-                if "/" in CurrentPhrase and not CurrentPhrase.lower().strip().startswith("http"):
-                    # First we need to see if a year is included
-                    if CurrentPhrase.count("/") >= 3:
-                        await ReturnError(message, "Date is improper: Mo/Da/Year")
-                        return
-
-                    # These are the 3 items we need to populate
-                    Month = None
-                    Day = None
-                    Year = None
-
-                    GivenFirst = CurrentPhrase.split("/")[0]
-                    GivenSecond = CurrentPhrase.split("/")[1]
-
-                    if CurrentPhrase.count("/") == 1:  # First, let's deal with the year
-                        # No year, so Mo/Da:
-                        Year = datetime.now().strftime("%Y")
-
-                    else:  # So Mo/Da/Yr
-                        GivenYear = CurrentPhrase.split("/")[2]
-
-                        if not GivenYear.isdigit():
-                            await ReturnError(message, "Year is not integer: Try Format Mo/Da/Year, or just Mo/Da")
-                            return
-
-                        if len(str(GivenYear)) == 4:
-                            Year = int(GivenYear)
-                        elif len(str(GivenYear)) == 2:
-                            Year = 2000 + int(GivenYear)
-
-                        else:
-                            # Improper Year?
-                            await ReturnError(message, "Year is improper: Either do Mo/Da/Year or Mo/Da/Yr")
-                            return
-
-                    # So now we have a year, so we need to convert GivenFirst and GivenSecond into integers and compare
-                    if not GivenFirst.isdigit():
-                        await ReturnError(message, "Improper Date! Please only use numbers: Mo/Da/Yr")
-                        return
-                    else:
-                        GivenFirst = int(GivenFirst)
-
-                    if not GivenSecond.isdigit():
-                        await ReturnError(message, "Improper Date! Please only use numbers: Mo/Da/Yr")
-                        return
-                    else:
-                        GivenSecond = int(GivenSecond)
-
-                    # Now we should assume that FirstGiven is month, unless proven otherwise:
-                    GivenMonth, GivenDay = None, None
-
-                    if 12 < GivenFirst:
-                        if 12 < GivenSecond:
-                            # If both the month and the day are bigger than 12:
-                            await ReturnError(message, "Improper Date! Please only use numbers: Mo/Da/Yr")
-                            return
-
-                        else: # If the second item is the month:
-                            GivenMonth = GivenSecond
-                            GivenDay = GivenFirst
-                    else:
-                        GivenMonth = GivenFirst
-                        GivenDay = GivenSecond
-
-                    info.append(
-                        {
-                            "Type": "Date",
-                            "Day": GivenDay,
-                            "Month": GivenMonth,
-                            "Year": GivenYear,
-                            "Original": CurrentPhrase
-                        }
-                    )
-
-                if i >= len(contentwords) -1:
-                    stop = True
-
-                i += 1
-
-            # Okay so now we have a list (info) that describes all of the dates and times mentioned in the message
-            # What we next need to do is ensure that there is one date and one time present
-            ReminderDate = None
-            ReminderTime = None
-
-            for item in info:
-                if not ReminderDate and item["Type"] == "Date":
-                    ReminderDate = item
-
-                if not ReminderTime and item["Type"] == "Time":
-                    ReminderTime = item
-
-            # Now we have the first date and first item of the message. We now need to work on fixing any missing holes
-            if not ReminderTime:
-                # Todo Prompt for another time
-                ReminderTime = {
-                    "Type": "Time",
-                    "Hour": '8',
-                    "Minute": '01',
-                    "AMPM": 'am'
-                }
-
-            if not ReminderDate:
-
-                def HourStampMaker(input):
-                    # Makes HourStamp "2356" for comparing times
-                    Hour = int(input.strftime("%H")) * 100
-                    HourStamp = Hour + int(input.strftime("%M"))
-                    return HourStamp
-
-                NowHourStamp = HourStampMaker(datetime.now())
-
-                # Now let's make an HourStamp for the proposed time
-                PartialHourStamp = int(ReminderTime["Hour"])
-                PartialHourStamp += 12 if ReminderTime["AMPM"] == "pm" else 0
-                PartialHourStamp = PartialHourStamp * 100
-
-                RemindHourStamp = PartialHourStamp + int(ReminderTime["Minute"])
-
-
-                if RemindHourStamp < NowHourStamp:  # If the time to remind already happened, the day should be one more
-                    tempday = int(datetime.now().strftime('%d')) + 1
-                    tempmonth = int(datetime.now().strftime('%m'))
-                    tempyear = int(datetime.now().strftime('%y'))
-
-                    endmonth, endday, endyear = Sys.DateFixer(tempmonth, tempday, tempyear)
-
-                    ReminderDate = {
-                        "Type": "Date",
-                        "Day": endday,
-                        "Month": endmonth,
-                        "Year": endyear
-                    }
-                elif RemindHourStamp > NowHourStamp:  # If the reminder is later that day
-                    tempday = int(datetime.now().strftime('%d'))
-                    tempmonth = int(datetime.now().strftime('%m'))
-                    tempyear = int(datetime.now().strftime('%y'))
-
-                    endmonth, endday, endyear = Sys.DateFixer(tempmonth, tempday, tempyear)
-
-                    ReminderDate = {
-                        "Type": "Date",
-                        "Day": endday,
-                        "Month": endmonth,
-                        "Year": endyear
-                    }
-                else:  # If the time is now
-                    await ReturnError(message, "The Time Given is NOW!")
-                    return
-
-
-            # So, now we have ReminderDate and ReminderTime. Time to make a time object out of it
-            # First, a bit of cleaning up
-            Day = str(ReminderDate["Day"])
-            Month = str(ReminderDate["Month"])
-            Year = str(ReminderDate["Year"])
-
-            Hour = str(ReminderTime["Hour"])
-            Minute = str(ReminderTime["Minute"])
-
-            if Hour == "12" and AMPM == "AM":
-                Hour = "0"
-                Day = str(int(Day) + 1)
-
-            if len(Year) > 2:
-                Year = Year[-2 : len(Year)]  # Ensure we just have the last two digits of the date
-
-            if len(Day) == 1:
-                Day = "0" + Day
-
-            if len(Month) == 1:
-                Month = "0" + Month
-
-            DateString = Month + " " + Day + " " + Year
-
-            if ReminderTime["AMPM"].lower() == "pm" and int(Hour) <= 12:
-                Hour = str( int(Hour) + 12 )
-
-            if int(Hour) == 24:
-                Hour = "12"
-
-            if len(Hour) == 1:
-                Hour = "0" + Hour
-
-            if len(Minute) == 1:
-                Minute = "0" + Minute
-
-            TotalString = DateString + " " + Hour + " " + Minute
-
-            EndTimeStamp = time.strptime(TotalString, "%m %d %y %H %M")
-
-            # Let's deal with the message
-            usablecontent = usablecontent.strip()
-
-            if "Original" not in ReminderDate.keys():
-                ReminderDate["Original"] = ""
-
-            if "Original" not in ReminderTime.keys():
-                ReminderTime["Original"] = ""
-
-            usablecontent = usablecontent.replace(ReminderDate["Original"], "").replace(ReminderTime["Original"], "")
-
-            RemindMessage = Sys.FirstCap(usablecontent.strip())
-            RemindTime = EndTimeStamp
-
-
-        # Okay so at this point we should have a time object and a remind string... A few more failsafes before we get into the fun!
-
-        # First let's make sure the time hasn't happened already
-        CurrentTime = datetime.now()
-
-        if not RemindTime:
-            RemindTime = datetime.now() + timedelta(minutes=15)
-            RemindMessage = Sys.FirstCap(usablecontent.strip())
-
-        if type(RemindTime) == time.struct_time:
-            RemindTime = datetime.fromtimestamp(time.mktime(RemindTime))
-
-        if RemindTime < CurrentTime:
-            await ReturnError(message, "Time " + str(RemindTime) + " has already happened!", sendformat=True)
-            return
-
-        if len(RemindMessage) > 250:
-            await ReturnError(message, "Your Reminder Message is too long! Keep it less than 250 characters!")
-            return
-
-        if RemindTime > CurrentTime + timedelta(days=14):
-            await ReturnError(message, "The maximum time you can set a reminder is 14 Days!")
-            return
-
-        # Okay so now we're ready to deal with the confirmation
-        toSendDateString = RemindTime.strftime("%A, %B %d, %Y at %I:%M %p")
-
-        string = "```md\n# " + toSendDateString + "\nI say: > @" + SendToUser.name + ", " + RemindMessage + "```"
-
-        ReminderData = await Remind.SaveReminder(RemindTime, RemindMessage, message, SendToUser, IsImage)
-
-        em = discord.Embed(color=Remind.embed_color, description=string)
-        if SendToUser.id == message.author.id:
-            em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
-        else:
-            em.set_author(name="Okay, I'll Remind " + SendToUser.name, icon_url=Vars.Bot.user.avatar_url)
-
-        if IsImage:
-            em.set_image(url=IsImage)
-
-        em.set_footer(text="Want to cancel? Hit the X reaction below. ")
-
-        sent = await message.channel.send(embed=em)
-
-        await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=DMChannel)
-
-        if DMChannel:
-            reaction_to_add = Conversation.Emoji["clock"]
-        else:
-            reaction_to_add = Conversation.Emoji["clock"]
-
-        await message.add_reaction(reaction_to_add)
-
-        # Now we'll add the x to cancel the reminder
-        await sent.add_reaction(Conversation.Emoji["x"])
-
-        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=50, users_id=message.author.id)
-        await Helpers.RemoveBotReactions(sent)
-        await Helpers.RemoveBotReactions(message)
-
-        if React_Info:
-            await Remind.DeleteSpecificReminder(ReminderData)
-            await Helpers.QuietDelete(sent)
-            await message.channel.send("I have deleted the reminder. Try again?", delete_after=10)
-            if not await Helpers.Deleted(message):
-                await message.add_reaction(Conversation.Emoji["x"])
-
-        await Helpers.QuietDelete(sent, wait=10)
-
-        return
+        return toSendDateString
 
     @staticmethod
     async def DateStamp(dt):
@@ -6736,6 +6242,10 @@ class Remind:
 
             except asyncio.TimeoutError:
                 await Helpers.RemoveAllReactions(SentMsg)
+                Stop = True
+                return
+        await Helpers.RemoveBotReactions(SentMsg)
+
 
         if reaction.emoji == emoji_five:
             NewTime = datetime.now() + timedelta(minutes=5)
@@ -6845,9 +6355,21 @@ class Remind:
                 await SendChannel.send(embed=em)
                 return
 
+        CurrentTime = datetime.now()
+
+        if CurrentTime > NewTime:
+            await Remind.ReturnError(reaction.message, "That time has already happened! Oh well.")
+            return
+
+        if NewTime > CurrentTime + timedelta(days=65):
+            await Remind.ReturnError(message, "The maximum time you can set a reminder is 2 Months!")
+            return
+
         await Remind.ReSaveReminder(Reminder, NewTime)
 
-        toSendDateString = NewTime.strftime("%a, %b %d, %Y at %I:%M %p")
+
+        toSendDateString = await Remind.GiveDateString(NewTime, CurrentTime)
+
 
         if reaction.emoji == emoji_mystery:
             toSendDateString = "Mystery Remind Time"
@@ -6867,7 +6389,6 @@ class Remind:
             em.set_footer(text=footer)
 
         sent = await SendChannel.send(embed=em)
-        await Helpers.RemoveBotReactions(SentMsg)
 
     @staticmethod
     async def CheckForOldReminders():

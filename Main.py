@@ -317,7 +317,6 @@ class MyClient(discord.Client):
         if ReactionIsForPoll:
             return
 
-
         if reaction.emoji == Conversation.Emoji["quote"]:
             await Cmd.Quotes.OnQuoteReaction(reaction, user)
         if reaction.emoji == Conversation.Emoji["x"]:
