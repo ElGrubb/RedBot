@@ -866,6 +866,9 @@ class Helpers:
 
         message = await Helpers.ReGet(message)
 
+        if not IsDMChannel(message.channel):
+            await message.clear_reactions()
+
         for reaction in message.reactions:
             async for user in reaction.users():
 
@@ -2240,14 +2243,10 @@ class Memes:
 
         # Function to use to validate a response
         def check(init_reaction, init_user):
-            print("Checking")
             if init_reaction.message.id != msg.id:
-                print("returning")
                 return
             if init_reaction.emoji in [info, repeat] and init_user != Vars.Bot.user:
-                print("True")
                 return init_reaction, init_user
-            print("Here")
 
         # Okay so this loop continues until both reactions are used or timeout
         continue_on = True
@@ -3557,8 +3556,6 @@ class Other:
         await Admin.BotRestart("File Transfer Successful. Bot Restarted and running. New File accepted.", Context.Message.channel.id)
 
 
-
-
 class Poll:
     RunningPolls = {}
 
@@ -3837,10 +3834,13 @@ class Poll:
 
         PollMessage = await Helpers.GetMsg(PollData["SentID"], PollData["ChannelID"])
 
+        if reaction.message.id != int(PollData["SentID"]):
+            return
+
         # If it got an emoji in the list, or stop, continue on
         stop_emoji = Conversation.Emoji["stop"]
         if reaction.emoji == stop_emoji:
-            if user.id == Vars.Bot.user.id or int(user.id) == int(PollData["MessageAuthorID"]):
+            if user.id == Vars.Creator.id or int(user.id) == int(PollData["MessageAuthorID"]):
 
                 await Poll.FormatDescription(PollData, PollMessage.reactions, TitleAdd="Closed - ", Color=0x36393e)
                 PollMessage = await Helpers.ReGet(PollMessage)
@@ -4954,10 +4954,1015 @@ class Tag:
 class Remind:
     # Working on the new /remind command
     embed_color = 0x4286f4
+    @staticmethod
+    async def OnMessage(Context):
+        await Remind.RemindCommand(Context)
+        await Remind.ListReminders(Context)
 
     @staticmethod
-    @Command(Start="remind", Prefix=True)
+    @Command(Start=["remind", "r"], Prefix=True)
     async def RemindCommand(Context):
+        message = Context.Message
+
+        async def ReturnError(message, error_message, sendformat=True):
+            # If there is some issue, this will make things easier.
+            await message.add_reaction(Conversation.Emoji["x"])
+
+            if sendformat:
+                format = "```\n/remind 2 days Clean Your Room"
+                format += "\n/remind 12:45 Hello there"
+                format += "\n/remind 2 hours 35 minutes These are Examples```"
+                error_message += format
+
+            em = discord.Embed(color=Remind.embed_color, description=error_message)
+            em.set_author(name="Reminder Error", icon_url=Vars.Bot.user.avatar_url)
+
+            await message.channel.send(embed=em)
+            return
+
+
+        if not Context.InDM: # TODO Update Cooldown to work on DM Channels
+            cd_notice = Cooldown.CheckCooldown("remind", message.author, message.guild)
+            if type(cd_notice) == int:
+                await ReturnError(message, 'Cooldown Active, please wait: `' + Sys.SecMin(cd_notice) + '`')
+                await message.add_reaction(Conversation.Emoji["x"])
+                return
+
+        # First let's send the typing indicator
+        await message.channel.trigger_typing()
+
+        # Set content
+        Content = message.content[1:]  # message.content without the command prefix
+
+        # So, Reminders can be started with either "remind", or "r". Let's figure out which one and remove it
+        for start in ["remind ", "r "]:
+            if Content.lower().startswith(start):  # If it starts with that start
+                Content = Content[len(start):]  # Snip that beginning part off
+                break
+
+        firstitem = Content.strip().split(" ")[0]
+        if firstitem.startswith("<@!"):
+            SendToUser = firstitem
+            Content = Content.replace(firstitem, "").strip()
+
+        else:
+            SendToUser = None
+
+        if SendToUser:
+            SendToUser = int(SendToUser[3:].replace(">",""))
+            SendToUser = Vars.Bot.get_user(SendToUser)
+
+            if not SendToUser:
+                await ReturnError(message, "Cannot find the person you speak of!")
+                return
+
+            if Context.InDM:
+                # TODO This thread should eventually talk to the person in their own DM Channel
+                await ReturnError(message, "You can only remind yourself in a DM Channel!")
+                return
+
+        if not SendToUser:
+            SendToUser = message.author
+
+
+
+        # Let's take a look for any images in the Reminds
+        if message.attachments:
+            IsImage = message.attachments[0]
+            # Save IsImage
+            IsImage = await Helpers.DownloadAndUpload(message, IsImage)
+            IsImage = IsImage.link
+        else:
+            IsImage = None
+
+
+        # Let's shorten any links in the reminder
+        if "http" in Content.lower():
+            TempParts = Content.strip().split(" ")
+
+            for section in TempParts:
+                if section.lower().strip().startswith("http"):  # If that word is a link:
+                    shortened = Sys.Shorten_Link(section)
+                    Content = Content.replace(section, shortened)
+
+
+        # So now let's build a vocabulary of time / date words
+        RemindWords = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+                       "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+                       "today", "tomorrow", "day", "days", "week", "weeks", "month", "months", "minute", "minutes", "hour", "hours", "second", "seconds",
+                       "morning", "noon", "afternoon", "night", "evening", "in", "at", "on", "pm", "am", "late", "early", "this", "the",
+                       "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "fifteen", "twenty", "tonight"]
+
+        RemindTimeList = []  # A listing of each word in order that the program *thinks* may be a part of the reminder time section
+
+        i = 0
+        for word in Content.split(" "):
+            word = word.strip()
+            AddToList = False
+            if "http" in word.lower():
+                continue
+
+            if word.lower() in RemindWords:  # If that word is in that above listing, add to list and continue
+                AddToList = True
+
+            if ":" in word.lower():  # indicative of a time
+                AddToList = True
+
+            if "/" in word.lower() or "-" in word.lower():
+                if "http" not in word.lower():
+                    AddToList = True
+
+            if len(word) < 6:
+                Endings = ["st", "nd", "rd", "th"]
+                for end in Endings:
+                    if word.endswith(end):
+                        tempword = word.replace(end, "")
+                        try:
+                            int(tempword)
+                            AddToList = True
+                        except:
+                            pass
+
+            if not AddToList:  # If there's none of those characteristics, maybe it's a number
+                try:
+                    num = int(word)
+                    AddToList = True
+
+                except:
+                    pass
+
+            if AddToList:
+                RemindTimeList.append(word)
+
+            else:
+                break
+
+            i += 1
+
+        if not RemindTimeList:
+            await ReturnError(message, "Error parsing reminder. Please follow format:")
+            return
+
+        # Now let's send along our data to the interpreter
+        RemindTime, Ignored_Words = await Remind.RemindInterpretation(RemindTimeList)
+
+        CurrentTime = datetime.now()
+
+        if RemindTime < CurrentTime:
+            await ReturnError(message, "Given RemindTime already happened!")
+            return
+
+        New_Ignored_Words = {}
+        for Ignore in Ignored_Words:
+            New_Ignored_Words[Ignore["Orig_Word"]] = Ignore
+
+        # Now let's figure out that message.
+        OrigMsgList = Content.split(" ")
+        i = 0
+        To_Save_List = []
+        for saved_word in OrigMsgList:
+            # For each word in that message list
+            if saved_word.lower().strip() in New_Ignored_Words.keys():
+                if i == New_Ignored_Words[saved_word.lower().strip()]["Place"]:
+                    To_Save_List.append(saved_word)
+            elif saved_word not in RemindTimeList:
+                To_Save_List.append(saved_word)
+
+            i += 1
+
+        RemindMsg = " ".join(To_Save_List)
+
+        if RemindMsg.lower().startswith("that"):
+            RemindMsg = RemindMsg[4:].strip()
+
+        To_s = ["You should", "You have to", "You need to", "You better", "I think you should", "You can", "Please"]
+
+        if RemindMsg.lower().startswith("to"):
+            RemindMsg = RemindMsg[2:].strip()
+            RemindMsg = random.choice(To_s) + " " + RemindMsg
+            if random.choice([0,0,0,0,1]):
+                RemindMsg += random.choice([" soon", " now"])
+
+        RemindMsg = Sys.FirstCap(RemindMsg).strip()
+
+        # Find out if it ends with punctuation
+        if not RemindMsg[len(RemindMsg)-1 : len(RemindMsg)] in [".", ",", "!", "?", " "]:
+            RemindMsg += "."
+
+
+        if len(RemindMsg) > 500:
+            await ReturnError(message, "Your Reminder Message is too long! Keep it less than 500 characters! \nYours is: " + len(RemindMsg))
+            return
+
+        if RemindTime > CurrentTime + timedelta(days=65):
+            await ReturnError(message, "The maximum time you can set a reminder is 2 Months!")
+            return
+
+
+        # Okay so now we're ready to deal with the confirmation
+        toSendDateString = RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
+
+        string = "```md\n# " + toSendDateString + "\nI say: > @" + SendToUser.name + ", " + RemindMsg + "```"
+
+        ReminderData = await Remind.SaveReminder(RemindTime, RemindMsg, message, SendToUser, IsImage)
+
+        em = discord.Embed(color=Remind.embed_color, description=string)
+        if SendToUser.id == message.author.id:
+            em.set_author(name="Okay, I'll Remind You", icon_url=Vars.Bot.user.avatar_url)
+        else:
+            em.set_author(name="Okay, I'll Remind " + SendToUser.name, icon_url=Vars.Bot.user.avatar_url)
+
+        if IsImage:
+            em.set_image(url=IsImage)
+
+        em.set_footer(text="Want to cancel? Hit the X reaction below. ")
+
+        sent = await message.channel.send(embed=em)
+
+        await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=Context.InDM)
+
+        if Context.InDM:
+            reaction_to_add = Conversation.Emoji["clock"]
+        else:
+            reaction_to_add = Conversation.Emoji["clock"]
+
+        await message.add_reaction(reaction_to_add)
+
+        # Now we'll add the x to cancel the reminder
+        await sent.add_reaction(Conversation.Emoji["x"])
+
+        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=50, users_id=message.author.id)
+        await Helpers.RemoveBotReactions(sent)
+        await Helpers.RemoveBotReactions(message)
+
+        if React_Info:
+            await Remind.DeleteSpecificReminder(ReminderData)
+            await Helpers.QuietDelete(sent)
+            await message.channel.send("I have deleted the reminder. Try again?", delete_after=10)
+            if not await Helpers.Deleted(message):
+                await message.add_reaction(Conversation.Emoji["x"])
+
+        await Helpers.QuietDelete(sent, wait=10)
+
+        return
+
+    @staticmethod
+    async def RemindInterpretation(WordList):
+        # Called internally. Iterates through wordlist to find two things: Date and Time
+        FinalDate = None
+        FinalTime = None
+
+        # Now we want to find out what the type of each word is
+
+        """
+        Types can be:
+        Number          1
+        WrittenNumber   "one"
+        WeekDay         "saturday"
+        MonthDay        "26th"
+        Month           "january"
+        RelativeDay     "tomorrow"
+        RelativeTime    "afternoon"
+        TimeUnit        "hours"
+        Time            "3:00"
+        AMPM            "am"
+        Date            "3/17"
+        Helper          "in",
+        AddTime         "early"
+        """
+
+        def FindType(word):
+            word = word.lower().strip()
+            # Input: word
+            # Does: Finds out what the type is. Returns the second it has it.
+            # return: The string containing the type
+
+            HasType = False
+
+            # NUMBER
+            try:
+                int(word)
+                return "Number"
+            except ValueError:
+                pass
+
+            # WRITTENNUMBER
+            if word in ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "fifteen", "twenty"]:
+                return "WrittenNumber"
+
+            # WEEKDAY
+            if word in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+                return "WeekDay"
+
+            # MONTHDAY
+            for ending in ["st", "nd", "rd", "th"]:
+                if word.endswith(ending):
+                    return "MonthDay"
+
+            # MONTH
+            if word in ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]:
+                return "Month"
+
+            # RELATIVEDAY
+            if word in ["today", "tomorrow"]:
+                return "RelativeDay"
+
+            # RELATIVETIME
+            if word in ["tonight", "morning", "noon", "afternoon", "night", "evening"]:
+                return "RelativeTime"
+
+            # TIMEUNIT
+            TimeUnits = ["second", "minute", "hour", "day", "week", "month"]
+            if word.endswith("s"):
+                if word[0:len(word)-1] in TimeUnits:
+                    return "TimeUnit"
+            else:
+                if word in TimeUnits:
+                    return "TimeUnit"
+
+            # TIME
+            if ":" in word and len(word) < 8:
+                return "Time"
+
+            # AMPM
+            if word in ["am", "pm"]:
+                return "AMPM"
+
+            # DATE
+            if "/" in word:
+                return "Date"
+            elif "-" in word:
+                return "Date"
+
+            # HELPER
+            if word in ["in", "at", "on", "this", "the"]:
+                return "Helper"
+
+            # AddTime
+            if word in ["early", "late"]:
+                return "AddTime"
+
+            return None
+
+
+        ItemDict = []
+        i = 0
+        for word in WordList:
+            info = {
+                "Word": word,
+                "Type": FindType(word),
+                "Place": i
+            }
+            ItemDict.append(info)
+            i += 1
+
+        # Okay so now we have all of the items categorized
+
+        # Okay so now lets do some cleaning. We want to remove items that don't really matter to us, and clean up the ones who do
+        def CleanUp(WordDict):
+            orig_word = WordDict["Word"].lower()
+            word_type = WordDict["Type"]
+            new_word = None
+
+            if word_type == "Number":
+                new_word = int(orig_word)
+                return new_word, "Number"
+
+            if word_type == "WrittenNumber":
+                WritDict = {
+                    "one": 1,
+                    "two": 2,
+                    "three": 3,
+                    "four": 4,
+                    "five": 5,
+                    "six": 6,
+                    "seven": 7,
+                    "eight": 8,
+                    "nine": 9,
+                    "ten": 10,
+                    "fifteen": 15,
+                    "twenty": 20
+                }
+                return WritDict[orig_word], "Number"
+
+
+            if word_type == "MonthDay":
+                new_num = None
+                for ending in ["st", "nd", "rd", "th"]:
+                    if orig_word.endswith(ending):
+                        new_num = orig_word.replace(ending, "")
+                        break
+
+                try:
+                    new_num = int(new_num)
+                    return new_num, "MonthDay"
+
+                except ValueError:
+                    return None, None
+
+            if word_type == "Month":
+                month_info = {
+                    "january": 1,
+                    "february": 2,
+                    "march": 3,
+                    "april": 4,
+                    "may": 5,
+                    "june": 6,
+                    "july": 7,
+                    "august": 8,
+                    "september": 9,
+                    "october": 10,
+                    "november": 11,
+                    "december": 12
+                }
+                return month_info[orig_word], word_type
+
+            if word_type == "TimeUnit":
+                if orig_word.endswith("s"):
+                    orig_word = orig_word[0:len(orig_word)-1]
+                return orig_word, "TimeUnit"
+
+            if word_type == "Helper":
+                return None, None
+
+            return orig_word, word_type
+
+        CleanItemDict = []
+        for item in ItemDict:
+            info = {
+                "Orig_Word": item["Word"],
+                "Orig_Type": item["Type"],
+                "Already_Found": False,
+                "Place": item["Place"]
+            }
+            NewWord, NewType = CleanUp(item)
+            if NewWord and NewType:
+                info["Word"] = NewWord
+                info["Type"] = NewType
+
+                CleanItemDict.append(info)
+            i += 1
+
+
+        # Okay so now comes the Fun Part, in which we go through each individual item in the list to try and find these things:
+        TempAdd = []     # Represents amounts we should add to a given date
+        TempSecure = []  # Represents Factors we know for certain (Direct date / time)
+        Modifier = []    # Early / Late, held off until final step
+        Ignore_List = [] # A list of the words and phrases that we ignored
+
+        def Next(i, c=1):  # c can represent any constant, it's the skip factor
+            # Returns the next item in TempDict if it's not serviced
+            if i + c >= len(CleanItemDict):  # If it's over the bound
+                return {"Word": None, "Type": None}
+
+            if CleanItemDict[i + c]["Already_Found"]:
+                return {"Word": None, "Type": None}
+
+            return CleanItemDict[i + c]
+
+        i = 0
+        for item in CleanItemDict:
+            if not item["Already_Found"]:
+                NextItem = Next(i)
+                # So if the item is fair game to use
+                if item["Type"] == "Number":
+                    if 2000 < item["Word"] < 2020:
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": None,
+                                "MonthNum": None,
+                                "YearNum": item["Word"]
+                            },
+                            "Strength": 5
+                        })
+                        item["Already_Found"] = True
+                        continue
+
+                    elif NextItem["Type"] == "TimeUnit":
+                        TempAdd.append({
+                            "Amount": item["Word"],
+                            "Unit": NextItem["Word"]
+                        })
+                        item["Already_Found"] = True
+                        NextItem["Already_Found"] = True
+
+                    elif NextItem["Type"] == "AMPM":
+                        TempSecure.append({
+                            "Time": {
+                                "Minute": 00,
+                                "Hour": item["Word"],
+                                "AMPM": NextItem["Word"]
+                            },
+                            "Date": None,
+                            "Strength": 5
+                        })
+                        item["Already_Found"] = True
+                        NextItem["Already_Found"] = True
+
+                    elif NextItem["Type"] == "Month":
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": item["Word"],
+                                "MonthNum": NextItem["Word"],
+                                "YearNum": None
+                            },
+                            "Strength": 3
+                        })
+                        item["Already_Found"] = True
+                        NextItem["Already_Found"] = True
+
+                    # If it's not a time or an addative unite, Assume it's an hour without an ampm
+                    if not item["Already_Found"] and 0 < item["Word"] <= 24 and not TempAdd:
+                        TempSecure.append({
+                            "Time": {
+                                "Minute": 00,
+                                "Hour": item["Word"],
+                                "AMPM": None
+                            },
+                            "Date": None,
+                            "Strength": 2
+                        })
+                        item["Already_Found"] = True
+
+                # If the item is a weekday, do very little.
+                elif item["Type"] == "WeekDay":
+                    # Okay so if the item is a weekday, either it matters very little or a lot
+                    # Little: /r Saturday November 3rd [msg] (November 3rd does heavy lifting)
+                    # Lot: /r saturday morning [msg]
+
+                    # So what we're going to do is add a weak (low strength) entry for the day of this saturday.
+                    # If nothing else is found, the system'll choose it
+                    WeekDay_Date = 1
+                    DatePointer = datetime.now()
+                    for i in range(0, 8):
+                        DatePointer = DatePointer + timedelta(days=1)
+                        if DatePointer.strftime("%A") == Sys.FirstCap(item["Word"]):
+                            WeekDay_Date = int(DatePointer.strftime("%d"))
+                            break
+
+                    TempSecure.append({
+                        "Time": None,
+                        "Date": {
+                            "DayNum": WeekDay_Date,
+                            "MonthNum": None,
+                            "YearNum": None
+                        },
+                        "Strength": 2
+                    })
+                    item["Already_Found"] = True
+
+                # If it's a month Day, check if the next item is a month
+                elif item["Type"] == "MonthDay":
+                    if NextItem["Type"] == "Month":
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": item["Word"],
+                                "MonthNum": NextItem["Word"],
+                                "YearNum": None
+                            },
+                            "Strength": 5
+                        })
+                        NextItem[Already_Found] = True
+                        item["Already_Found"] = True
+                        continue
+
+                    # If we reach this point, there's no month next, so let's just assume they mean either this or next month
+                    if not item["Already_Found"]:
+                        Current_Day = int(datetime.now().strftime("%d"))
+                        if Current_Day > item["Word"]:  # IE if the date has already happened this month:
+                            ItemMonth = int(datetime.now().strftime("%m")) + 1
+                            if ItemMonth > 12:
+                                ItemMonth = 1
+                                ItemYear = int(datetime.now().strftime("%Y")) + 1
+                            else:
+                                ItemYear = int(datetime.now().strftime("%Y"))
+                        else:
+                            ItemMonth = int(datetime.now().strftime("%m"))
+                            ItemYear = int(datetime.now().strftime("%Y"))
+
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": item["Word"],
+                                "MonthNum": ItemMonth,
+                                "YearNum": ItemYear
+                            },
+                            "Strength": 3
+                        })
+                        item["Already_Found"] = True
+                        continue
+
+                elif item["Type"] == "Month":
+                    if NextItem["Type"] == "Number" or NextItem["Type"] == "MonthDay":
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": NextItem["Word"],
+                                "MonthNum": item["Word"],
+                                "YearNum": None
+                            },
+                            "Strength": 4
+                        })
+                        NextItem["Already_Found"] = True
+                        item["Already_Found"] = True
+
+                    elif not item["Already_Found"]:
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": None,
+                                "MonthNum": item["Word"],
+                                "YearNum": None
+                            },
+                            "Strength": 3
+                        })
+                        item["Already_Found"] = True
+
+                elif item["Type"] == "RelativeDay":
+                    if item["Word"] == "today":
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": int(datetime.now().strftime("%d")),
+                                "MonthNum": int(datetime.now().strftime("%m")),
+                                "YearNum": int(datetime.now().strftime("%Y"))
+                            },
+                            "Strength": 4
+                        })
+                        item["Already_Found"] = True
+
+                    if item["Word"] == "tomorrow":
+                        TempSecure.append({
+                            "Time": None,
+                            "Date": {
+                                "DayNum": int(datetime.now().strftime("%d")) + 1,
+                                "MonthNum": int(datetime.now().strftime("%m")),
+                                "YearNum": int(datetime.now().strftime("%Y"))
+                            },
+                            "Strength": 4
+                        })
+                        item["Already_Found"] = True
+
+                elif item["Type"] == "RelativeTime":
+                    # All about the hour
+                    word = item["Word"]
+                    if word == "morning":
+                        hour = 8
+                        AMPM = "am"
+                    elif word == "noon":
+                        hour = 12
+                        AMPM = "pm"
+                    elif word == "afternoon":
+                        hour = 3
+                        AMPM = "pm"
+                    elif word == "evening":
+                        hour = 7
+                        AMPM = "pm"
+                    elif word == "night":
+                        hour = 9
+                        AMPM = "pm"
+                    elif word == "tonight":
+                        TempSecure.append({
+                            "Time": {
+                                "Minute": 00,
+                                "Hour": 9,
+                                "AMPM": 'pm'
+
+                            },
+                            "Date": {
+                                "DayNum": int(datetime.now().strftime("%d")),
+                                "MonthNum": int(datetime.now().strftime("%m")),
+                                "YearNum": int(datetime.now().strftime("%Y"))
+                            },
+                            "Strength": 4
+                        })
+                        item["Already_Found"] = True
+                        continue
+
+
+                    TempSecure.append({
+                        "Time": {
+                            "Minute": 00,
+                            "Hour": hour,
+                            "AMPM": AMPM
+
+                        },
+                        "Date": None,
+                        "Strength": 3
+                    })
+                    item["Already_Found"] = True
+
+                elif item["Type"] == "TimeUnit":
+                    pass  # Do Nothing! These should only follow a number!
+
+                elif item["Type"] == "Time":
+                    # Finally, an actual feature the previous Remind Command had
+                    if NextItem["Type"] == "AMPM":
+                        AMPM = NextItem["Word"]
+                        NextItem["Already_Found"] = True
+                    else:
+                        AMPM = None
+
+                    TempSecure.append({
+                        "Time": {
+                            "Minute": int(item['Word'].split(":")[1]),
+                            "Hour": item['Word'].split(":")[0],
+                            "AMPM": AMPM
+                        },
+                        "Date": None,
+                        "Strength": 4
+
+                    })
+                    item["Already_Found"] = True
+
+                elif item["Type"] == "AMPM":
+                    TempSecure.append({
+                        "Time": {
+                            "Minute": None,
+                            "Hour": None,
+                            "AMPM": item["Word"]
+                        },
+                        "Date": None,
+                        "Strength": 3
+
+                    })
+                    item["Already_Found"] = True
+
+                elif item["Type"] == "Date":
+                    Parts = item["Word"].replace("-", "/").replace("\\","/").split("/")
+                    if len(Parts) >= 3:
+                        Year = int(Parts[2])
+                    else:
+                        Year = None
+
+                    Day = int(Parts[1])
+                    Month = int(Parts[0])
+
+                    if Day <= 12 and Month > 12:
+                        Day, Month = Month, Day
+
+                    TempSecure.append({
+                        "Time": None,
+                        "Date": {
+                            "DayNum": Day,
+                            "MonthNum": Month,
+                            "YearNum": Year
+                        },
+                        "Strength": 5
+                    })
+                    item["Already_Found"] = True
+
+                elif item["Type"] == "Helper":
+                    pass
+
+                elif item["Type"] == "AddTime":
+                    Modifier.append(item)
+
+                if not item["Already_Found"]:
+                    Ignore_List.append(item)
+
+            i += 1
+
+
+        # Alright, that was chaos. Now, we want to combine all of the TempSecure into one item
+        FinalSecure = {
+            "Time": {
+                "Minute": None,
+                "Hour": None,
+                "AMPM": None,
+                "Strength": 0
+            },
+            "Date": {
+                "DayNum": None,
+                "MonthNum": None,
+                "YearNum": None,
+                "Strength": 0
+            }
+        }
+
+        for PotentialSecure in TempSecure:
+            if PotentialSecure["Time"]:
+                if not FinalSecure["Time"]:
+                    FinalSecure["Time"]["Minute"] = PotentialSecure["Time"]["Minute"]
+                    FinalSecure["Time"]["Hour"] = PotentialSecure["Time"]["Hour"]
+                    FinalSecure["Time"]["AMPM"] = PotentialSecure["Time"]["AMPM"]
+                    FinalSecure["Time"]["Strength"] = PotentialSecure["Strength"]
+
+                elif PotentialSecure["Strength"] > FinalSecure["Time"]["Strength"]:
+                    FinalSecure["Time"]["Minute"] = PotentialSecure["Time"]["Minute"]
+                    FinalSecure["Time"]["Hour"] = PotentialSecure["Time"]["Hour"]
+                    FinalSecure["Time"]["AMPM"] = PotentialSecure["Time"]["AMPM"]
+                    FinalSecure["Time"]["Strength"] = PotentialSecure["Strength"]
+
+            if PotentialSecure["Date"]:
+                for item in ["DayNum", "MonthNum", "YearNum"]:
+                    if PotentialSecure["Date"][item]:
+
+                        if not FinalSecure["Date"][item] and FinalSecure["Date"]["Strength"]:
+                            # If there's none of one item, but the others have a strength
+                            if PotentialSecure["Strength"] >= FinalSecure["Date"]["Strength"]:
+                                FinalSecure["Date"][item] = PotentialSecure["Date"][item]
+                                FinalSecure["Date"]["Strength"] = PotentialSecure["Strength"]
+
+                        elif not FinalSecure["Date"][item] and not FinalSecure["Date"]["Strength"]:
+                            # If there's none of one item, and no strength
+                            FinalSecure["Date"][item] = PotentialSecure["Date"][item]
+                            FinalSecure["Date"]["Strength"] = PotentialSecure["Strength"]
+
+                        elif FinalSecure["Date"]["Strength"] < PotentialSecure["Strength"]:
+                            FinalSecure["Date"][item] = PotentialSecure["Date"][item]
+                            FinalSecure["Date"]["Strength"] = PotentialSecure["Strength"]
+
+
+        # So now, let's start to try to clean up what we have and figure out what we don't have
+        TimeData = FinalSecure["Time"]
+        DateData = FinalSecure["Date"]
+
+
+        NowData = {
+            "DayNum": int(datetime.now().strftime("%d")),
+            "MonthNum": int(datetime.now().strftime("%m")),
+            "YearNum": int(datetime.now().strftime("%Y")),
+        }
+
+        HasDateInformation = False
+        for item in [DateData["DayNum"], DateData["MonthNum"], DateData["YearNum"]]:
+            if item:
+                HasDateInformation = True
+
+        HasTimeInformation = False
+        for item in (TimeData["Hour"], TimeData["Minute"]):
+            if item:
+                HasTimeInformation = True
+
+        for partial in ["Minute", "Hour"]:
+            if TimeData[partial]:
+                TimeData[partial] = int(TimeData[partial])
+                if TimeData[partial] < 0:
+                    TimeData[partial] *= -1
+
+        for partial in ["DayNum", "MonthNum", "YearNum"]:
+            if DateData[partial]:
+                DateData[partial] = int(DateData[partial])
+                if DateData[partial] < 0:
+                    DateData[partial] *= -1
+
+
+        if not HasDateInformation and not HasTimeInformation and TempAdd:
+            # If there's no date, no time, but there are things to add:
+            DateData = {
+                "DayNum": int(datetime.now().strftime("%d")),
+                "MonthNum": int(datetime.now().strftime("%m")),
+                "YearNum": int(datetime.now().strftime("%Y")),
+            }
+
+            TimeData = {
+                "Hour": int(datetime.now().strftime("%H")),
+                "Minute": int(datetime.now().strftime("%M")),
+                "AMPM": "am"
+            }
+
+
+        # Month and No Day  -  If month is current, Tomorrow, otherwise, 1st of month
+        if DateData["MonthNum"] and not DateData["DayNum"]:
+            if NowData["MonthNum"] == DateData["MonthNum"]:
+                DateData["DayNum"] = NowData["DayNum"] + 1
+            else:
+                DateData["DayNum"] = 1
+
+        # Day and No Month  -  If day already happened, next month, otherwise, this month
+        if DateData["DayNum"] and not DateData["MonthNum"]:
+            if DateData["DayNum"] <= NowData["DayNum"]:
+                DateData["MonthNum"] = NowData["MonthNum"] + 1
+            else:
+                DateData["MonthNum"] = NowData["MonthNum"]
+
+        # Month and No Year  - If month already happened, next year, otherwise, this year
+        if DateData["MonthNum"] and not DateData["YearNum"]:
+            if DateData["MonthNum"] < NowData["MonthNum"]:
+                DateData["YearNum"] = NowData["YearNum"] + 1
+            else:
+                DateData["YearNum"] = NowData["YearNum"]
+
+
+        # Dates are all set, now let's do time
+        # No minute
+        if not TimeData["Minute"]:
+            TimeData["Minute"] = 00
+
+        if not TimeData["Hour"]:
+            TimeData["Hour"] = 9
+
+            if not TimeData["AMPM"]:
+                TimeData["AMPM"] = 'am'
+
+        if not TimeData["AMPM"]:
+            CurrentHour = int(datetime.now().strftime("%I"))
+            CurrentAMPM = datetime.now().strftime("%p").lower()
+
+            if TimeData["Hour"] < CurrentHour:
+                TimeData['AMPM'] = 'pm' if CurrentAMPM == 'am' else 'am'
+
+            elif TimeData["Hour"] > CurrentHour:
+                TimeData['AMPM'] = CurrentAMPM
+
+            else:  # If the hour is the same:
+                CurrentMinute = int(datetime.now().strftime("%M"))
+                if TimeData["Minute"] <= CurrentMinute:
+                    TimeData['AMPM'] = 'pm' if CurrentAMPM == 'am' else 'am'
+
+                else:
+                    TimeData['AMPM'] = CurrentAMPM
+
+
+            if 2 < TimeData["Hour"] < 5 and TimeData['AMPM'] == 'am':
+                TimeData["AMPM"] = 'pm'
+
+
+
+
+        if HasTimeInformation and not HasDateInformation:
+            TimeValue = TimeData["Hour"] * 100 + TimeData["Minute"]  # 4 digit number MiHr
+            if TimeData["AMPM"] == "pm" and TimeData["Hour"] != 12:
+                TimeValue += 1200
+            NowTimeValue = int(datetime.now().strftime("%H")) * 100 + int(datetime.now().strftime("%M"))
+
+            if NowTimeValue >= TimeValue:
+                DayPlus = 1
+            else:
+                DayPlus = 0
+
+
+            DateData = {
+                "DayNum": int(datetime.now().strftime("%d")) + DayPlus,
+                "MonthNum": int(datetime.now().strftime("%m")),
+                "YearNum": int(datetime.now().strftime("%Y")),
+            }
+
+
+        # Okay, time to balance things and then we're good to go!
+        def Balance(Given_Time, Given_Date):
+            # Balances things out to ensure that there are no issues, returns date dict
+            Hour, Minute = Given_Time["Hour"], Given_Time["Minute"]
+            Day, Month, Year = Given_Date["DayNum"], Given_Date["MonthNum"], Given_Date["YearNum"]
+
+            if Given_Time["AMPM"] == 'pm':
+                if Given_Time["Hour"] == 12:
+                    Hour = 12
+                else:
+                    Hour = Given_Time["Hour"] + 12
+            else:
+                Hour = Given_Time["Hour"]
+
+            if Month > 12:
+                Year += 1
+                Month = Month - 12
+
+            # Now let's try to create a time object
+            Minute = str(Minute)
+            Hour = str(Hour)
+            Day = str(Day)
+            Month = str(Month)
+            Year = str(Year)
+
+            # Change "2" to "02" or "" to "00"
+            for item in [Minute, Hour, Day, Month]:
+                while len(item) < 2:
+                    item = "0" + item
+
+
+            string = ", ".join([Minute, Hour, Day, Month, Year])
+
+            return string
+
+        string = Balance(TimeData, DateData)
+
+        dt = time.strptime(string, "%M, %H, %d, %m, %Y")
+
+        dt = datetime.fromtimestamp(time.mktime(dt))
+
+        for timeitem in TempAdd:
+            # Don't think we forgot about tempadd!
+            if timeitem["Unit"].lower().strip() == "minute":
+                dt = dt + timedelta(minutes=timeitem["Amount"])
+
+            elif timeitem["Unit"].lower().strip() == "hour":
+                dt = dt + timedelta(hours=timeitem["Amount"])
+
+            elif timeitem["Unit"].lower().strip() == "day":
+                dt = dt + timedelta(days=timeitem["Amount"])
+
+            elif timeitem["Unit"].lower().strip() == "week":
+                dt = dt + timedelta(weeks=timeitem["Amount"])
+
+        return dt, Ignore_List
+
+    @staticmethod
+    @Command(Start="oldremind", Prefix=True)
+    async def OldRemindCommand(Context):
         message = Context.Message
 
         await message.channel.trigger_typing()
@@ -5509,7 +6514,8 @@ class Remind:
             "Channel": message.channel.id,
             "RemindPerson": SendToUser.id,
             "Image": Image,
-            "Repeat": 0
+            "Repeat": 0,
+            "RemindStr": RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
         }
 
         if type(message.channel) == discord.channel.DMChannel:  # If it's a Direct Message Channel
@@ -5591,7 +6597,6 @@ class Remind:
 
         return True
 
-
     @staticmethod
     async def CheckForReminders():
         RemindData = Helpers.RetrieveData(type="Remind")
@@ -5636,7 +6641,6 @@ class Remind:
                     AddFooter += "s"
 
                 AddFooter += "."
-
 
             em.set_footer(text=AddFooter)
 
@@ -5697,14 +6701,15 @@ class Remind:
     @staticmethod
     async def SentReminderActions(Reminder, originalmsg, SendChannel, SentMsg, RemindPerson):
 
-        if Reminder["Repeat"] > 2:
+        if Reminder["Repeat"] > 4:
             return
 
         # Now we do the emojis
         emoji_five   = '5\u20e3'
         emoji_ten    = '\U0001f51f'
         emoji_mystery = '\U00002601'
-        emoji_list = [emoji_five, emoji_ten, emoji_mystery]
+        emoji_calendar = '\U0001f5d3'
+        emoji_list = [emoji_five, emoji_ten, emoji_mystery, emoji_calendar]
 
         for emoji in emoji_list:
             await SentMsg.add_reaction(emoji)
@@ -5803,11 +6808,46 @@ class Remind:
                 AddRemindMinutes -= CutDown
 
             NewTime = datetime.now() + timedelta(minutes=AddRemindMinutes)
+        elif reaction.emoji == emoji_calendar:
+            # Prompt for a new Time To be Reminded
+            em = discord.Embed(color=Remind.embed_color, description="Please send the new date or time you'd like to be reminded. Do not include the message :)")
+            em.set_author(name="Reschedule Reminder", icon_url=Vars.Bot.user.avatar_url)
 
+            Prompt = await SendChannel.send(embed=em)
+
+            def check(ResponseMsg):
+                if ResponseMsg.channel.id != Prompt.channel.id:
+                    return False
+                if ResponseMsg.author.id != RemindPerson.id:
+                    return False
+                else:
+                    return True
+
+            try:
+                Response = await Vars.Bot.wait_for('message', check=check, timeout=30)
+                await Response.add_reaction(emoji_calendar)
+                if not IsDMChannel(SendChannel):
+                    await Helpers.QuietDelete(Prompt)
+
+            except asyncio.TimeoutError:
+                await Helpers.QuietDelete(Prompt)
+                await SendChannel.send("Timed out.", delete_after=10)
+                return None
+
+            # Okay so now we have this Response Msg
+            Content = Response.content.lower().split(" ")
+
+            try:
+                NewTime, ignore_list = await Remind.RemindInterpretation(Content)
+            except:
+                em = discord.Embed(color=Remind.embed_color, description="Something went wrong! Verify that your response is a date / time.")
+                em.set_author(icon_url=Vars.Bot.user.avatar_url, name="Reminder Rescheduling Error")
+                await SendChannel.send(embed=em)
+                return
 
         await Remind.ReSaveReminder(Reminder, NewTime)
 
-        toSendDateString = NewTime.strftime("%A, %B %d, %Y at %I:%M %p")
+        toSendDateString = NewTime.strftime("%a, %b %d, %Y at %I:%M %p")
 
         if reaction.emoji == emoji_mystery:
             toSendDateString = "Mystery Remind Time"
@@ -5829,9 +6869,6 @@ class Remind:
         sent = await SendChannel.send(embed=em)
         await Helpers.RemoveBotReactions(SentMsg)
 
-
-
-
     @staticmethod
     async def CheckForOldReminders():
         # Runs on update, reboot, looking for any older reminders it may have missed
@@ -5849,6 +6886,63 @@ class Remind:
                     delta = Now - int(Reminder)
                     delta = round(delta/60)
                     await Remind.SendReminder(RemindData[str(Reminder)], Now, Add=", Sorry, I am " + str(delta) + " minutes late due to an outage")
+
+    @staticmethod
+    @Command(Start="Reminders", Prefix=True, NoSpace=True)
+    async def ListReminders(Context):
+        message = Context.Message
+        # Returns a dict of every reminder you have
+        RemindData = Helpers.RetrieveData(type="Remind")
+
+        UserReminders = []
+        for remindertime in RemindData:
+            for reminder in RemindData[remindertime]:
+                if int(reminder["RemindPerson"]) == message.author.id:
+                    UserReminders.append(reminder)
+
+        if len(UserReminders) > 8:
+            More = len(UserReminders) - 8
+            UserReminders = UserReminders[0:8]
+        else:
+            More = False
+
+        description = "```md"
+        for Reminder in UserReminders:
+            temp = '\n# '
+            RemindTime = datetime.fromtimestamp(int(Reminder["RemindStamp"]))
+
+            temp += RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
+            temp += "\n"
+
+            AddMessage = Reminder["Message"]
+            if len(AddMessage) > 100:
+                AddMessage = AddMessage[0:100] + "[...]"
+
+            temp += AddMessage
+
+            if Reminder["Image"]:
+                temp += "  [Image]"
+
+            description += temp
+
+        description += "```"
+
+        if UserReminders:
+            name = "Here Are Your Upcoming Reminders:"
+        else:
+            description = "Do /remind <when> <message> <image attachment> to set one :)"
+            name = "You have NO Upcoming Reminders"
+
+        em = discord.Embed(description=description, color=Remind.embed_color, timestamp=Helpers.EmbedTime())
+        em.set_author(name=name, icon_url=Vars.Bot.user.avatar_url)
+        if More:
+            em.set_footer(text="Hiding " + str(More) + " reminders to save space.")
+
+
+        await message.channel.send(embed=em)
+
+
+
 
 
 class Todo:

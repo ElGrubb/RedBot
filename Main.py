@@ -141,7 +141,7 @@ class MyClient(discord.Client):
         await Cmd.Poll.OnMessage(Context)
         await Cmd.Help.OnMessage(Context)
         await Cmd.Calculate.OnMessage(Context)
-        await Cmd.Remind.RemindCommand(Context)
+        await Cmd.Remind.OnMessage(Context)
         await Cmd.Todo.OnMessage(Context)
         await Cmd.Tag.OnMessage(Context)
         await Cmd.Call.OnMessage(Context)
@@ -244,11 +244,11 @@ class MyClient(discord.Client):
 
         send = "```py\n" + FullTraceBack + "```"
 
-
-        try:
-            await channel.send(embed=em)
-        except discord.NotFound:
-            pass
+        if bot.user.name == "RedBot":
+            try:
+                await channel.send(embed=em)
+            except discord.NotFound:
+                pass
 
 
         # Full Error Report time:
@@ -277,6 +277,11 @@ class MyClient(discord.Client):
         crash_channel = bot.get_channel(Sys.Channel["Errors"])
 
         await crash_channel.send(FullError)
+        if bot.user.name == "GoldBot":
+            try:
+                await channel.send(FullError)
+            except discord.NotFound:
+                pass
 
 
 
