@@ -5196,18 +5196,20 @@ class Remind:
         # Now we'll add the x to cancel the reminder
         await sent.add_reaction(Conversation.Emoji["x"])
 
-        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=50, users_id=message.author.id)
-        await Helpers.RemoveBotReactions(sent)
-        await Helpers.RemoveBotReactions(message)
+        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=10, users_id=message.author.id)
+
+        if React_Info == None:
+            await Helpers.RemoveBotReactions(sent)
+            em.set_footer(text="")
+            await sent.edit(content=FinalTitleString, embed=em)
 
         if React_Info:
+            await Helpers.RemoveBotReactions(message)
             await Remind.DeleteSpecificReminder(ReminderData)
             await Helpers.QuietDelete(sent)
             await message.channel.send("I have deleted the reminder. Try again?", delete_after=10)
             if not await Helpers.Deleted(message):
                 await message.add_reaction(Conversation.Emoji["x"])
-
-        await Helpers.QuietDelete(sent, wait=10)
 
         return
 
