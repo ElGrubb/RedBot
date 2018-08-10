@@ -594,3 +594,14 @@ UpdateNotes = [
                    "\nIn total, Version 5 is the best, and most helpful, version of RedBot yet. "
     }
 ]
+
+
+Tips = [
+    "You can ask for a fun RedBot tip at any time by tying /tip",
+    "Polls and YesNo's are synonymous; you can try: ```/poll Should I get this?``` and ```/yesno Should I get this?```",
+    "You can use real english when setting a reminder, such as: ```/remind On Tuesday at 5:30 PM <message>\n/remind Tomorrow morning <message>```",
+    "You can quickly make a reminder with the command \"/r\", such as: ```/r in 5 minutes call Jan```",
+    "You can have me remember a link, image, number, words, etc. through a Personal Tag that only you can access! to create: ```/setptag <key> <content>```",
+    "You can edit a tag / personal tag using ```/ptag edit <key>\n/tag edit <key>```",
+    "Polls run for 4 days automatically, but you can stop yours at any time by adding a stop sign emoji :)"
+]

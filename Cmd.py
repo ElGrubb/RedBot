@@ -4439,8 +4439,6 @@ class Tag:
 
         ExitMessage = "Successfully Created "
 
-
-
         if PersonalTag: ExitMessage += "**Personal**"
         elif AdminTag: ExitMessage += " **Admin**"
 
@@ -4453,7 +4451,7 @@ class Tag:
         return
 
     @staticmethod
-    async def GetTag(message, TagKey, PersonalTag=False):
+    async def GetTag(message, TagKey, PersonalTag=False, MoveDown=True):
         # Called Internally, retrieves the tag and if it can't, sends a message.
         # Returns None: No tag. Message Sent.
         # Returns TagData
@@ -4467,11 +4465,17 @@ class Tag:
             if TagKey in PTagData.keys():
                 return PTagData[TagKey]
             FullTagData = PTagData
+
         elif not PersonalTag:
             if TagKey in AllTagData.keys():
                 return AllTagData[TagKey]
             FullTagData = AllTagData
             if TagKey in PTagData:
+
+                if MoveDown:
+                    # If MoveDown, it'll send the personal tag even if it's not requested
+                    return PTagData[TagKey], True
+
                 add = "\nYou have a personal tag named __" + TagKey + "__."
 
         # If it can't find it:
@@ -4578,9 +4582,24 @@ class Tag:
             await Tag.RandomTag(message, PersonalTag=PersonalTag)
             return
 
-        TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
+        TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag, MoveDown=True)
+        if type(TagData) == tuple:
+            DidMoveDown = TagData[1]
+            TagData = TagData[0]
+
+
         if not TagData:
             return
+
+        if DidMoveDown:
+            Title = None
+            FooterAdd = ""
+            if not Context.InDM:
+                Title = message.author.name + "'s Personal Tag: " + TagKey
+
+            PersonalTag = True
+            FooterAdd = "No Public Tags by that Key  >> "
+
 
         # If it does exist in the data
         # TagData = AllTagData[TagKey]
@@ -4598,15 +4617,15 @@ class Tag:
         elif not TagData["Color"]:
             TagData["Color"] = Vars.Bot_Color
 
-        em = discord.Embed(description=TagData["Content"], color=TagData["Color"])
+        em = discord.Embed(description=TagData["Content"], color=TagData["Color"], title=Title)
         if "Image" in TagData.keys():
             if TagData["Image"]:
                 em.set_image(url=TagData["Image"])
 
         if PersonalTag:
-            em.set_footer(text="/ptag " + TagData["Key"])
+            em.set_footer(text=FooterAdd + "/ptag " + TagData["Key"])
         else:
-            em.set_footer(text="/tag " + TagData["Key"])
+            em.set_footer(text=FooterAdd + "/tag " + TagData["Key"])
 
         await message.channel.send(embed=em) #TagData["Content"])
         return
@@ -6602,7 +6621,7 @@ class Remind:
         RemindData = Helpers.RetrieveData(type="Remind")
 
         UserReminders = []
-        for remindertime in RemindData:
+        for remindertime in sorted(RemindData.keys()):
             for reminder in RemindData[remindertime]:
                 if int(reminder["RemindPerson"]) == message.author.id:
                     UserReminders.append(reminder)
@@ -6615,17 +6634,17 @@ class Remind:
 
         description = "```md"
         for Reminder in UserReminders:
-            temp = '\n# '
+            temp = '\n'
             RemindTime = datetime.fromtimestamp(int(Reminder["RemindStamp"]))
 
-            temp += RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
-            temp += "\n"
+            temp += await Remind.GiveDateString(RemindTime, datetime.now())
+            # temp += "\n"
 
             AddMessage = Reminder["Message"]
             if len(AddMessage) > 100:
                 AddMessage = AddMessage[0:100] + "[...]"
 
-            temp += AddMessage
+            temp += "  >>  " + AddMessage
 
             if Reminder["Image"]:
                 temp += "  [Image]"
