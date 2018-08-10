@@ -872,7 +872,7 @@ class Helpers:
             await asyncio.sleep(wait)
         try:
             await message.delete()
-        except discord.NotFound:
+        except:
             return None
         return True
 
@@ -3569,7 +3569,6 @@ class Other:
                 break
         if not IsImage:
             return
-
 
         # So there's an attachment
         UploadEmoji = '\U00002b06'
