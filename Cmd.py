@@ -4902,7 +4902,7 @@ class Tag:
 
         Response = await Helpers.UserChoice(Context, "Edit " + TagType + ": " + TagKey,
                     Choices= [OptOne, OptTwo, OptThree, OptFour, {'Option': OptFive, 'Emoji': Conversation.Emoji["x"]}],
-                    Color=discord.Embed.Empty, timeout=10, title="Choose the option of the action you'd like to do")
+                    Color=discord.Embed.Empty, timeout=60, title="Choose the option of the action you'd like to do")
 
         if Response == None:
             await message.channel.send(embed=await Tag.TagErrorEmbed("Tag Edit Timed Out."))
@@ -5337,7 +5337,7 @@ class Remind:
         # Now we'll add the x to cancel the reminder
         await sent.add_reaction(Conversation.Emoji["x"])
 
-        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=10, users_id=message.author.id)
+        React_Info = await Helpers.WaitForReaction(reaction_emoji=Conversation.Emoji["x"], message=sent, timeout=30, users_id=message.author.id)
 
         if React_Info == None:
             await Helpers.RemoveBotReactions(sent)
