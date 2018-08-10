@@ -109,7 +109,9 @@ Emoji = {
     "TriangleRight": "\U000025b6",
     "TriangleLeft": "\U000025c0",
     "SkipRight": "\U000023e9",
-    "link": '\U0001f517'
+    "link": '\U0001f517',
+    'red': '\U0001f534',
+    'blue': '\U0001f535'
 }
 
 # Nice Tries

@@ -17,6 +17,89 @@ lng = -71.046564
 wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_Key'))
 
 
+class ContextMessage:
+    "Okay so this class is made whenever a message is sent"
+
+    __slots__ = ['HasPrefix', 'IsAdmin', 'InDM', 'IsCreator', 'OriginalContent', "Message", 'StrippedContent', "Deleted"]
+
+    def __init__(self, message):
+        self.Message = message
+        self.OriginalContent = message.content
+        self.StrippedContent = message.content.strip().lower()
+
+        self.HasPrefix = False
+        self.IsAdmin = False
+        self.InDM = False
+        self.IsCreator = False
+
+        self.Deleted = False
+
+        if message.content:
+            if message.content.strip()[0] in Vars.Command_Prefixes:
+                self.HasPrefix = True
+                self.StrippedContent = self.StrippedContent[1:]
+
+        if message.author.id in Ranks.Admins:
+            self.IsAdmin = True
+
+        if type(message.channel) == discord.channel.DMChannel:
+            self.InDM = True
+
+        if message.author.id == Ranks.CreatorID:
+            self.IsCreator = True
+
+        return
+
+    def To_Dict(self):
+        # returns Dictionary containing the important stuff
+        temp = {
+            "Message_ID": self.Message.id,
+            "Channel_ID": self.Message.channel.id,
+            "Author_ID": self.Message.author.id,
+
+            "OriginalContent": self.OriginalContent,
+            "Content": self.Message.content,
+
+            "HasPrefix": self.HasPrefix,
+            "InDM": self.InDM,
+            "IsAdmin": self.IsAdmin,
+            "IsCreator": self.IsCreator
+        }
+
+        if self.InDM:
+            temp["Guild_ID"] = None
+        else:
+            temp["Guild_ID"] = self.Message.guild.id
+
+        return temp
+
+    async def Refresh(self):
+        # Refreshes the self.Message to ensure it's up to date
+        id = self.Message.id
+        channel = self.Message.channel
+        try:
+            newmsg = await channel.get_message(id)
+            self.Message = newmsg
+            return self.Message
+
+        except discord.NotFound:
+            self.Deleted = True
+
+    async def IsDeleted(self):
+        if self.Deleted:
+            return True
+
+        id = self.Message.id
+        try:
+            channel = self.Message.channel
+            newmsg = await channel.get_message(id)
+        except discord.NotFound:
+            self.Deleted = True
+            return True
+
+        return False
+
+
 class Ranks:
     Admins = [
         239791371110580225,     # Dom
@@ -481,6 +564,85 @@ class Helpers:
             return True
 
     @staticmethod
+    async def UserChoice(Context, Question: str, Choices, timeout:int = 60, description=None, title=None,
+                         Color=Vars.Bot_Color, Show_Avatar=False):
+        """
+        Ran just like Helpers.Confirmation(), in which the bot prompts the user to answer with an option. Multiple choices not supported yet. 
+        :param Context: The Context object of the message
+        :param Question:  String, what to ask
+        :param Choices: Either a list of choices, or a list of dicts of 'Option', 'Emoji'
+        :param timeout: int, how long to wait before returning None
+        :return The string of the option chosen 
+        """
+
+        if type(Choices) != list or not Choices:
+            raise TypeError("Choices can be a list of dictionaries, or just a list of strings. Nothing else")
+        if len(Choices) > 10:
+            raise TypeError("Seriously, what do you need 10 choices for?")
+
+
+        # This is a list of the letters A-J
+        LetterEmoji = ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
+                       '\U0001F1EC', '\U0001F1ED', '\U0001F1EE', '\U0001F1EF']
+
+        NewChoices = []
+        i = 0
+        for item in Choices:
+            if type(item) == str:
+                NewChoices.append({'Option': item, 'Emoji': LetterEmoji[i]})
+            elif type(item) == dict:
+                NewChoices.append(item)
+            else:
+                raise TypeError("Choices should be a list of strings or a list of dicts containing 'Option' and 'Emoji'")
+            i += 1
+
+        # So, now we have "NewChoices", which has a dict like we wanted.
+        # Let's format the strings for each item, then make the embed
+
+
+        EmbedContent = ""
+        for item in NewChoices:
+            EmbedContent +=  item["Emoji"] + "  " + Sys.FirstCap(item["Option"]) + "\n"
+
+        if description:
+            EmbedContent = description + '\n' + EmbedContent
+
+        if Show_Avatar:
+            Avatar = Vars.Bot.user.avatar_url
+        else:
+            Avatar = ""
+
+        em = discord.Embed(description=EmbedContent, title=title, color=Color, timestamp=Helpers.EmbedTime())
+        em.set_author(icon_url=Avatar, name=Question)
+        em.set_footer(text="Times out after " + str(timeout) + " seconds")
+
+        sent = await Context.Message.channel.send(embed=em)
+        
+        EmojiList = []
+        for item in NewChoices:
+            await sent.add_reaction(item["Emoji"])
+            EmojiList.append(item["Emoji"])
+            
+        Answer = await Helpers.WaitForReaction(reaction_emoji=EmojiList, message=sent, users_id=[Context.Message.author.id], timeout=timeout, remove_wrong=True)
+
+        # So this'll either be None, or a Reaction Dict thing:
+        # {"Reaction": reaction, "User": user}
+
+        await Helpers.QuietDelete(sent)
+
+        if not Answer:
+            return None
+
+        AnswerReaction = Answer["Reaction"]
+        for item in NewChoices:
+            if AnswerReaction.emoji == item["Emoji"]:
+                return item['Option']
+
+        raise WindowsError("Well how did we get here?")
+
+
+
+    @staticmethod
     def RetrieveData(type=None):
         """
         Reads the Data.txt file, changes from JSON to dict, and returns the specific type
@@ -818,7 +980,7 @@ class Helpers:
 
         FinalInfo = None
 
-        async def RemoveReaction(reaction):
+        async def RemoveReaction(reaction, user):
             if not IsDMChannel(reaction.message.channel):
                 if not await Helpers.Deleted(reaction.message):
                     await reaction.message.remove_reaction(reaction.emoji, user)
@@ -829,17 +991,21 @@ class Helpers:
             if init_user.bot:
                 return False
 
-            if reaction_emoji:  # If the reaction emoji is not in the emoji list
-                if init_reaction.emoji not in reaction_emoji:
-                    return False
-
             if message:  # If the message is the same
                 if init_reaction.message.id != message.id:
-
                     return False
+
+            if reaction_emoji:  # If the reaction emoji is not in the emoji list
+                if init_reaction.emoji not in reaction_emoji:
+                    if remove_wrong:
+                        Vars.Bot.loop.create_task(RemoveReaction(init_reaction, init_user))
+                    return False
+
 
             if users_id:  # If the user is correct
                 if int(init_user.id) not in users_id:
+                    if remove_wrong:
+                        Vars.Bot.loop.create_task(RemoveReaction(init_reaction, init_user))
                     return False
 
             if emoji_num > 1:  # If there's a certain number of emoji to hit
@@ -1631,8 +1797,8 @@ class Admin:
             else:
                 data = data[content]
 
-        if not await Helpers.Confirmation(Context, "Send data?"):
-            return
+        #if not await Helpers.Confirmation(Context, "Send data?"):
+        #    return
 
         pretty_print = await Helpers.Confirmation(Context, "Do you want it to be pretty print?")
 
@@ -2368,7 +2534,7 @@ class Other:
             New_Status = random.choice(["Go to Sleep", "It's bedtime", "Go to Bed", "Sweet Dreams", "Good Night", "Sweet Dreams", "Good Night", "Great Night", "The Stars", "You Best Be Sleeping"])
 
         elif 0 <= CurrentHour <= 4:
-            New_Status = random.choice(["You Up?", "Go to Sleep", "Hello.", "It's Late.", "Get Some Sleep", "It's Quiet Right Now", "Silent Night", "Sweet Dreams",
+            New_Status = random.choice(["You Up?", "Go to Sleep", "Hello.", "It's Late.", "Get Some Sleep", "So Quiet", "Silent Night", "Sweet Dreams",
                                         "Sleep well!", "Sweet Dreams", "I Hope You're Asleep!", ":)"])
 
         elif 5 == CurrentHour:
@@ -2392,7 +2558,7 @@ class Other:
             StatusPrefix = ""
 
         if 100 < Variance < 200 and 8 < CurrentHour < 20:
-            New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Hello", "Hello, Human.", "Active", "Ready"])
+            New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Hello", "Hello, Human.", "Active", "Ready", "@Dom#2774"])
 
         game = discord.Activity(type=ActivityType, name=StatusPrefix + New_Status)
         await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
@@ -3820,7 +3986,6 @@ class Poll:
         await PollMessage.edit(embed=PollEmbed)
         await Helpers.RemoveAllReactions(PollMessage)
 
-
     @staticmethod
     async def OnReaction(reaction, user):
         # Ran from OnReaction in Main.py, whenever someone adds a reaction to something
@@ -3849,6 +4014,9 @@ class Poll:
 
                 await Poll.StopPollRunning(str(PollMessage.id))
                 return
+
+        if reaction.emoji not in PollData["EmojiList"]:
+            await reaction.message.remove_reaction(reaction.emoji, user)
 
 
         # Now let's deal with the ugly reaction bit
@@ -4725,60 +4893,31 @@ class Tag:
             return
 
         # Prepare Dialogue asking what action they wish to do
-        ChoiceBoxString = ":one:  Change Tag Key\n:two:  Change Tag Content\n:three:  Change Tag Image" \
-                          "\n:four:  Change Tag Color\n:five:  Delete Tag"
-        em = discord.Embed(title="Edit " + TagType + ": " + TagKey, description=ChoiceBoxString)
-        ChoiceBoxMsg = await message.channel.send(embed=em)
 
-        ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
-         '\U0001F1EC', '\U0001F1ED', '\U0001F1EE', '\U0001F1EF']
+        OptOne = "Change Tag Key"
+        OptTwo = "Change Tag Content"
+        OptThree = "Change Tag Image"
+        OptFour = "Change Tag Color"
+        OptFive = "Delete Tag"
 
-        ReactOne   = '\U0001F1E6'
-        ReactTwo   = '\U0001F1E7'
-        ReactThree = '\U0001F1E8'
-        ReactFour  = '\U0001F1E9'
-        ReactFive  = '\U0001F1EA'
+        Response = await Helpers.UserChoice(Context, "Edit " + TagType + ": " + TagKey,
+                    Choices= [OptOne, OptTwo, OptThree, OptFour, {'Option': OptFive, 'Emoji': Conversation.Emoji["x"]}],
+                    Color=discord.Embed.Empty, timeout=10, title="Choose the option of the action you'd like to do")
 
-        ReactList = [ReactOne, ReactTwo, ReactThree, ReactFour, ReactFive]
-
-        for reaction in ReactList:
-            await ChoiceBoxMsg.add_reaction(reaction)
-
-        # Remove Reaction Function
-        async def remove_reaction(init_reaction, init_user):
-            # Can remove a reaction without needing async
-            await init_reaction.message.remove_reaction(init_reaction.emoji, init_user)
+        if Response == None:
+            await message.channel.send(embed=await Tag.TagErrorEmbed("Tag Edit Timed Out."))
             return
-
-        def check(init_reaction, init_user):
-            if init_user.id == Vars.Bot.user.id:
-                return False
-            if init_reaction.emoji in ReactList and init_user.id == message.author.id:
-                return True
-            else:
-                Vars.Bot.loop.create_task(remove_reaction(init_reaction, init_user))
-
-        try:
-            reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=60, check=check)
-
-        except asyncio.TimeoutError:
-            # If timed out
-            await message.send("Edit Timed Out.")
-            await Helpers.QuietDelete(ChoiceBoxMsg)
-            return
-
-        await Helpers.QuietDelete(ChoiceBoxMsg)
 
         # Now we find which they chose
-        if reaction.emoji == ReactOne:
+        if Response == OptOne:
             EditMode = "Key"
-        if reaction.emoji == ReactTwo:
+        if Response == OptTwo:
             EditMode = "Content"
-        if reaction.emoji == ReactThree:
+        if Response == OptThree:
             EditMode = "Image"
-        if reaction.emoji == ReactFour:
+        if Response == OptFour:
             EditMode = "Color"
-        if reaction.emoji == ReactFive:
+        if Response == OptFive:
             EditMode = "Delete"
 
         # Delete tag if requested
@@ -4981,7 +5120,6 @@ class Remind:
     async def RemindCommand(Context):
         message = Context.Message
 
-
         if not Context.InDM: # TODO Update Cooldown to work on DM Channels
             cd_notice = Cooldown.CheckCooldown("remind", message.author, message.guild)
             if type(cd_notice) == int:
@@ -5024,7 +5162,6 @@ class Remind:
 
         if not SendToUser:
             SendToUser = message.author
-
 
 
         # Let's take a look for any images in the Reminds
@@ -5112,6 +5249,10 @@ class Remind:
         if RemindTime < CurrentTime:
             await Remind.ReturnError(message, "Given RemindTime already happened!")
             return
+
+        # If they say "Tomorrow" But it's early in the morning, see what they really mean
+        if "tomorrow" in Sys.LowerStripList(RemindTimeList) and 0 <= int(CurrentTime.strftime("%H")) <= 4:
+            RemindTime = await Remind.VerifyTomorrow(RemindTime, CurrentTime, Context)
 
         New_Ignored_Words = {}
         for Ignore in Ignored_Words:
@@ -5965,11 +6106,48 @@ class Remind:
 
         return dt, Ignore_List
 
+    @staticmethod
+    async def VerifyTomorrow(RemindTime, CurrentTime, Context):
+        # Ran if the user says "Tomorrow" and the time is between 12 and 4 am
+        # First let's just ensure that the reminder time - one day hasn't already happened
+        MinusDayTime = RemindTime - timedelta(days=1)
+        if MinusDayTime < CurrentTime:
+            # If the RemindTime - 1day has already happened:
+            return RemindTime  # Return because we're done.
+
+        # If we're still here, it's possible they meant today or tomorrow.
+        TodayStr = "Later Today *" + CurrentTime.strftime("(%b %d)*")
+        TomorrowStr = "Tomorrow *" + (CurrentTime + timedelta(days=1)).strftime("(%b %d)*")
+
+        Choices = [
+            {"Option": TodayStr, "Emoji": Conversation.Emoji['red']},
+            {"Option": TomorrowStr, "Emoji": Conversation.Emoji['blue']}
+        ]
+
+        Description = "My time is " + CurrentTime.strftime("%I:%M %p") + ", so 'tomorrow' could mean later today, or tomorrow. Which did you mean?"
+
+        Response = await Helpers.UserChoice(Context, "What did you mean by 'Tomorrow'?", Choices=Choices, description=Description, timeout=60,
+                                            Color=Remind.embed_color)
+
+
+        if not Response:  # No response, default to today
+            await Context.Message.channel.send("Timed Out, assuming 'tomorrow' means later today.", delete_after=20)
+            RemindTime = RemindTime - timedelta(days=1)
+            return RemindTime
+
+        if Response == TodayStr:
+            return RemindTime - timedelta(days=1)
+
+        else:
+            return RemindTime
+
+        return RemindTime
+
 
     @staticmethod
     async def GiveDateString(RemindTime, CurrentTime, sendFull=False):
         if sendFull:
-            return emindTime.strftime("%a, %b %d, %Y at %I:%M %p")
+            return RemindTime.strftime("%a, %b %d, %Y at %I:%M %p")
 
         if RemindTime.strftime("%b %d") == CurrentTime.strftime("%b %d"):
             add = "Today"
@@ -5978,6 +6156,8 @@ class Remind:
                 add = "Tonight"
             elif int(RemindTime.strftime("%H")) >= 12:
                 add = "This Afternoon"
+            elif int(RemindTime.strftime("%H")) >= 4:
+                add = "This Morning"
 
             toSendDateString = RemindTime.strftime(add + " at %I:%M %p")
 
@@ -6364,8 +6544,13 @@ class Remind:
             return
 
         if NewTime > CurrentTime + timedelta(days=65):
-            await Remind.ReturnError(message, "The maximum time you can set a reminder is 2 Months!")
+            await Remind.ReturnError(reaction.message, "The maximum time you can set a reminder is 2 Months!")
             return
+
+        if "tomorrow" in Sys.LowerStripList(Content) and 0 <= int(CurrentTime.strftime("%H")) <= 4:
+            Context = ContextMessage(originalmsg)
+            NewTime = await Remind.VerifyTomorrow(NewTime, CurrentTime, Context)
+
 
         await Remind.ReSaveReminder(Reminder, NewTime)
 
@@ -6790,10 +6975,7 @@ class Call:
 
 @Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
 async def test(Context):
-    chicken = await Helpers.Confirmation(Context, "Hello")
-    if chicken:
-        print("Ok")
-    return
+    chicken = await Helpers.UserChoice(Context, "Do you want this to be a test", ["Yes", "No", {"Option": "Sure", "Emoji": Conversation.Emoji["clock"]}])
 
 
 @Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)

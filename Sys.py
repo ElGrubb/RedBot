@@ -304,3 +304,11 @@ def DateFixer(month, day, year):
         month = month - 12
 
     return month, day, year
+
+def LowerStripList(item):
+    # returns a list that's lower() and strip()
+    newlist = []
+    for part in item:
+        newlist.append(part.strip().lower())
+
+    return newlist
