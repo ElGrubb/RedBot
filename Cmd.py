@@ -1682,6 +1682,10 @@ class Admin:
     async def Update(Context, fromBot=False):
         message = Context.Message
 
+        if Context.InDM:
+            await message.channel.send("Oops! Can only update rn from a group server! :)\nTerminated Update.")
+            return
+
         if not await Helpers.Confirmation(Context, "Update?", deny_text="Update Cancelled", timeout=20):
             return
 
@@ -4586,19 +4590,23 @@ class Tag:
         if type(TagData) == tuple:
             DidMoveDown = TagData[1]
             TagData = TagData[0]
+        else:
+            DidMoveDown = False
 
 
         if not TagData:
             return
+        Title = None
+        FooterAdd = ""
 
         if DidMoveDown:
-            Title = None
-            FooterAdd = ""
+
             if not Context.InDM:
                 Title = message.author.name + "'s Personal Tag: " + TagKey
 
             PersonalTag = True
             FooterAdd = "No Public Tags by that Key  >> "
+
 
 
         # If it does exist in the data
