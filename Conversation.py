@@ -111,7 +111,11 @@ Emoji = {
     "SkipRight": "\U000023e9",
     "link": '\U0001f517',
     'red': '\U0001f534',
-    'blue': '\U0001f535'
+    'blue': '\U0001f535',
+    'message': '\U0001f5e8',
+    'upload': '\U00002b06',
+    'trash': '\U0001f5d1',
+    'peopleoutlines': '\U0001f465'
 }
 
 # Nice Tries

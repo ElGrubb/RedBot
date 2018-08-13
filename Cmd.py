@@ -99,6 +99,21 @@ class ContextMessage:
 
         return False
 
+    async def add_reaction(self, reactions, just_names=False):
+        if type(reactions) == str:
+            reactions = [reactions]
+
+        if await self.IsDeleted():
+            return None
+
+        if just_names:
+            reactions = [Conversation.Emoji[reaction] for reaction in reactions]
+
+        for reaction in reactions:
+            await self.Message.add_reaction(reaction)
+
+        return True
+
 
 class Ranks:
     Admins = [
@@ -3742,7 +3757,7 @@ class Other:
             return
 
         # So there's an attachment
-        UploadEmoji = '\U00002b06'
+        UploadEmoji = Conversation.Emoji["upload"]
         await message.add_reaction(UploadEmoji)
 
         def Check(reaction, user):
@@ -4564,12 +4579,17 @@ class Tag:
             # Elif it has all 3 needed
             await Helpers.QuietDelete(msg)
 
+        if Context.InDM:
+            GuildID = None
+        else:
+            GuildID = message.guild.id
+
         # If accepted or if IsAdmin:
         NewTagDict = {
             "Key": TagKey,
             "Content": TagContent,
             "Creator": message.author.id,
-            "Guild": message.guild.id,
+            "Guild": GuildID,
             "Channel": message.channel.id,
             "Time": (datetime.now() + timedelta(hours=3)).timestamp(),
             "Admin": AdminTag,
@@ -5381,7 +5401,7 @@ class Remind:
         # So now let's build a vocabulary of time / date words
         RemindWords = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
                        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
-                       "today", "tomorrow", "day", "days", "week", "weeks", "month", "months", "minute", "minutes", "hour", "hours", "second", "seconds",
+                                                                                           "today", "tomorrow", "day", "days", "week", "weeks", "month", "months", "minute", "minutes", "hour", "hours", "second", "seconds",
                        "morning", "noon", "afternoon", "night", "evening", "in", "at", "on", "pm", "am", "late", "early", "this", "the",
                        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "fifteen", "twenty", "tonight"]
 
@@ -5438,11 +5458,9 @@ class Remind:
         # Now let's send along our data to the interpreter
         RemindTime, Ignored_Words = await Remind.RemindInterpretation(RemindTimeList)
 
-        CurrentTime = datetime.now()
-
-        if RemindTime < CurrentTime:
-            await Remind.ReturnError(message, "Given RemindTime already happened!")
-            return
+        # HAS INTERPRETATION
+        # HAS INTERPRETATION
+        # HAS INTERPRETATION
 
         # If they say "Tomorrow" But it's early in the morning, see what they really mean
         if "tomorrow" in Sys.LowerStripList(RemindTimeList) and 0 <= int(CurrentTime.strftime("%H")) <= 4:
@@ -5471,7 +5489,7 @@ class Remind:
         if RemindMsg.lower().startswith("that"):
             RemindMsg = RemindMsg[4:].strip()
 
-        To_s = ["You should", "You have to", "You need to", "You better", "I think you should", "You can", "Please"]
+        To_s = ["You should", "You have to", "You need to", "You better", "It's time to ", "You can", "Please"]
 
         if RemindMsg.lower().startswith("to"):
             RemindMsg = RemindMsg[2:].strip()
@@ -5485,6 +5503,7 @@ class Remind:
         if not RemindMsg[len(RemindMsg)-1 : len(RemindMsg)] in [".", ",", "!", "?", " "]:
             RemindMsg += "."
 
+        CurrentTime = datetime.now()
 
         if len(RemindMsg) > 500:
             await Remind.ReturnError(message, "Your Reminder Message is too long! Keep it less than 500 characters! \nYours is: " + len(RemindMsg))
@@ -5494,10 +5513,14 @@ class Remind:
             await Remind.ReturnError(message, "The maximum time you can set a reminder is 2 Months!")
             return
 
+
+        if RemindTime < CurrentTime:
+            await Remind.ReturnError(message, "Given RemindTime already happened!")
+            return
+
         toSendDateString = await Remind.GiveDateString(RemindTime, CurrentTime)
 
         FirstTitleString = toSendDateString
-
 
         if SendToUser.id == message.author.id:
             FinalTitleString = "Okay, I'll remind you."
@@ -6581,7 +6604,6 @@ class Remind:
 
     @staticmethod
     async def SentReminderActions(Reminder, originalmsg, SendChannel, SentMsg, RemindPerson):
-
         if Reminder["Repeat"] > 4:
             return
 
@@ -6792,6 +6814,7 @@ class Remind:
     @staticmethod
     @Command(Start="Reminders", Prefix=True, NoSpace=True)
     async def ListReminders(Context):
+
         message = Context.Message
         # Returns a dict of every reminder you have
         RemindData = Helpers.RetrieveData(type="Remind")
@@ -6890,10 +6913,169 @@ class Remind:
             return
 
         ChosenReminder = OptionDict[response]
-        await Context.Message.channel.send(json.dumps(ChosenReminder, indent=2))
+
+        # Okay so here are the options possible
+        Options = [
+            {"Option": "Change Time/Date", "Emoji": Conversation.Emoji["clock"]},
+            {"Option": "Change Message", "Emoji": Conversation.Emoji["message"]},
+            {"Option": "Upload New Image", "Emoji": Conversation.Emoji["upload"]},
+            {"Option": "Delete Reminder", "Emoji": Conversation.Emoji["trash"]}
+        ]
+
+        RemindTime = datetime.fromtimestamp(int(ChosenReminder["RemindStamp"]))
+        RemindTimeString = await Remind.GiveDateString(RemindTime, datetime.now())
+
+        RemindMsg = ChosenReminder["Message"][0:500] if len(ChosenReminder["Message"]) > 500 else ChosenReminder["Message"]
+        if ChosenReminder["Image"]:
+            RemindMsg += " | Image = " + ChosenReminder["Image"]
+
+        Description = "What would you like to change about this reminder?```md\n# " + RemindTimeString + "\nI say >> " + RemindMsg + "```"
+
+        response = await Helpers.UserChoice(Context, "Edit Reminder?", Options, description=Description, Show_Cancel=True)
+
+        if not response or response == "Cancel":
+            return
+
+        def check(m):
+            if m.channel.id != Context.Message.channel.id:
+                return
+            if m.author.id != Context.Message.author.id:
+                return
+            return True
+
+        NewReminder = ChosenReminder.copy()
+
+        if response == "Change Time/Date":
+            AskPrompt = "The current listed time and date for this reminder is: *`" + RemindTimeString + "`*. Please send what you would like to change it to."
+
+            SatisfiedTimeAndDate = False
+            while not SatisfiedTimeAndDate:
+                em = discord.Embed(description=AskPrompt, color=Remind.embed_color, timestamp=Helpers.EmbedTime())
+                em.set_author(name="Change Reminder Time / Date?")
+                em.set_footer(text="Times Out after 60 seconds. Please send the message in this channel.")
+
+                TimeAndDatePrompt = await Context.Message.channel.send(embed=em)
+
+                try:
+                    NewTimeDateMessage = await Vars.Bot.wait_for('message', check=check, timeout=60)
+                except asyncio.TimeoutError:
+                    await Context.Message.channel.send("Timed out.", delete_after=10)
+                    if not Context.IsDeleted():
+                        await Context.Message.add_reaction(Conversation.Emoji["x"])
+                    await QuietDelete(AskPrompt)
+                    return
+
+                await Helpers.QuietDelete(TimeAndDatePrompt)
+
+                if NewTimeDateMessage:
+                    NewRemindTime, ignored_list = await Remind.RemindInterpretation(NewTimeDateMessage.content.split(" "))
+
+                    CorrectString = "This is the time / date I specified."
+                    WrongString = "This time / date is wrong, let me try again"
+                    VerifyTimeOptions = [
+                        {"Option": CorrectString, "Emoji": Conversation.Emoji["check"]},
+                        {"Option": WrongString, "Emoji": Conversation.Emoji["repeat"]}
+                    ]
 
 
+                    VerifyTime = await Helpers.UserChoice(Context, "I'll remind you: " + await Remind.GiveDateString(NewRemindTime, datetime.now()), VerifyTimeOptions, Show_Cancel=True )
 
+                    if not VerifyTime or VerifyTime == "Cancel":
+                        return
+
+                    if VerifyTime == CorrectString:
+                        SatisfiedTimeAndDate = True
+                    else:
+                        SatisfiedTimeAndDate = False
+
+            # Now we have NewRemindTime
+            NewReminder["RemindStamp"] = await Remind.DateStamp(NewRemindTime)
+            NewReminder["RemindStr"] = await Remind.GiveDateString(NewRemindTime, datetime.now(), sendFull=True)
+
+        elif response == "Change Message":
+            AskPrompt = "The current listed message for this reminder is: " + ChosenReminder["Message"] + "  What would you like to change it to?"
+
+            em = discord.Embed(description=AskPrompt, color=Remind.embed_color, timestamp=Helpers.EmbedTime())
+            em.set_author(name="Change Reminder Message?")
+            em.set_footer(text="Times Out after 60 seconds. Please send the message in this channel.")
+
+            NewMessagePrompt = await Context.Message.channel.send(embed=em)
+
+            try:
+                NewMessage = await Vars.Bot.wait_for('message', check=check, timeout=60)
+            except asyncio.TimeoutError:
+                await Context.Message.channel.send("Timed out.", delete_after=10)
+                if not Context.IsDeleted():
+                    await Context.Message.add_reaction(Conversation.Emoji["x"])
+                await QuietDelete(AskPrompt)
+                return
+
+            await Helpers.QuietDelete(NewMessagePrompt)
+
+            # Now we have NewMessage
+            NewContent = NewMessage.content
+            NewReminder["Message"] = Sys.FirstCap(NewContent)
+
+        elif response == "Upload New Image":
+            if not ChosenReminder["Image"]:
+                AskPrompt = "There is no image for this reminder. Please send one and we can add it."
+            else:
+                AskPrompt = "The following is the current Reminder Image. Please send its replacement"
+
+            em = discord.Embed(description=AskPrompt, color=Remind.embed_color, timestamp=Helpers.EmbedTime())
+            em.set_author(name="Reminder Image")
+            em.set_footer(text="Times Out after 60 seconds. Please send the message in this channel.")
+            if ChosenReminder["Image"]:
+                em.set_image(url=ChosenReminder["Image"])
+
+            NewMessagePrompt = await Context.Message.channel.send(embed=em)
+
+            try:
+                NewMessage = await Vars.Bot.wait_for('message', check=check, timeout=60)
+            except asyncio.TimeoutError:
+                await Context.Message.channel.send("Timed out.", delete_after=10)
+                if not Context.IsDeleted():
+                    await Context.Message.add_reaction(Conversation.Emoji["x"])
+                await QuietDelete(AskPrompt)
+                return
+
+            await Helpers.QuietDelete(NewMessagePrompt)
+
+            if not NewMessage.attachments:
+                await Remind.ReturnError(Context.Message, "That message has no image. Cancelling edit.", sendformat=False)
+                return
+
+            ImageUrl = await Helpers.DownloadAndUpload(NewMessage, NewMessage.attachments[0])
+
+            await Helpers.RemoveBotReactions(NewMessage)
+
+            NewReminder["Image"] = ImageUrl.link
+
+        # CHECKS
+        if len(NewReminder["Message"]) > 500:
+            await Remind.ReturnError(Context.Message, "Reminder message is too long! It can only be at max 500 characters.", sendformat=False)
+            return
+        WillBeRemindedTime = datetime.fromtimestamp(int(NewReminder["RemindStamp"]))
+        if datetime.now() > WillBeRemindedTime:
+            await Remind.ReturnError(Context.Message, "Time / Date has already occurred!", sendformat=False)
+            return
+
+        await Remind.DeleteSpecificReminder(ChosenReminder)
+        if response == "Delete Reminder":
+            em = discord.Embed(description="Successfully deleted the reminder.", color=Remind.embed_color)
+            em.set_author(name="Deleted Reminder")
+            await Context.Message.channel.send(embed=em)
+            return
+        await Remind.ReSaveReminder(NewReminder, WillBeRemindedTime)
+
+        RemindStr = "```md\n# " + await Remind.GiveDateString(WillBeRemindedTime, datetime.now()) + "\nI Say >> " + NewReminder["Message"] + "```"
+
+        em = discord.Embed(description="Successfully updated your reminder." + RemindStr, color=Remind.embed_color)
+        em.set_author(name="Updated Reminder")
+        if NewReminder["Image"]:
+            em.set_image(url=NewReminder["Image"])
+
+        await Context.Message.channel.send(embed=em)
 
 
 
@@ -7212,17 +7394,15 @@ class Call:
                 await TextChannel.delete()
 
 
-
-
-
-
-
 @Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
 async def test(Context):
+    await Context.Message.delete()
 
-    chicken = await Helpers.UserChoice(Context, "Choose one", [str(i) for i in range(0, 18)], Show_Cancel=True)
+    await Context.add_reaction(["x", "check"], just_names=True)
+
+    #chicken = await Helpers.UserChoice(Context, "Choose one", [str(i) for i in range(0, 18)], Show_Cancel=True)
     #chicken = await Helpers.UserChoice(Context, "Do you want this to be a test", ["Yes", "No", {"Option": "Sure", "Emoji": Conversation.Emoji["clock"]}])
-    await Context.Message.channel.send(chicken)
+    #await Context.Message.channel.send(chicken)
 
 
 @Command(Admin=True, Start="retest", Prefix=True, NoSpace=True)
