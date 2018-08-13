@@ -565,7 +565,7 @@ class Helpers:
 
     @staticmethod
     async def UserChoice(Context, Question: str, Choices, timeout:int = 60, description=None, title=None,
-                         Color=Vars.Bot_Color, Show_Avatar=False):
+                         Color=Vars.Bot_Color, Show_Avatar=False, Show_Cancel=False):
         """
         Ran just like Helpers.Confirmation(), in which the bot prompts the user to answer with an option. Multiple choices not supported yet. 
         :param Context: The Context object of the message
@@ -578,13 +578,16 @@ class Helpers:
         if type(Choices) != list or not Choices:
             raise TypeError("Choices can be a list of dictionaries, or just a list of strings. Nothing else")
         if len(Choices) > 10:
-            raise TypeError("Seriously, what do you need 10 choices for?")
+            MultiplePages = True
+        else:
+            MultiplePages = False
 
 
         # This is a list of the letters A-J
         LetterEmoji = ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
                        '\U0001F1EC', '\U0001F1ED', '\U0001F1EE', '\U0001F1EF']
 
+        # Iterates through all choices, creating a dict for each if not already there
         NewChoices = []
         i = 0
         for item in Choices:
@@ -595,50 +598,214 @@ class Helpers:
             else:
                 raise TypeError("Choices should be a list of strings or a list of dicts containing 'Option' and 'Emoji'")
             i += 1
+            if i >= 10:  # Ensures each page of emoji get their own A B C etc
+                i = 0
 
         # So, now we have "NewChoices", which has a dict like we wanted.
         # Let's format the strings for each item, then make the embed
 
-
-        EmbedContent = ""
-        for item in NewChoices:
-            EmbedContent +=  item["Emoji"] + "  " + Sys.FirstCap(item["Option"]) + "\n"
-
-        if description:
-            EmbedContent = description + '\n' + EmbedContent
+        # EmbedContentList = []
+        # EmbedContent = ""
+        # i = 0
+        # for item in NewChoices:
+        #     EmbedContent +=  item["Emoji"] + "  " + Sys.FirstCap(item["Option"]) + "\n"
+        #     i += 1
+        #     if i >= 10:
+        #         i = 0
+        #         if description:
+        #             EmbedContent = description + '\n' + EmbedContent
+        #         EmbedContentList.append(EmbedContent)
+        # if EmbedContent not in EmbedContentList:
+        #     EmbedContentList.append(EmbedContent)
+        #
+        # if Show_Avatar:
+        #     Avatar = Vars.Bot.user.avatar_url
+        # else:
+        #     Avatar = ""
+        #
+        # EmbedList = []
+        # i = 0
+        # for Section in EmbedContentList:
+        #     if len(EmbedList) > 1:
+        #         FooterPageNum = "Page " + str(i+1) + "/" + str(len(EmbedList)) + " | "
+        #     else:
+        #         FooterPageNum = ""
+        #     em = discord.Embed(description=Section, title=title, color=Color, timestamp=Helpers.EmbedTime())
+        #     em.set_author(icon_url=Avatar, name=Question)
+        #     em.set_footer(text=FooterPageNum + "Times out after " + str(timeout) + " seconds")
+        #     EmbedList.append(em)
+        #     i += 1
 
         if Show_Avatar:
             Avatar = Vars.Bot.user.avatar_url
         else:
             Avatar = ""
 
-        em = discord.Embed(description=EmbedContent, title=title, color=Color, timestamp=Helpers.EmbedTime())
-        em.set_author(icon_url=Avatar, name=Question)
-        em.set_footer(text="Times out after " + str(timeout) + " seconds")
+        if not MultiplePages:
+            if Show_Cancel:  # If the user wants to show the cancel option:
+                NewChoices.append({"Option": "Cancel", "Emoji": Conversation.Emoji["x"]})
 
-        sent = await Context.Message.channel.send(embed=em)
-        
-        EmojiList = []
-        for item in NewChoices:
-            await sent.add_reaction(item["Emoji"])
-            EmojiList.append(item["Emoji"])
+
+            ChoiceStringList = []
+            for choice in NewChoices:
+                tempStr = choice["Emoji"] + "  " + Sys.FirstCap(choice["Option"])
+                ChoiceStringList.append(tempStr)
+
+            EmbedContent = "\n".join(ChoiceStringList)
+
+            if description:
+                EmbedContent = description + "\n" + EmbedContent
+
+            em = discord.Embed(description=EmbedContent, title=title, color=Color, timestamp=Helpers.EmbedTime())
+            em.set_author(icon_url=Avatar, name=Question)
+            em.set_footer(text="Times out after " + str(timeout) + " seconds")
+
+            # Send the first section.
+            sent = await Context.Message.channel.send(embed=em)
+
+            EmojiList = []
+            for item in NewChoices:
+                await sent.add_reaction(item["Emoji"])
+                EmojiList.append(item["Emoji"])
             
-        Answer = await Helpers.WaitForReaction(reaction_emoji=EmojiList, message=sent, users_id=[Context.Message.author.id], timeout=timeout, remove_wrong=True)
+            Answer = await Helpers.WaitForReaction(reaction_emoji=EmojiList, message=sent, users_id=[Context.Message.author.id], timeout=timeout, remove_wrong=True)
 
-        # So this'll either be None, or a Reaction Dict thing:
-        # {"Reaction": reaction, "User": user}
+            # So this'll either be None, or a Reaction Dict thing:
+            # {"Reaction": reaction, "User": user}
 
-        await Helpers.QuietDelete(sent)
+            await Helpers.QuietDelete(sent)
 
-        if not Answer:
-            return None
+            if not Answer:
+                return None
 
-        AnswerReaction = Answer["Reaction"]
-        for item in NewChoices:
-            if AnswerReaction.emoji == item["Emoji"]:
-                return item['Option']
+            AnswerReaction = Answer["Reaction"]
+            for item in NewChoices:
+               if AnswerReaction.emoji == item["Emoji"]:
+                    return item['Option']
 
-        raise WindowsError("Well how did we get here?")
+        elif MultiplePages:
+            # Create lists that have certain purposes for each page
+            PageDict = {}  # will house all information about the page:
+            """
+            PageDict = {
+                0: {
+                "Content": str,
+                "EmojiList": [str],
+                "Embed": discord.Embed(),
+                "Options": 
+                }}
+            """
+            CurrentPage = 0
+            MaxPage = None
+
+            SeparatedNewChoices = []  # Houses a list of lists, for each possible choice
+            i = 0
+            tempChoices = []
+            # Separate each group of 10 choices into a list, for SeparatedNewChoices
+            for Choice in NewChoices:
+                tempChoices.append(Choice)
+                i += 1
+                if i >= 10:
+                    SeparatedNewChoices.append(tempChoices)
+                    i = 0
+                    tempChoices = []
+
+            if tempChoices not in SeparatedNewChoices:
+                SeparatedNewChoices.append(tempChoices)
+
+            if Show_Cancel:
+                for ChoiceList in SeparatedNewChoices:
+                    ChoiceList.append({"Option": "Cancel", "Emoji": Conversation.Emoji["x"]})
+
+            MaxPage = len(SeparatedNewChoices) - 1
+
+            # Now we have a list of each list. This'll make it easy to separate things out.
+            i = 0
+            for Grouping in SeparatedNewChoices:
+                # For each group of 10
+                EmojiList = []
+                EmbedContentList = []
+                for Choice in Grouping:  # For each option inside of each page
+                    EmojiList.append(Choice["Emoji"])  # Add the emoji to the grouping's listing
+                    tempStr = Choice["Emoji"] + "  " + Sys.FirstCap(Choice["Option"])
+                    EmbedContentList.append(tempStr)
+
+                # Now, move EmbedContentList into EmbedContent
+                EmbedContent = "\n".join(EmbedContentList)
+                if description:
+                    EmbedContent = description + "\n" + EmbedContent
+
+                em = discord.Embed(description=EmbedContent, title=title, color=Color, timestamp=Helpers.EmbedTime())
+                em.set_author(icon_url=Avatar, name=Question)
+                em.set_footer(text="Page " + str(i + 1) + "/" + str(MaxPage + 1) + " | Times out after " + str(timeout) + " seconds")
+
+                tempDict = {"EmojiList": EmojiList,
+                            "Content": EmbedContent,
+                            "Embed": em,
+                            "Options": Grouping}
+                PageDict[i] = tempDict
+                i += 1
+
+            # Now we have PageDict, which has all the information we'd ever need.
+            MaxPage = len(SeparatedNewChoices) - 1
+
+            # Okay, let's send the message:
+            Prompt = await Context.Message.channel.send(embed=PageDict[CurrentPage]["Embed"])
+
+            GoLeft =  Conversation.Emoji["TriangleLeft"]
+            GoRight = Conversation.Emoji["TriangleRight"]
+
+            await Prompt.add_reaction(GoLeft)
+            await Prompt.add_reaction(GoRight)
+
+            ChosenEmoji = None
+            Stop = False
+            while not Stop:
+                # Add Reactions
+                for reaction in PageDict[CurrentPage]["EmojiList"]:
+                    await Prompt.add_reaction(reaction)
+
+                AllPossibleEmoji = PageDict
+
+                # Wait for reactions
+                response = await Helpers.WaitForReaction(reaction_emoji = PageDict[CurrentPage]["EmojiList"]+ [GoLeft, GoRight],
+                                                         message=Prompt, users_id=[Context.Message.author.id], timeout=timeout, remove_wrong=True)
+                if not response:
+                    await Helpers.QuietDelete(Prompt)
+                    return None
+
+                if response["Reaction"].emoji in [GoLeft, GoRight]:
+                    if Context.InDM:
+                        for reaction in PageDict[CurrentPage]["EmojiList"]:
+                            # print(reaction)
+                            await Prompt.remove_reaction(reaction, Vars.Bot.user)
+                    else:
+                        await Helpers.RemoveAllReactions(Prompt)
+                        await Prompt.add_reaction(GoLeft)
+                        await Prompt.add_reaction(GoRight)
+
+                    if response["Reaction"].emoji == GoLeft:
+                        CurrentPage -= 1
+                        if CurrentPage < 0:
+                            CurrentPage = MaxPage
+                    elif response["Reaction"].emoji == GoRight:
+                        CurrentPage += 1
+                        if CurrentPage > MaxPage:
+                            CurrentPage = 0
+
+                    await Prompt.edit(embed=PageDict[CurrentPage]["Embed"])
+                else:
+                    ChosenEmoji = response["Reaction"].emoji
+                    Stop = True
+
+            # Exiting, we have "response" now
+            for Option in PageDict[CurrentPage]["Options"]:
+                if Option["Emoji"] == ChosenEmoji:
+                    await Helpers.QuietDelete(Prompt)
+                    return Option["Option"]
+
+
+
 
 
 
@@ -5123,9 +5290,10 @@ class Remind:
     async def OnMessage(Context):
         await Remind.RemindCommand(Context)
         await Remind.ListReminders(Context)
+        await Remind.EditReminders(Context)
 
     @staticmethod
-    async def ReturnError(message, error_message, sendformat=True):
+    async def ReturnError(message, error_message, sendformat=True, title="Reminder Error"):
         # If there is some issue, this will make things easier.
         await message.add_reaction(Conversation.Emoji["x"])
 
@@ -5136,7 +5304,7 @@ class Remind:
             error_message += format
 
         em = discord.Embed(color=Remind.embed_color, description=error_message)
-        em.set_author(name="Reminder Error", icon_url=Vars.Bot.user.avatar_url)
+        em.set_author(name=title, icon_url=Vars.Bot.user.avatar_url)
 
         await message.channel.send(embed=em)
         return
@@ -6169,7 +6337,6 @@ class Remind:
 
         return RemindTime
 
-
     @staticmethod
     async def GiveDateString(RemindTime, CurrentTime, sendFull=False):
         if sendFull:
@@ -6563,6 +6730,10 @@ class Remind:
                 await SendChannel.send(embed=em)
                 return
 
+            if "tomorrow" in Sys.LowerStripList(Content) and 0 <= int(CurrentTime.strftime("%H")) <= 4:
+                Context = ContextMessage(originalmsg)
+                NewTime = await Remind.VerifyTomorrow(NewTime, CurrentTime, Context)
+
         CurrentTime = datetime.now()
 
         if CurrentTime > NewTime:
@@ -6573,9 +6744,6 @@ class Remind:
             await Remind.ReturnError(reaction.message, "The maximum time you can set a reminder is 2 Months!")
             return
 
-        if "tomorrow" in Sys.LowerStripList(Content) and 0 <= int(CurrentTime.strftime("%H")) <= 4:
-            Context = ContextMessage(originalmsg)
-            NewTime = await Remind.VerifyTomorrow(NewTime, CurrentTime, Context)
 
 
         await Remind.ReSaveReminder(Reminder, NewTime)
@@ -6674,6 +6842,56 @@ class Remind:
 
 
         await message.channel.send(embed=em)
+
+    @staticmethod
+    @Command(Start="EditReminders", Prefix=True, NoSpace=True)
+    async def EditReminders(Context):
+        message = Context.Message
+
+        # Get Reminder Data
+        RemindData = Helpers.RetrieveData(type="Remind")
+
+        # Create a list of all the reminders, sorted by time, that a person has
+        UserReminders = []
+        for remindertime in sorted(RemindData.keys()):  # For each remind time
+            for reminder in RemindData[remindertime]:  # For each reminder at that time
+                if int(reminder["RemindPerson"]) == message.author.id:  # If the person is the same
+                    UserReminders.append(reminder)  # Append it to list
+
+        if not UserReminders:  # If there are no reminders scheduled for that uesr: return
+            await Remind.ReturnError(message, "You have no reminders scheduled! Use `/remind` to schedule some!")
+            return
+
+        # We're going to be using the Helpers.UserChoice Framework. What we need is a list of option strings
+        OptionList = []
+        # We also want a dictionary of the options to their respective Reminders
+        OptionDict = {}
+        for Reminder in UserReminders:  # For each reminder:
+            # Create tempTime string that has the time that we'll be reminded at
+            tempTime = datetime.fromtimestamp(int(Reminder["RemindStamp"]))
+            tempTime = await Remind.GiveDateString(tempTime, datetime.now())
+
+            # Message string that has the message
+            tempMsg = Reminder["Message"][0:100] + "[...]" if len(Reminder["Message"]) > 100 else Reminder["Message"]
+            tempMsg = tempMsg + " [Image]" if Reminder["Image"] else tempMsg
+
+            # This tempStr string has the actual option to click on
+            tempStr = "**" + tempTime + "** >> *" + tempMsg + "*"
+
+            OptionList.append(tempStr)
+            OptionDict[tempStr] = Reminder
+
+        response = await Helpers.UserChoice(Context, "Which Reminder would you like to edit?", OptionList, Show_Cancel=True)
+
+        if not response:
+            return
+
+        if response == "Cancel":
+            return
+
+        ChosenReminder = OptionDict[response]
+        await Context.Message.channel.send(json.dumps(ChosenReminder, indent=2))
+
 
 
 
@@ -7001,9 +7219,12 @@ class Call:
 
 @Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
 async def test(Context):
-    chicken = await Helpers.UserChoice(Context, "Do you want this to be a test", ["Yes", "No", {"Option": "Sure", "Emoji": Conversation.Emoji["clock"]}])
+
+    chicken = await Helpers.UserChoice(Context, "Choose one", [str(i) for i in range(0, 18)], Show_Cancel=True)
+    #chicken = await Helpers.UserChoice(Context, "Do you want this to be a test", ["Yes", "No", {"Option": "Sure", "Emoji": Conversation.Emoji["clock"]}])
+    await Context.Message.channel.send(chicken)
 
 
-@Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
-async def test2(Context, CountTime):
-    print(time.clock() - CountTime)
+@Command(Admin=True, Start="retest", Prefix=True, NoSpace=True)
+async def test2(Context):
+    chicken = await Helpers.UserChoice(Context, "Choose One out of the two", ["hi", "bye"], Show_Cancel=True)

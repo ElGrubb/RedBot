@@ -52,6 +52,7 @@ class MyClient(discord.Client):
                 return
 
         await Cmd.test(Context)
+        await Cmd.test2(Context)
 
         await Cmd.Log.LogSent(message)
 
