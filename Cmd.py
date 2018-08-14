@@ -5461,6 +5461,7 @@ class Remind:
         # HAS INTERPRETATION
         # HAS INTERPRETATION
         # HAS INTERPRETATION
+        CurrentTime = datetime.now()
 
         # If they say "Tomorrow" But it's early in the morning, see what they really mean
         if "tomorrow" in Sys.LowerStripList(RemindTimeList) and 0 <= int(CurrentTime.strftime("%H")) <= 4:
