@@ -10,8 +10,6 @@ reddit = praw.Reddit('bot1')
 
 # Forecast
 forecast_api_key = Sys.Read_Personal(data_type='Forecast_Key')
-lat = 42.538690
-lng = -71.046564
 
 # Wolfram Alpha
 wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_Key'))
@@ -818,10 +816,6 @@ class Helpers:
                 if Option["Emoji"] == ChosenEmoji:
                     await Helpers.QuietDelete(Prompt)
                     return Option["Option"]
-
-
-
-
 
 
     @staticmethod
@@ -1841,7 +1835,6 @@ class Admin:
 
         await Admin.BotRestart("Requested Restart", message.channel.id)
 
-
     @staticmethod
     async def CheckRestart():
         # Runs on start, checks if it just restarted
@@ -2069,6 +2062,24 @@ class Admin:
         await asyncio.sleep(5)
         if not await Helpers.Deleted(message):
             await message.delete()
+
+    @staticmethod
+    @Command(Start = "os", Admin=True, Prefix=True)
+    async def OsCommand(Context):
+        message = Context.Message
+
+        CMDInput = message.content[3:].strip()
+
+        try:
+            CMDOutput = os.popen(CMDInput).read()
+        except:
+            await Admin.BotRestart("Restart. \nSomething went wrong during OS Command!",
+                                   Context.Message.channel.id)
+
+        await message.channel.send(CMDOutput)
+        await message.channel.send("== End of Output ==")
+        return
+
 
 
 class Cooldown:
@@ -3454,9 +3465,15 @@ class Other:
         await Other.SendWeather(Context.Message.channel)
 
     @staticmethod
-    async def SendWeather(channel):
+    async def SendWeather(channel, location=[]):
         # Obtain Forecast Dataset
-        forecast = forecastio.load_forecast(forecast_api_key, lat, lng)
+        if location:
+            latitude = location[0]
+            longitude = location[1]
+        else:
+            latitude = 42.538690
+            longitude = -71.046564
+        forecast = forecastio.load_forecast(forecast_api_key, latitude, longitude)
 
         DataDaily = forecast.daily()  # Daily
         DataHourly = forecast.hourly()  # Hourly
@@ -6583,15 +6600,14 @@ class Remind:
             if "OriginalMessageID" not in Reminder.keys():
                 return
 
-            if not Reminder["OriginalMessageID"]:
+            if not Reminder["OriginalMessageID"] or not SentMsg or not SendChannel:
                 return
 
             originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
 
             if not originalmsg:
                 return
-            if not SentMsg:
-                return
+
 
             await Helpers.RemoveAllReactions(originalmsg)
             await originalmsg.add_reaction(Conversation.Emoji["check"])
@@ -7361,8 +7377,8 @@ class Call:
 
         TextChannel = Vars.Bot.get_channel(ChannelInfo["TextChannelID"])
 
-        if not CheckPermissions(TextChannel, ["manage_channels", "manage_guild", "manage_roles",
-                                              "send_messages", "read_messages", "administrator"]):
+        if not await CheckPermissions(TextChannel, ["manage_channels", "manage_guild", "manage_roles",
+                                              "send_messages", "read_messages"]):
             await TextChannel.send("It seems there's been a permissions change for me. Deleting all local data for this"
                                    "channel... I will no longer supervise or manage this channel to avoid bugs.")
             Call.CurrentCallChannels.remove(FoundChannelInfo)
@@ -7397,9 +7413,16 @@ class Call:
 
 @Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
 async def test(Context):
-    await Context.Message.delete()
+    #bob = os.system("pip install wolframalpha")
 
-    await Context.add_reaction(["x", "check"], just_names=True)
+
+    await Context.Message.channel.send(bob)
+
+    await Other.SendWeather(Vars.Creator, location=[42.2746, -71.8063])
+
+    #await Context.Message.delete()
+
+    #await Context.add_reaction(["x", "check"], just_names=True)
 
     #chicken = await Helpers.UserChoice(Context, "Choose one", [str(i) for i in range(0, 18)], Show_Cancel=True)
     #chicken = await Helpers.UserChoice(Context, "Do you want this to be a test", ["Yes", "No", {"Option": "Sure", "Emoji": Conversation.Emoji["clock"]}])

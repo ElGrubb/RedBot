@@ -87,6 +87,7 @@ class MyClient(discord.Client):
         await Cmd.Admin.ChangePersonal(Context)
         await Cmd.Admin.Broadcast(Context)
         await Cmd.Admin.PermissionsIn(Context)
+        await Cmd.Admin.OsCommand(Context)
 
         await Cmd.Admin.GuildInfo(Context)
 
