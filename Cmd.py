@@ -2076,7 +2076,7 @@ class Admin:
             await Admin.BotRestart("Restart. \nSomething went wrong during OS Command!",
                                    Context.Message.channel.id)
 
-        await Helpers.SendLongMessage(message.channel, CmdOutPut)
+        await Helpers.SendLongMessage(message.channel, CMDOutput)
 
         await message.channel.send("== End of Output ==")
         return
