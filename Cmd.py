@@ -1801,14 +1801,69 @@ class Admin:
 
         await message.channel.send(embed=em)
 
+        TimerIsRunning = await Timer.IsRunning()
+        if not TimerIsRunning:
+            confirmation = await Helpers.Confirmation(Context, "TimeThread is NOT running. Start it?")
+
+            if confirmation:
+                try:
+                    await Timer.StartTimeThread()
+                    Started_Successfully = False
+
+                except:
+                    second_confirmation = await Helpers.Confirmation(Context, "That returned an error. Continue?.")
+                    if second_confirmation:
+                        Started_Successfully = True
+                    else:
+                        return
+
+                if not await Timer.IsRunning():
+                    Started_Successfully = False
+
+
+                if Started_Successfully:
+                    return
+
+                RestartRedBot = "Restart Thread of RedBot"
+                RestartRaspPi = "Restart whole RedBot Computer"
+
+                Choices = [RestartRedBot, RestartRaspPi]
+
+                final_choice = await Helpers.UserChoice(Context, "Didn't work. What action should I take?", Choices, Show_Cancel=True)
+
+                if not final_choice:
+                    return
+
+                if final_choice == "Cancel":
+                    return
+
+                if final_choice == RestartRaspPi:
+                    await Vars.Creator.send("Performing Full System Restart")
+                    info = {
+                        "Restarted": True,
+                        "Type": "Full OS Restart.",
+                        "Channel_ID": Context.Message.channel.id
+                    }
+                    Helpers.SaveData(info, type="System")
+
+                    CMDOutput = os.popen("sudo reboot").read()
+
+                elif final_choice == RestartRedBot:
+                    await Admin.BotRestart("TimeThread Check Full Restart", Context.Message.channel.id)
+                    return
+
+
+
+
     @staticmethod
-    async def BotRestart(type, Channel_ID):
-        info = {
-            "Restarted": True,
-            "Type": type,
-            "Channel_ID": Channel_ID
-        }
-        Helpers.SaveData(info, type="System")
+    async def BotRestart(type, Channel_ID, Log=True):
+        if Log:
+            info = {
+                "Restarted": True,
+                "Type": type,
+                "Channel_ID": Channel_ID
+            }
+            Helpers.SaveData(info, type="System")
 
         # Restart
 
@@ -2167,6 +2222,8 @@ class Cooldown:
 class Timer:
     StopThreadTwo = False
     Running = False
+    Ping = None
+
     @staticmethod
     def DigitTime():
         hour = time.strftime('%H')
@@ -2179,6 +2236,9 @@ class Timer:
         Timer.Running = True
         await asyncio.sleep(10)
         old_time, current_time = None, None
+
+        Timer.Ping = int(datetime.now().timestamp())
+
         # while not Vars.Crash:
         while not Timer.StopThreadTwo:
             await asyncio.sleep(3)
@@ -2187,6 +2247,8 @@ class Timer:
 
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
+                Timer.Ping = int(datetime.now().timestamp())
+
                 if current_time == '06:30':
                     try:
                         today = datetime.now().strftime("%B %d")
@@ -2206,6 +2268,18 @@ class Timer:
                         await Other.StatusChange()  # NEvermind
 
         Timer.Running = False
+
+    @staticmethod
+    async def StartTimeThread():
+        Vars.Bot.loop.create_task(Timer.TimeThread())
+
+    @staticmethod
+    async def IsRunning():
+        # Returns True if the timethread is running, false if not.
+        Now = int(datetime.now().timestamp())
+        if Now - Timer.Ping >= 5:  # Two minutes since last ping:
+            return False
+        return True
 
 
 class Quotes:
@@ -7412,14 +7486,40 @@ class Call:
                 await TextChannel.delete()
 
 
-@Command(Admin=True, Start="Test", Prefix=True, NoSpace=True)
+@Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
     #bob = os.system("pip install wolframalpha")
+    from geopy.geocoders import Nominatim
+
+    geolocator = Nominatim(user_agent="bing")
+
+    content = Context.Message.content[5:].strip()
 
 
-    await Context.Message.channel.send(bob)
+    location = geolocator.geocode(content)
 
-    await Other.SendWeather(Vars.Creator, location=[42.2746, -71.8063])
+    print(location.raw['type'])
+
+    print(location.raw)
+    add = location.address
+
+    Choices = [
+        {"Emoji": Conversation.Emoji["check"],
+         "Option": "Yes"},
+        {"Emoji": Conversation.Emoji["repeat"],
+         "Option": "No, let me try again"}
+    ]
+
+    response = await Helpers.UserChoice(Context, Conversation.Emoji["pushpin"] + " Is the location in " + add, Choices, Show_Cancel=True)
+
+    print(response)
+
+
+
+
+
+
+
 
     #await Context.Message.delete()
 

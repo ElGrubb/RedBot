@@ -115,7 +115,8 @@ Emoji = {
     'message': '\U0001f5e8',
     'upload': '\U00002b06',
     'trash': '\U0001f5d1',
-    'peopleoutlines': '\U0001f465'
+    'peopleoutlines': '\U0001f465',
+    'pushpin': '\U0001f4cd'
 }
 
 # Nice Tries
