@@ -132,7 +132,7 @@ class Ranks:
 
 
 class Vars:  # Just a default class to hold a lot of the information that'll be accessed system-wide
-    Version = "5.10"
+    Version = "5.15"
     Command_Prefixes = ["/", "!", "?", "."]
 
     AdminCode = random.randint(0, 4000)
@@ -2271,13 +2271,15 @@ class Timer:
 
     @staticmethod
     async def StartTimeThread():
+        Timer.StopThreadTwo = True
         Vars.Bot.loop.create_task(Timer.TimeThread())
+        Timer.StopThreadTwo = False
 
     @staticmethod
     async def IsRunning():
         # Returns True if the timethread is running, false if not.
         Now = int(datetime.now().timestamp())
-        if Now - Timer.Ping >= 5:  # Two minutes since last ping:
+        if Now - Timer.Ping >= 120:  # Two minutes since last ping:
             return False
         return True
 
