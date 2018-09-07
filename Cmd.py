@@ -1230,6 +1230,27 @@ class Helpers:
         await message.clear_reactions()
 
 
+class NewLog:
+    Guild_Directory = {}  # {ID: {SendChannelOBJ: x, SendChannelID}}
+    Logging_Folder_ID = 487134325389918218
+
+    @staticmethod
+    async def Load_Guild_Directory():
+        # Sets NewLog.Guild_Directory at the start of every refresh
+        Log_Folder_Obj = None
+        for category in Conversation.Server_IDs["PlayGround"].categories:
+            if category.id == Logging_Folder_ID:
+                Logging_Folder_Obj = category
+                break
+
+        for guild in Vars.Bot.guilds:
+            for channel in Logging_Folder_Obj.channels:
+                if channel.name == guild.id:
+                    pass
+
+
+
+
 
 class Log:
     LogChannel = None
@@ -7365,7 +7386,7 @@ class Call:
 
 
     @staticmethod
-    @Command(Start="CreateCallChannel", Prefix=True, Admin=True, NoSpace=True)
+    @Command(Start="CreateCallChannel", Prefix=True, NoSpace=True)
     async def CreateCallChannel(Context):
         message = Context.Message
 
