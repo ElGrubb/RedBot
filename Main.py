@@ -192,6 +192,8 @@ class MyClient(discord.Client):
 
         FullError += "```py\n" + FullTraceBack + "```"
 
+        if "\"File" in FullError:
+            FullError = FullError.replace("\"File", "File")
 
         crash_channel = bot.get_channel(Sys.Channel["Errors"])
 

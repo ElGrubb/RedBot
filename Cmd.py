@@ -1229,6 +1229,21 @@ class Helpers:
         # TODO Add functionality if it doesn't have all perms, becubceause that could be very bad for it
         await message.clear_reactions()
 
+    @staticmethod
+    async def TextToLatAndLong(text):
+        from geopy.geocoders import Nominatim
+
+        geolocator = Nominatim(user_agent="bing")
+
+        content = text
+
+        location = geolocator.geocode(content)
+        if not location:
+            return None
+
+        # print(location.raw)
+        return [float(location.raw["lat"]), float(location.raw["lon"]), location.raw["display_name"], location.raw["icon"]]
+
 
 class NewLog:
     Guild_Directory = {}  # {ID: {SendChannelOBJ: x, SendChannelID}}
@@ -1873,6 +1888,11 @@ class Admin:
                     await Admin.BotRestart("TimeThread Check Full Restart", Context.Message.channel.id)
                     return
 
+        elif TimerIsRunning == "NoPing":
+            await message.channel.send("I have not recieved a ping from the timethread yet. If I have just restarted, "
+                                       "this is okay. Otherwise, you should check for an error because I haven't started"
+                                       " the timethread since I've booted. ")
+
 
 
 
@@ -2300,6 +2320,8 @@ class Timer:
     async def IsRunning():
         # Returns True if the timethread is running, false if not.
         Now = int(datetime.now().timestamp())
+        if not Timer.Ping:
+            return "NoPing"
         if Now - Timer.Ping >= 120:  # Two minutes since last ping:
             return False
         return True
@@ -3271,7 +3293,7 @@ class Other:
         byCurrent = forecast.currently()
         byDaily = forecast.daily()
         response = Sys.Response(Conversation.WeatherResponse)
-        msg = '```md\n# Weather Forcast for Lynnfield:'
+        msg = '```md\n# Weather Forcast for ' + place_name + ":"
         msg += '\n- Currently ' + str(round(byHour.data[0].temperature)) + ' degrees'
         if str(round(byHour.data[0].apparentTemperature)) != str(round(byHour.data[0].temperature)):
             msg += ' but it feels like ' + str(round(byHour.data[0].apparentTemperature))
@@ -3446,6 +3468,9 @@ class Other:
         if message.author.bot:
             return
 
+        if message.content[0] in [";", '/', '-', '.']:
+            return
+
 
         UsableContent = message.content.strip()
         Links = []
@@ -3560,7 +3585,21 @@ class Other:
     @staticmethod
     @Command(Start="weather", Prefix=True, NoSpace=True)
     async def Weather(Context):
-        await Other.SendWeather(Context.Message.channel)
+        Other_Content = Context.StrippedContent[7:].strip()
+        if Other_Content:
+            HasLocation = True
+            LatAndLong = await Helpers.TextToLatAndLong(Other_Content)
+
+            if not LatAndLong:
+                HasLocation = False
+        else:
+            HasLocation = False
+
+
+        if HasLocation:
+            await Other.SendWeather(Context.Message.channel, LatAndLong)
+        else:
+            await Other.SendWeather(Context.Message.channel)
 
     @staticmethod
     async def SendWeather(channel, location=[]):
@@ -3568,9 +3607,15 @@ class Other:
         if location:
             latitude = location[0]
             longitude = location[1]
+            place_name = location[2]
+            if len(place_name.split(",")) > 2:
+                place_name = place_name.split(",")[0]
+            icon = location[3]
         else:
             latitude = 42.538690
             longitude = -71.046564
+            place_name = "Lynnfield, MA"
+            icon = None
         forecast = forecastio.load_forecast(forecast_api_key, latitude, longitude)
 
         DataDaily = forecast.daily()  # Daily
@@ -3792,7 +3837,11 @@ class Other:
         Summary = WeatherDict["Daily"][1]["Data"]["summary"]
         msg += "\n - **Tomorrow:** " + Summary
 
-        em = discord.Embed(description=msg, colour=0x498fff, timestamp=Helpers.EmbedTime() + timedelta(hours=4))
+        em = discord.Embed(description=msg, colour=0x498fff, timestamp=Helpers.EmbedTime())
+        if icon:
+            em.set_footer(text="Weather for " + place_name, icon_url=icon)
+        else:
+            em.set_footer(text="Weather for " + place_name)
 
         await channel.send(embed=em)
 
@@ -5159,7 +5208,8 @@ class Tag:
         TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
         if not TagData:
             return
-
+        if type(TagData) == tuple:
+            TagData, PersonalTag = TagData[0], TagData[1]
 
         SendMsg = "```\nKey: " + TagData["Key"]
         SendMsg += "\nContent: " + TagData["Content"]
@@ -5187,17 +5237,7 @@ class Tag:
     async def EditTag(Context, TagKey, PersonalTag=False):
         message = Context.Message
 
-        if PersonalTag:
-            AllTagData = await Tag.RetrievePTagList(id=message.author.id)
-        else:
-            AllTagData = await Tag.RetrieveTagList()
-
         TagKey = TagKey.replace("edit", "").strip()
-
-        if PersonalTag:
-            TagType = "Personal Tag"
-        else:
-            TagType = "Tag"
 
         async def SaveData(TagData, PersonalTag):
             if PersonalTag:
@@ -5219,6 +5259,16 @@ class Tag:
         TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
         if not TagData:
             return
+        if type(TagData) == tuple:
+            TagData, PersonalTag = TagData[0], TagData[1]
+
+        if PersonalTag:
+            AllTagData = await Tag.RetrievePTagList(id=message.author.id)
+            TagType = "Personal Tag"
+        else:
+            AllTagData = await Tag.RetrieveTagList()
+            TagType = "Public Tag"
+
 
         # Prepare Dialogue asking what action they wish to do
 
@@ -5323,6 +5373,7 @@ class Tag:
                 return
 
             # if it's cleared to go
+            print(type(TagData), TagData)
             TagData["Content"] = NewContent
 
         elif EditMode == "Image":
