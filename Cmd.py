@@ -5279,11 +5279,13 @@ class Tag:
         OptFive = "Delete Tag"
 
         Response = await Helpers.UserChoice(Context, "Edit " + TagType + ": " + TagKey,
-                    Choices= [OptOne, OptTwo, OptThree, OptFour, {'Option': OptFive, 'Emoji': Conversation.Emoji["x"]}],
-                    Color=discord.Embed.Empty, timeout=60, title="Choose the option of the action you'd like to do")
+                    Choices= [OptOne, OptTwo, OptThree, OptFour, {'Option': OptFive, 'Emoji': Conversation.Emoji["trash"]}],
+                    Color=discord.Embed.Empty, timeout=60, title="Choose the option of the action you'd like to do", Show_Cancel=True)
 
         if Response == None:
             await message.channel.send(embed=await Tag.TagErrorEmbed("Tag Edit Timed Out."))
+            return
+        elif Response == "Cancel":
             return
 
         # Now we find which they chose
