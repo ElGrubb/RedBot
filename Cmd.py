@@ -1835,6 +1835,12 @@ class Admin:
         sendmsg = "Bot is ONLINE"
         sendmsg += "\n**Speed:** " + str(difference)[5:] + " seconds. "
         sendmsg += "\n**Uptime:** " + Sys.SecMin(int(delta))
+
+        if Timer.Ping:
+            sendmsg += "\n**TimeThread Ping:** " + str(int(datetime.now().timestamp()) - Timer.Ping) + " seconds since."
+        else:
+            sendmsg += "\n**No TimeThread Ping**"
+
         em = discord.Embed(title="Current Status", timestamp=Helpers.EmbedTime(), colour=Vars.Bot_Color,
                            description=sendmsg)
         em.set_author(name=Vars.Bot.user, icon_url=Vars.Bot.user.avatar_url)
@@ -1892,10 +1898,10 @@ class Admin:
                     await Admin.BotRestart("TimeThread Check Full Restart", Context.Message.channel.id)
                     return
 
-        elif TimerIsRunning == "NoPing":
-            await message.channel.send("I have not recieved a ping from the timethread yet. If I have just restarted, "
-                                       "this is okay. Otherwise, you should check for an error because I haven't started"
-                                       " the timethread since I've booted. ")
+        #elif TimerIsRunning == "NoPing":
+        #    await message.channel.send("I have not recieved a ping from the timethread yet. If I have just restarted, "
+        #                               "this is okay. Otherwise, you should check for an error because I haven't started"
+        #                               " the timethread since I've booted. ")
 
 
 

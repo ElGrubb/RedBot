@@ -101,18 +101,19 @@ def SecMin(sec):
         else:
             break
     day_string, hour_string, minute_string, second_string = '', '', '', ''
-    day_string = str(days) + ':' if days > 0 else day_string
-    hour_string = str(hours) + ':' if hours > 0 else hour_string
-    minute_string = str(minutes) + ':' if minutes > 0 else minute_string
-    second_string = str(sec)
+    day_string = str(days) + 'd:' if days > 0 else day_string
+    hour_string = str(hours) + 'h:' if hours > 0 else hour_string
+    minute_string = str(minutes) + 'm:' if minutes > 0 else minute_string
+    second_string = str(sec) + "s"
 
-    hour_string = '00:' if hours == -1 else hour_string
-    minute_string = '00:' if minutes == -1 else minute_string
-    second_string = '00' if sec == -1 else second_string
+    hour_string = '00h:' if hours == -1 else hour_string
+    minute_string = '00m:' if minutes == -1 else minute_string
+    second_string = '00s' if sec == -1 else second_string
 
-    hour_string = '0' + hour_string if len(hour_string) == 2 else hour_string
-    minute_string = '0' + minute_string if len(minute_string) == 2 else minute_string
-    second_string = '0' + second_string if len(second_string) == 1 else second_string
+    hour_string = '0h' + hour_string if len(hour_string) == 2 else hour_string
+    minute_string = '0m' + minute_string if len(minute_string) == 2 else minute_string
+    second_string = '0s' + second_string if len(second_string) == 1 else second_string
+
     return day_string + hour_string + minute_string + second_string
 
 
