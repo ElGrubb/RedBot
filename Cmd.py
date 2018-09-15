@@ -2,6 +2,7 @@ import Sys, Conversation
 import asyncio, random, time, discord, json, praw
 from datetime import datetime, timedelta
 import forecastio, os, sys, git, wolframalpha, traceback, urllib.request, pyimgur
+from geopy.geocoders import Nominatim
 
 from functools import wraps
 
@@ -1231,11 +1232,14 @@ class Helpers:
 
     @staticmethod
     async def TextToLatAndLong(text):
-        from geopy.geocoders import Nominatim
-
         geolocator = Nominatim(user_agent="bing")
 
         content = text
+
+        switchlist = [["brandeis", "brandeis university"]]
+        for item in switchlist:
+            if content.strip().lower() == item[0]:
+                content = item[1]
 
         location = geolocator.geocode(content)
         if not location:
