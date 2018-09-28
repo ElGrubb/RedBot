@@ -1650,7 +1650,7 @@ class Admin:
         GuildToLeave = ChannelToLeave.guild
 
         text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
-        confirmation = await Helpers.Confirmation(Vars.Creator, text, deny_text="I will stay.")  # Waits for confirmation
+        confirmation = await Helpers.Confirmation(Context, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             invitelist = []
