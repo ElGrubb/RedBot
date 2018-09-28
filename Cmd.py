@@ -1648,7 +1648,7 @@ class Admin:
         ChannelToLeave = int(message.content[11:])  # Channel within Guild
         ChannelToLeave = Vars.Bot.get_channel(ChannelToLeave)
         GuildToLeave = ChannelToLeave.guild
-
+ # hi
         text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
         confirmation = await Helpers.Confirmation(Context, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
