@@ -2194,7 +2194,7 @@ class Cooldown:
     data = {}
     defaults = {
         "meme": [30, 30],
-        "quote": [60, 45],
+        "quote": [30, 15],
         "nocontext": [5, 10],
         "delete": [5, 3],
         "remind": [5, 10]
