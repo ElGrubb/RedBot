@@ -920,6 +920,57 @@ class Helpers:
             return None
 
     @staticmethod
+    async def NewAskQuestion(SendChannel, Question, Timeout=20, SpecSender=None, Description=None, AfterDelete=False):
+        if SpecSender:
+            if type(SpecSender) != list:
+                SpecSender = [SpecSender]
+
+        Em = discord.Embed(description=Description, color=Vars.Bot_Color)
+        Em.set_author(name=Question, icon_url=Vars.Bot.user.avatar_url)
+        Em.set_footer(text=str(Timeout) + " second Timeout | I am listening for a response.")
+
+        QuestionMsg = await SendChannel.send(embed=Em)
+        await QuestionMsg.add_reaction(Conversation.Emoji['circle'])
+        QuestionMsgCtx = ContextMessage(QuestionMsg)
+
+        def check(m):
+            if m.channel.id != SendChannel.id:
+                return False
+
+            if SpecSender:
+                if m.author.id not in SpecSender:  # List of ID's
+                    return False
+
+            return True
+
+        try:
+            Response = await Vars.Bot.wait_for('message', check=check, timeout=Timeout)
+
+            if not await QuestionMsgCtx.IsDeleted():
+                await QuestionMsg.clear_reactions()
+                if AfterDelete:
+                    await QuestionMsg.delete()
+                else:
+                    Em.color = discord.Embed.Empty
+                    Em.set_footer(text="Satisfied: Received Response, No Longer Listening.")
+
+                    await QuestionMsg.edit(embed=Em)
+            return Response
+
+        except asyncio.TimeoutError:
+            if not await QuestionMsgCtx.IsDeleted():
+                await QuestionMsg.clear_reactions()
+                if AfterDelete:
+                    await QuestionMsg.delete()
+                else:
+                    Em.color = discord.Embed.Empty
+                    Em.set_footer(text="Timed Out, No Longer Listening to messages.")
+
+                    await QuestionMsg.edit(embed=Em)
+            return None
+
+
+    @staticmethod
     async def MessageAdmins(prompt, embed=None):
         Admin_List = []
         for admin in Ranks.Admins:
@@ -1250,152 +1301,245 @@ class Helpers:
 
 
 class NewLog:
-    Guild_Directory = {}  # {ID: {SendChannelOBJ: x, SendChannelID}}
+    Guild_Directory = {}  # {GuildID: LogChannelObj}
     Logging_Folder_ID = 487134325389918218
 
-    @staticmethod
-    async def Load_Guild_Directory():
-        # Sets NewLog.Guild_Directory at the start of every refresh
-        Log_Folder_Obj = None
-        for category in Conversation.Server_IDs["PlayGround"].categories:
-            if category.id == Logging_Folder_ID:
-                Logging_Folder_Obj = category
-                break
-
-        for guild in Vars.Bot.guilds:
-            for channel in Logging_Folder_Obj.channels:
-                if channel.name == guild.id:
-                    pass
-
-
-
-
-
-class Log:
-    LogChannel = None
     SentColor = 0x42a1f4
     EditColor = 0xe5c1ff
     DeleteColor = 0xAA0000
 
-    @staticmethod
-    def IsRedBot():
-        if Vars.Bot.user.name == "RedBot":
-            return True
-        else:
-            return False
-
 
     @staticmethod
-    def SetLogChannel():
-        if Log.LogChannel:
-            return
+    async def LogSend(Context):  # Ran on every message; logs
+        # First we need the ID of the channel for that guild
+        GuildLogChannel = await NewLog.FindLogChannel(Context.Message.channel)
+
+        # Now let's prepare the Embed to send
+        title = "**Message Sent in: "
+        if Context.InDM:
+            title += "Direct Messages"
         else:
-            Log.LogChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
+            title += Context.Message.channel.name + "/" + Context.Message.guild.name
 
-    @staticmethod
-    async def AppendLogged(givenid, append, NewColor=None):
-        Log.SetLogChannel()
+        title += "**\n"
 
-        if not Log.IsRedBot:
-            return
+        description = Context.Message.content[0:1500]
+        name = Context.Message.author.name + "#" + str(Context.Message.author.discriminator)
 
-        # Called from bot when something needs to be added to a logged message
-        async for loggedmessage in Log.LogChannel.history(limit=1000):
-            if loggedmessage.embeds:  # If it has embeds
-                FoundLog = loggedmessage.embeds[0].to_dict()
-
-                # Look for footer ID
-                if 'footer' in FoundLog.keys():
-                    if 'text' in FoundLog['footer'].keys():
-                        IDStr = FoundLog['footer']['text'][4:].strip()
-                        ID = int(IDStr)
-
-                        if ID == givenid:
-                            # Then we have found the message
-                            # Create new dict object
-                            NewContent = FoundLog['description'] + append
-
-                            if NewColor:
-                                color = NewColor
-                            else:
-                                color = FoundLog['color']
-
-                            em = discord.Embed(description=NewContent, color=color)
-                            em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
-                            em.set_footer(text=FoundLog['footer']['text'])
-
-                            if "image" in FoundLog.keys():
-                                em.set_image(url=FoundLog['image']['url'])
-
-                            await loggedmessage.edit(embed=em)
-                            return True
-        return False
-
-    @staticmethod
-    async def LogSent(message):
-        # Ran by bot to log a sent message
-        Log.SetLogChannel()
-
-        if not Log.IsRedBot():
-            return
-
-        if message.author.bot:
-            return
-
-        if len(message.content) > 500:
-            content = message.content[0:500] + " [...]"
-        else:
-            content = message.content
-
-        if type(message.channel) == discord.channel.DMChannel:
-            GuildName = "Direct Messages"
-        else:
-            GuildName = message.channel.mention + "/" + message.guild.name
-
-        description = "**Message Sent in " + GuildName + "**\n" + content
-        timestamp = datetime.now() + timedelta(hours = 3)
-        timestamp = timestamp.strftime("%A %B %d at %X")
+        timestamp = Helpers.EmbedTime().strftime("%A %B %d at %X")
         timestamp = "\n_Originally sent on " + timestamp + "_"
 
-        em = discord.Embed(description=description + timestamp, color=Log.SentColor)
-        em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
-                      icon_url=message.author.avatar_url)
-        em.set_footer(text="ID: " + str(message.id))
-        if message.attachments:
-            em.set_image(url=message.attachments[0].url)
+        footer = "ID: " + str(Context.Message.id)
 
-        await Log.LogChannel.send(embed=em)
+        em = discord.Embed(description=title + description + timestamp, color=NewLog.SentColor)
+        em.set_author(name=name, icon_url=Context.Message.author.avatar_url)
+        em.set_footer(text=footer)
+
+        SentLogMessage = await GuildLogChannel.send(embed=em)
+
+        return SentLogMessage
 
     @staticmethod
-    async def LogEdit(before, after):
-        Log.SetLogChannel()
+    async def FindGuildLogCategory():
+        """
+        Locates the GuildLog Category in the Red Playground Server
+        :return: discord.CategoryChannel
+        """
+        LogCategory = None
+        PlayGroundGuild = Vars.Bot.get_guild(Conversation.Server_IDs["PlayGround"])
+        # Let's iterate through each category until we find the one
+        for TempCategory in PlayGroundGuild.categories:
+            if TempCategory.id == NewLog.Logging_Folder_ID:
+                LogCategory = TempCategory
+                break
 
-        if not Log.IsRedBot():
-            return
+        return LogCategory
 
-        if after.author.bot:
-            return
+    @staticmethod
+    async def FindLogChannel(SentChannel):
+        """
+        Checks NewLog.Guild_Directory to see if the channel is already there
+        If not, searches for it in the Discord Guild, and adds it to the directory
+        If not, creates it in the discord, adds it to the directory.
+        :param SentChannel: the discord.Channel obj of the channel that the message was sent in
+        :return: the discord.Channel obj of the channel to log the message in
+        """
 
-        if len(after.content) > 500:
-            content = after.content[0:500] + " [...]"
+        # First off, is it a DM Channel? If so, the "SentGuildID" is RedBot's UserId
+        if IsDMChannel(SentChannel):
+            SentGuildID = Vars.Bot.user.id
+            DM = True
         else:
-            content = after.content
+            SentGuildID = SentChannel.guild.id
+            DM = False
 
-        phrase = "\n**Edited to:**\n" + content
-        await Log.AppendLogged(before.id, phrase, NewColor=Log.EditColor)
+        # Do we already have the SentGuildID in the NewLog.Guild_Directory?
+        if SentGuildID in NewLog.Guild_Directory.keys():
+            # If so:
+            LogChannelObj = NewLog.Guild_Directory[SentGuildID]
+            return LogChannelObj
+
+        # Okay, is the channel in the cateogry?
+        LogCategory = await NewLog.FindGuildLogCategory()
+
+        # Now we have LogCategory. Let's check the channels in it for the following:
+        LogIdentifier = str(SentGuildID)
+        LogChannelObj = None
+        # Let's iterate
+        for TempChannel in LogCategory.channels:
+            if TempChannel.name.endswith(LogIdentifier):
+                LogChannelObj = TempChannel
+
+        # If we haven't found a LogChannelObj, let's create one
+        if not LogChannelObj:
+            # Create Name
+            if DM:
+                SentGuildName = "Direct Messages"
+            else:
+                SentGuildName = SentChannel.guild.name
+                if len(SentGuildName) > 20:
+                    SentGuildName = SentGuildName[0:20]
+
+            NewLogChannelName = SentGuildName + " " + str(SentGuildID)
+            PlayGroundGuild = Vars.Bot.get_guild(Conversation.Server_IDs["PlayGround"])
+            LogChannelObj = await PlayGroundGuild.create_text_channel(NewLogChannelName, category=LogCategory)
+
+        # Okay so now we have a LogChannelObj, so let's update NewLog.Guild_Directory
+        NewLog.Guild_Directory[SentGuildID] = LogChannelObj
+
+        return LogChannelObj
 
     @staticmethod
-    async def LogDelete(message, type):
-        Log.SetLogChannel()
+    async def CleanUpLogData():
+        """
+        Should be ran nightly, ensures all log channels have the correct names and cleans the log cache
+        :return: None
+        """
+        # First, let's iterate through each item in the GuildLog Category to see if the channels all have the right name
+        GuildLogCategory = await NewLog.FindGuildLogCategory()
+        for Channel in GuildLogCategory.channels:
+            # We need to confirm that the item we're working with is a logchannel
+            PossibleChannelID = Channel.name.split("-")[-1]  # This formula gives us the last word in it
 
-        if not Log.IsRedBot():
+            if not PossibleChannelID.isdigit():
+                # If it's not a number, this channel isn't for a guildlog, so move on.
+                continue
+
+            elif int(PossibleChannelID) == Vars.Bot.user.id:
+                # If it is a number but it's the bot's ID, this is the direct messages channel
+                continue
+
+            # If we're here, the channel name must be right, so let's just check if the names are all correct
+            LoggedGuild = Vars.Bot.get_guild(int(PossibleChannelID))
+            if not LoggedGuild:
+                # If it's not a real guild, move on
+                continue
+
+            # This'll ensure the name is equal to that of the channel
+            GuildName = LoggedGuild.name.lower()[0:20].strip().replace(" ","-")
+            GuildName = GuildName + "-" + PossibleChannelID
+
+            if GuildName != Channel.name:
+                # Send Embed discussing name change
+                em = discord.Embed(title="Logging Guild Name Change / Log Channel Name Change", description=
+                                   "Old: " + Channel.name + "\nNew: " + GuildName)
+                await Channel.send(embed=em)
+
+                await Channel.edit(name=GuildName)
+
+        # Now that all of that madness is over, let's just clear the NewLog.Guild_Directory
+        NewLog.Guild_Directory = {}
+
+    @staticmethod
+    async def AppendSentLog(Add_Str: str, Msg_ID: int, LogChannel, New_Color=None):
+        """
+        Ran by a few functions to add something to a message log. Can be an edit, deletion, etc.
+        :param Add_Str:     The string of text to append to the bottom
+        :param Msg_ID:      The ID of the message to change
+        :param LogChannel:  The channel to look in
+        :param New_Color:   The color if you want to change it
+        :return:            None
+        """
+
+        ID_Search_String = "ID: " + str(Msg_ID)  # This'll be what we look for in the footer of messages
+
+        Matching_Log_Msg = None
+        async for loggedmessage in LogChannel.history(limit=500):
+            if not loggedmessage.embeds:  # If it doesn't have embeds, move on.
+                continue
+
+            # Set Log_Embed equal to the dict of the embed content
+            Log_Embed = loggedmessage.embeds[0].to_dict()
+            if 'footer' in Log_Embed.keys():  # If it has a footer element
+                if 'text' in Log_Embed['footer'].keys():  # And a text element
+                    if ID_Search_String == Log_Embed['footer']['text']:  # Check if the footer text matches the id string
+                        Matching_Log_Msg = loggedmessage  # if so, end. we've found our match
+                        break
+
+
+        if Matching_Log_Msg:  # If it does have the message:
+            Em_Old = Matching_Log_Msg.embeds[0].to_dict()
+            Matching_Log_Msg_Content = Em_Old['description']
+            New_Description = Matching_Log_Msg_Content + "\n\n" + Add_Str.strip()
+            if New_Color:
+               Color_Change = New_Color
+            else:
+                Color_Change = Em_Old['color']
+
+
+            # Create embed
+            em = discord.Embed(description=New_Description, color=Color_Change)
+            em.set_author(name=Em_Old['author']['name'], icon_url=Em_Old['author']['icon_url'])
+            em.set_footer(text=Em_Old['footer']['text'])
+
+
+            await Matching_Log_Msg.edit(embed=em)
+
+    @staticmethod
+    async def LogEdit(BeforeContext, AfterContext):  # Ran on every edit; logs edits
+        GuildLogChannel = await NewLog.FindLogChannel(AfterContext.Message.channel)
+
+        if BeforeContext.Message.content == AfterContext.Message.content:
             return
 
-        if message.author.bot:
+        content = AfterContext.Message.content
+        if len(content) > 1000:
+            content = content[0:1000] + "[...]"
+
+        timestamp = Helpers.EmbedTime().strftime("%A %B %d at %X")
+        timestamp = "\n_Edited on " + timestamp + "_"
+
+        Edit_Log_Str = "\n**Edited To:**\n" + content + timestamp
+
+        await NewLog.AppendSentLog(Edit_Log_Str, AfterContext.Message.id, GuildLogChannel, New_Color=NewLog.EditColor)
+
+
+    @staticmethod
+    async def LogDelete(Context, Reason):
+        if not type(Context) == ContextMessage:
+            Context = ContextMessage(Context)
+
+        if Context.Message.author.bot:
+            if Context.Message.author.id == Vars.Bot.user.id:
+                DeletedFromBot = True
+                return
             return
 
-        phrase = "\n**" + type + "**"
-        await Log.AppendLogged(message.id, phrase, NewColor=Log.DeleteColor)
+        # Assuming not from bot
+        GuildLogChannel = await NewLog.FindLogChannel(Context.Message.channel)
+
+
+        Delete_Log_Str = ''
+        if not Reason:
+            timestamp = Helpers.EmbedTime().strftime("%A %B %d at %X")
+
+            Delete_Log_Str = "\n**Deleted on " + timestamp + ".**"
+        else:
+            Delete_Log_Str = Reason
+
+
+
+        await NewLog.AppendSentLog(Delete_Log_Str, Context.Message.id, GuildLogChannel, New_Color=NewLog.DeleteColor)
 
     @staticmethod
     async def LogCommand(message, type, success, DM=False):
@@ -1412,20 +1556,176 @@ class Log:
 
         description = "Content: `" + message.content + "`\nBot Response: " + success
 
-        em = discord.Embed(color=Log.SentColor, title=Title, description=description)
+        em = discord.Embed(color=NewLog.SentColor, title=Title, description=description)
 
         await CommandLog.send(embed=em)
 
-    @staticmethod
-    async def ErrorLog(args): # TODO Redo Logging
-        Argument = args[0]
-        return
-        print(type(Argument))
+
+
+
+
+
+
+
+
+
+
+
+# class Log:
+#     LogChannel = None
+#     SentColor = 0x42a1f4
+#     EditColor = 0xe5c1ff
+#     DeleteColor = 0xAA0000
+#
+#     @staticmethod
+#     def IsRedBot():
+#         if Vars.Bot.user.name == "RedBot":
+#             return True
+#         else:
+#             return False
+#
+#
+#     @staticmethod
+#     def SetLogChannel():
+#         if Log.LogChannel:
+#             return
+#         else:
+#             Log.LogChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
+#
+#     @staticmethod
+#     async def AppendLogged(givenid, append, NewColor=None):
+#         Log.SetLogChannel()
+#
+#         if not Log.IsRedBot:
+#             return
+#
+#         # Called from bot when something needs to be added to a logged message
+#         async for loggedmessage in Log.LogChannel.history(limit=1000):
+#             if loggedmessage.embeds:  # If it has embeds
+#                 FoundLog = loggedmessage.embeds[0].to_dict()
+#
+#                 # Look for footer ID
+#                 if 'footer' in FoundLog.keys():
+#                     if 'text' in FoundLog['footer'].keys():
+#                         IDStr = FoundLog['footer']['text'][4:].strip()
+#                         ID = int(IDStr)
+#
+#                         if ID == givenid:
+#                             # Then we have found the message
+#                             # Create new dict object
+#                             NewContent = FoundLog['description'] + append
+#
+#                             if NewColor:
+#                                 color = NewColor
+#                             else:
+#                                 color = FoundLog['color']
+#
+#                             em = discord.Embed(description=NewContent, color=color)
+#                             em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
+#                             em.set_footer(text=FoundLog['footer']['text'])
+#
+#                             if "image" in FoundLog.keys():
+#                                 em.set_image(url=FoundLog['image']['url'])
+#
+#                             await loggedmessage.edit(embed=em)
+#                             return True
+#         return False
+#
+#     @staticmethod
+#     async def LogSent(message):
+#         # Ran by bot to log a sent message
+#         Log.SetLogChannel()
+#
+#         if not Log.IsRedBot():
+#             return
+#
+#         if message.author.bot:
+#             return
+#
+#         if len(message.content) > 500:
+#             content = message.content[0:500] + " [...]"
+#         else:
+#             content = message.content
+#
+#         if type(message.channel) == discord.channel.DMChannel:
+#             GuildName = "Direct Messages"
+#         else:
+#             GuildName = message.channel.mention + "/" + message.guild.name
+#
+#         description = "**Message Sent in " + GuildName + "**\n" + content
+#         timestamp = datetime.now() + timedelta(hours = 3)
+#         timestamp = timestamp.strftime("%A %B %d at %X")
+#         timestamp = "\n_Originally sent on " + timestamp + "_"
+#
+#         em = discord.Embed(description=description + timestamp, color=Log.SentColor)
+#         em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
+#                       icon_url=message.author.avatar_url)
+#         em.set_footer(text="ID: " + str(message.id))
+#         if message.attachments:
+#             em.set_image(url=message.attachments[0].url)
+#
+#         await Log.LogChannel.send(embed=em)
+#
+#     @staticmethod
+#     async def LogEdit(before, after):
+#         Log.SetLogChannel()
+#
+#         if not Log.IsRedBot():
+#             return
+#
+#         if after.author.bot:
+#             return
+#
+#         if len(after.content) > 500:
+#             content = after.content[0:500] + " [...]"
+#         else:
+#             content = after.content
+#
+#         phrase = "\n**Edited to:**\n" + content
+#         await Log.AppendLogged(before.id, phrase, NewColor=Log.EditColor)
+#
+#     @staticmethod
+#     async def LogDelete(message, type):
+#         Log.SetLogChannel()
+#
+#         if not Log.IsRedBot():
+#             return
+#
+#         if message.author.bot:
+#             return
+#
+#         phrase = "\n**" + type + "**"
+#         await Log.AppendLogged(message.id, phrase, NewColor=Log.DeleteColor)
+#
+#     @staticmethod
+#     async def LogCommand(message, type, success, DM=False):
+#         # Logs a command being done afterwards
+#         CommandLog = Vars.Bot.get_channel(Sys.Channel["CommandLog"])
+#
+#         Title = "**Command of Type: " + type + "** executed by " + message.author.name + " in "
+#
+#         if DM:
+#             Title += "**private DM.**"
+#
+#         else:
+#             Title += message.channel.name + "/" + message.guild.name
+#
+#         description = "Content: `" + message.content + "`\nBot Response: " + success
+#
+#         em = discord.Embed(color=Log.SentColor, title=Title, description=description)
+#
+#         await CommandLog.send(embed=em)
+#
+#     @staticmethod
+#     async def ErrorLog(args): # TODO Redo Logging
+#         Argument = args[0]
+#         return
+#         print(type(Argument))
 
 
 class Admin:
     @staticmethod
-    @Command(Start="Delete", Prefix=True, Admin=True, NoSpace=True)
+    @Command(Start="Delete", Prefix=True, Admin=True, NoSpace=True, NotInclude="DeleteSince")
     async def Delete(Context):
         """
         Deletes a certain number of messages
@@ -1433,6 +1733,7 @@ class Admin:
         :return: returns nothing
         """
         message = Context.Message
+
 
         # Clean up the message
         content = message.content.lower().replace("delete", "")
@@ -1474,7 +1775,7 @@ class Admin:
             if content < 20:  # If there are less than 20 purged
                 for deleted_message in purged_messages:
                     # For each message deleted
-                    await Log.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
+                    await NewLog.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
                                   " of " + str(content) +" messages.")
             else:
                 AllIDs = "**Logging a Systematic Purge by " + message.author.name + " **(" + str(message.author.id) + ")** of " + str(content) + " messages**\n"
@@ -1484,8 +1785,59 @@ class Admin:
 
                     AllIDs += "- " + str(deleted_message.id) + "  " + deleted_message.author.name + " - " + content + "\n"
 
-                Log.SetLogChannel()
-                await Helpers.SendLongMessage(Log.LogChannel, AllIDs)
+                #Log.SetLogChannel()
+                #await Helpers.SendLongMessage(Log.LogChannel, AllIDs)
+
+    @staticmethod
+    @Command(Start="DeleteSince", Prefix=True, Admin=True, NoSpace=True)
+    async def DeleteSince(Context):
+        Content = Context.Message.content[len(" DeleteSince"):].strip()
+
+        LastHour = "In the Last Hour"
+        Last5Minutes = "In the Last 5 Minutes"
+        CustomChoice = "OR enter a custom time"
+
+        FirstChoice = await Helpers.UserChoice(Context, "DeleteSince: How far back should I go?", description="I should delete messages sent: ",
+                                               Choices=[Last5Minutes, LastHour, CustomChoice], Show_Cancel=True)
+        if FirstChoice == "Cancel":
+            return
+
+        # Okay so the item we're looking for is SinceTimeStamp
+        SinceTimeStamp = None
+
+        if FirstChoice == CustomChoice:
+            MinuteChoice = "Minutes"
+            HourChoice = "Hours"
+            DayChoice = "Days"
+
+            SecondChoice = await Helpers.UserChoice(Context, "DeleteSince: What unit would you like to use?", description="Next you'll give me a number, what will be the unit of time associated with it?",
+                                                    Choices=[MinuteChoice, HourChoice, DayChoice], Show_Cancel=True)
+            if SecondChoice == "Cancel":
+                return
+
+            AnswerMsg = await Helpers.NewAskQuestion(Context.Message.channel, "Answer this: I should delete messages sent in the last ___ " + SecondChoice, SpecSender=Context.Message.author.id, AfterDelete=True)
+            if not AnswerMsg:
+                return
+
+            try:
+                TimeAmount = int(AnswerMsg.content.strip())
+            except:
+                return
+
+            if SecondChoice == MinuteChoice:
+                SinceTimeStamp = (Helpers.EmbedTime() - timedelta(minutes=TimeAmount)).timestamp()
+            elif SecondChoice == HourChoice:
+                SinceTimeStamp = (Helpers.EmbedTime() - timedelta(hours=TimeAmount)).timestamp()
+            elif SecondChoice == DayChoice:
+                SinceTimeStamp = (Helpers.EmbedTime() - timedelta(days=TimeAmount)).timestamp()
+
+
+        elif FirstChoice == LastHour:
+            SinceTimeStamp = (Helpers.EmbedTime() - timedelta(hours=1)).timestamp()
+        elif Firstchoice == Last5Minutes:
+            SinceTimeStamp = (Helpers.EmbedTime() - timedelta(minutes=5)).timestamp()
+
+        await Context.Message.channel.send("That's all. Goodbye.")  # TODO FINISHcmd
 
 
     @staticmethod
@@ -2723,6 +3075,8 @@ class Memes:
         await Memes.AddMeme(message.guild.id, found_meme.url)
         await Memes.CleanMemes()
 
+        return    # TODO: REDO MEME SENDING
+
         # Now comes the fun part: The reactions
         # Set up emojis 'info' and 'repeat'
         info = Conversation.Emoji['info']
@@ -3203,43 +3557,13 @@ class Other:
         secondsDiff = (now_time - created_at)
         maxSeconds = 60 * 60 * 4  # 4 hours
 
-        async def LogDeletion(message):
-            await Log.LogDelete(message, "Deleted.")
-            return
+        #async def LogDeletion(message):
+        #    await Log.LogDelete(message, "Deleted.")
+        #    return
 
 
-            DeleteLoggerChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
-            # First check to see if it's already a logged deletion:
-            OneHour = datetime.now() - timedelta(hours = 1)
-            async for LogMessage in DeleteLoggerChannel.history(after=OneHour):
-                # For each message in the logger's history:
-                if LogMessage.embeds:  # If there's an embed
-                    embed = LogMessage.embeds[0].to_dict()  # Grab it as embed
-                    if "description" in embed.keys():
-                        if embed["description"].startswith("**Deleted"):
-                            if embed["footer"]["text"].startswith("ID"):
-                                LogMessageID = int(embed["footer"]["text"][3:].strip())
-                                if LogMessageID == message.id:
-                                    await LogMessage.add_reaction(Conversation.Emoji["check"])
-                                    return
-
-            # Create Embed for Logging Purposes
-            title = "**Deleted message by " + message.author.mention + " in " + message.channel.mention + \
-                    "/" + message.guild.name + "**\n"
-
-            em = discord.Embed(description=title + message.content, colour=0xff0000, timestamp=Helpers.EmbedTime())
-            em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
-                          icon_url=message.author.avatar_url)
-            em.set_footer(text="ID: " + str(message.id))
-
-            if message.attachments:
-                em.set_image(url=message.attachments[0].url)
-
-            await DeleteLoggerChannel.send(embed=em)
-            return
-
-        if not message.author.bot:  # If neither of these things are true, so it's just any other message, log it
-            await LogDeletion(message)
+        #if not message.author.bot:  # If neither of these things are true, so it's just any other message, log it
+            #await LogDeletion(message)
 
         recent_from_bot = False
         if maxSeconds > secondsDiff:  # If the message was sent less than 4 hours ago
@@ -4070,7 +4394,7 @@ class Other:
 
         await Context.Message.channel.trigger_typing()
         await Context.Message.channel.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
-        await Log.LogChannel.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
+        await Cmd.Vars.Creator.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
 
         await Context.Message.channel.trigger_typing()
 
@@ -4087,6 +4411,7 @@ class Poll:
     @staticmethod
     async def OnMessage(Context):
         await Poll.PollCommand(Context)
+        await Poll.ListPolls(Context)
 
     @staticmethod
     @Command(Prefix=True, Start=["poll", "yesno"])
@@ -4136,7 +4461,7 @@ class Poll:
 
         await message.channel.trigger_typing()
 
-        await Log.LogCommand(message, "Poll", "Successfully Set Up Poll.")
+        await NewLog.LogCommand(message, "Poll", "Successfully Set Up Poll.")
 
         # Prepare some strings for later use
         Characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+/\\\'\".,~`<>: "
@@ -4390,6 +4715,12 @@ class Poll:
                 if user in people:
                     await reaction.message.remove_reaction(IndividualReaction.emoji, user)
 
+    @staticmethod
+    @Command(Prefix=True, Start="Polls")
+    async def ListPolls(Context):
+        pass
+
+
 
 class Calculate:
     @staticmethod
@@ -4493,7 +4824,6 @@ class Calculate:
 class Tag:
     @staticmethod
     async def OnMessage(Context):
-
         await Tag.SetTag(Context)
         await Tag.TagFunction(Context)
         await Tag.ClearTagData(Context)
@@ -5721,7 +6051,7 @@ class Remind:
         sent = await message.channel.send(FirstTitleString, embed=em)
         await sent.edit(content=FinalTitleString, embed=em)
 
-        await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=Context.InDM)
+        await NewLog.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=Context.InDM)
 
         if Context.InDM:
             reaction_to_add = Conversation.Emoji["clock"]
@@ -7407,7 +7737,7 @@ class On_React:
         # If bot didn't originally react:f
         elif user.id in Ranks.Admins:
             try:
-                await Log.LogDelete(message, "Requested Delete by " + user.name)
+                await NewLog.LogDelete(message, "Requested Delete by " + user.name)
                 await message.delete()
             except Exception:
                 pass
@@ -7575,6 +7905,14 @@ class Call:
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
     #bob = os.system("pip install wolframalpha")
+
+    await NewLog.CleanUpLogData()
+    return
+
+    print(await Helpers.NewAskQuestion(Context.Message.channel, "Hello?", SpecSender=Context.Message.author.id))
+
+
+    return
     from geopy.geocoders import Nominatim
 
     geolocator = Nominatim(user_agent="bing")

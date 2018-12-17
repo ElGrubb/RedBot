@@ -46,7 +46,8 @@ class MyClient(discord.Client):
         Context = ContextMessage(message)
 
         if Cmd.Vars.Disabled:
-            await Cmd.Log.LogSent(message)
+            #await Cmd.Log.LogSent(message)
+            await Cmd.NewLog.LogSent(Context)
             Continue = await Cmd.Admin.Enable(Context)
             if not Continue:
                 return
@@ -54,7 +55,8 @@ class MyClient(discord.Client):
         await Cmd.test(Context)
         await Cmd.test2(Context)
 
-        await Cmd.Log.LogSent(message)
+        #await Cmd.Log.LogSent(message)
+        await Cmd.NewLog.LogSend(Context)
 
         await Cmd.Poll.OnMessage(Context)
         await Cmd.Help.OnMessage(Context)
@@ -74,6 +76,7 @@ class MyClient(discord.Client):
         # ADMIN Commands
         await Cmd.Admin.CopyFrom(Context)
         await Cmd.Admin.Delete(Context)
+        await Cmd.Admin.DeleteSince(Context)
         await Cmd.Admin.Stop(Context)
         await Cmd.Admin.LeaveServer(Context)
         await Cmd.Admin.ForceLeave(Context)
@@ -95,7 +98,11 @@ class MyClient(discord.Client):
 
 
     async def on_message_edit(self, before, after):
-        await Cmd.Log.LogEdit(before, after)
+        #await Cmd.Log.LogEdit(before, after)
+
+        BeforeContext = ContextMessage(before)
+        AfterContext = ContextMessage(after)
+        await Cmd.NewLog.LogEdit(BeforeContext, AfterContext)
 
 
     async def on_error(self, event_method, *args, **kwargs):
@@ -116,15 +123,7 @@ class MyClient(discord.Client):
             context = "**Message** by  `" + argument.author.name + "`   `" + str(argument.author.id) + \
                       "`   saying   `" + argument.content[0:80] + "`  "
 
-        #elif type(argument) == discord.emoji.PartialReactionEmoji:
-        #    channel = bot.get_channel(args[2])
-        #    message = await channel.get_message(args[1])
-        #    adder = channel.guild.get_member(args[3])
-        #    context = "**Partial Reaction** on message by  `" + message.author.name + "`  saying  `" + message.content[0:40]
-        #    try:
-        #        context += " `\nReaction was  `" + argument.name + "`  by  `" + adder.name + "`"
-        #    except:
-        #        context += "` \nError Retrieving Reaction Info"
+
         else:
             has_channel = False
 
@@ -208,8 +207,6 @@ class MyClient(discord.Client):
 
         return
 
-
-
         # Log in #Crashes
         to_log = datetime.now().strftime("%b %d %Y %r") + "\n**Location:**  "
         if has_channel:
@@ -289,6 +286,8 @@ class MyClient(discord.Client):
 
     async def on_message_delete(self, message):
         await Cmd.Other.On_Message_Delete(message)
+        Context = ContextMessage(message)
+        await Cmd.NewLog.LogDelete(Context, None)
 
     async def on_member_join(self, member):
         await Cmd.Other.On_Member_Join(member)
