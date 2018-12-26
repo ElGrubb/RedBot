@@ -3596,7 +3596,7 @@ class Other:
             StatusPrefix = ""
 
         if 100 < Variance < 200 and 8 < CurrentHour < 20:
-            New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Hello", "Hello, Human.", "Active", "Ready", "@Dom#2774"])
+            New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Up and running!", "Hello", "Hello, Human.", "Hello, Human", "Active", "Awaiting your Command...", "@Dom#2774"])
 
         game = discord.Activity(type=ActivityType, name=StatusPrefix + New_Status)
         await Vars.Bot.change_presence(status=discord.Status.online, activity=game)

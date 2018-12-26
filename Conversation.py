@@ -14,7 +14,11 @@ Hellos = [
     'I am ready to take over the wor- I mean Hello {0.author.mention}',
     'The square root of 2 is around 1.4- Hi {0.author.mention}, didn\'t see you there',
     'self destruct in 3, 2, 1 \nHi there, only joking for now',
-    'Communism is key, {0.author.mention}, don\'t you see?'
+    'Communism is key, {0.author.mention}, don\'t you see?',
+    "Howdy {0.author.mention}!",
+    "Hey {0.author.mention}, what's new?",
+    "Thanks for saying hello {0.author.mention}!",
+    "Hello, human."
 ]
 
 # GOODBYES
@@ -206,7 +210,12 @@ Error_Response = [
     "Nice try!",
     "Beep Bop Beep.",
     "I encountered some sort of bug. Here's the report:",
-    "Don't worry, I'm okay. Just this scratch:"
+    "Don't worry, I'm okay. Just this scratch:",
+    "Ow. What'd you do this time?",
+    "Here's the rundown:",
+    "You truly hate to see it.",
+    "I'm ok! I'm ok!",
+    "Don't worry, I stopped that error before it took me over and the situation became, well, `Terminator`y"
 ]
 
 
