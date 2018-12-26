@@ -3550,22 +3550,25 @@ class Other:
 
         # Okay let's go between possible times
         if 6 <= CurrentHour <= 10:  # Between 6 o clock and 10:
-            New_Status = random.choice(["Good Morning", "Morning", "Hello", "Bright and Early", "Wakey Wakey", "Wake Up!", "How'd You Sleep?", "Great Morning!", "Lovely Morning"])
+            New_Status = random.choice(["Good Morning", "Morning", "Hello", "Bright and Early", "Wakey Wakey", "Wake Up!", "How'd You Sleep?", "Great Morning!",
+                                        "Lovely Morning", "Need Coffee?", "Have Breakfast", "5 more minutes, mom"])
 
         elif 10 < CurrentHour < 12:
             New_Status = random.choice(["Need Coffee", "Making Lunch", "Hello", "Working Hard", "Hardly Working", "Running Smoothly", "Working Well!"])
 
         elif 12 <= CurrentHour <= 16:
-            New_Status = random.choice(["Happy Afternoon", "Good Afternoon", "Eating Lunch", "Working Hard", "Great Day", "Good Afternoon!", "Get Some Work Done", "Get to Work!", "Good Afternoon."])
+            New_Status = random.choice(["Happy Afternoon", "Good Afternoon", "Eating Lunch", "Working Hard", "Great Day", "Good Afternoon!", "Get Some Work Done", "Get to Work!",
+                                        "Good Afternoon.", "Get to Work", "Say Hi!", "Shouldn't you be Working?", "\"Hello, RedBot!\""])
 
         elif  16 < CurrentHour <= 19:
-            New_Status = random.choice(["Making Dinner", "Preparing Sunset", "Good Evening", "Great Evening", "Hello"])
+            New_Status = random.choice(["Making Dinner", "Preparing Sunset", "Good Evening", "Great Evening", "Hello", "Howdy Neighbor"])
 
         elif 19 < CurrentHour <= 21:
-            New_Status = random.choice(["Great Evening", "Good Evening", "Sun Setting", "Running Repair", "Having Dessert", "Running Well", "Evening."])
+            New_Status = random.choice(["Great Evening", "Good Evening", "Sun Setting", "Running Repair", "Having Dessert", "Running Well", "Evening!", "Howdy!"])
 
         elif 21 <= CurrentHour <= 24:
-            New_Status = random.choice(["Go to Sleep", "It's bedtime", "Go to Bed", "Sweet Dreams", "Good Night", "Sweet Dreams", "Good Night", "Great Night", "The Stars", "You Best Be Sleeping"])
+            New_Status = random.choice(["Go to Sleep", "It's bedtime", "Go to Bed", "Sweet Dreams", "Good Night", "Sweet Dreams", "Good Night", "Great Night",
+                                        "The Stars are Beautiful Tonight!", "You Best Be Sleeping", "Have you seen the moon?"])
 
         elif 0 <= CurrentHour <= 4:
             New_Status = random.choice(["You Up?", "Go to Sleep", "Hello.", "It's Late.", "Get Some Sleep", "So Quiet", "Silent Night", "Sweet Dreams",

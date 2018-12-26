@@ -365,14 +365,19 @@ WeatherText = {
     "Hey, Good %DayTime%!",
     "Hey!",
     "Hello! Good %DayTime%!",
-    "Great %DayTime%!"
+    "Great %DayTime%!",
+    "Hi. Good %DayTime%.",
+    "Let's get right to it:",
+    "Wow, %DayTime% already?",
+    "And Now, the Weather."
 ],
 'Currently': [
     "It is currently %Now% outside",
     "Right now it is %Now% outside",
     "The temperature is %Now%",
     "Currently, it's %Now%",
-    "Outside it is %Now%"
+    "Outside it is %Now%",
+    "Outside, it's %Now%"
 ],
 'FeelsLike': [
     "but it feels like %FeelsLike%",
@@ -394,17 +399,20 @@ WeatherText = {
 ],
 'Humidity': [
     "It will be very humid today.",
-    "The Humidity is very large today.",
-    "It will be very humid"
+    "Today'll be humid.",
+    "It will be very humid.",
+    "Expect high humidity."
 ],
 "Cloudy": [
     "It will be extremely cloudy today.",
-    "Very cloudy today",
-    "100% Cloud Cover"
+    "Very cloudy.",
+    "100% Cloud Cover!",
+    "Expect many clouds."
 ],
 "Sunny": [
     "Not a cloud in sight!",
-    "Extremely blue sky today"
+    "Extremely blue sky today!",
+    "Looks like it'll be a very sunny day!"
 ],
 "PrecipitationStart": [
     "There is a %Chance% of %Type% starting at %Time% %Date%",
