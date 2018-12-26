@@ -160,6 +160,7 @@ def Shorten_Link(link, undo=False):
         return link
     return new_link
 
+
 # Data for encoding / decoding
 SY2VA = {'0': 0,
          '1': 1,
@@ -224,6 +225,7 @@ SY2VA = {'0': 0,
          'y': 60,
          'z': 61,
          '!': 62}
+
 
 async def Encode(num, base):
     VA2SY = dict(map(reversed, SY2VA.items()))

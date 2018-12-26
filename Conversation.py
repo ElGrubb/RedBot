@@ -218,6 +218,10 @@ Server_IDs = {
     # 'CruzFumey': '281863357001367553'
 }
 
+Channel_IDs = {
+    "FileLog": 503044250188120124
+}
+
 
 
 E_Beginning = '@everyone in a few seconds, the E Competition will Begin! Here are the Rules:' \
@@ -605,7 +609,7 @@ Tips = [
     "You can ask for a fun RedBot tip at any time by tying /tip",
     "Polls and YesNo's are synonymous; you can try: ```/poll Should I get this?``` and ```/yesno Should I get this?```",
     "You can use real english when setting a reminder, such as: ```/remind On Tuesday at 5:30 PM <message>\n/remind Tomorrow morning <message>```",
-    "You can quickly make a reminder with the command \"/r\", such as: ```/r in 5 minutes call Jan```",
+    "You can quickly make a reminder with the command \"/r\", such as: ```/r 5 minutes call Jan```",
     "You can have me remember a link, image, number, words, etc. through a Personal Tag that only you can access! to create: ```/setptag <key> <content>```",
     "You can edit a tag / personal tag using ```/ptag edit <key>\n/tag edit <key>```",
     "Polls run for 4 days automatically, but you can stop yours at any time by adding a stop sign emoji :)"

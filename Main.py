@@ -3,42 +3,24 @@ import discord, random, traceback, asyncio, sys, time
 from datetime import datetime, timedelta
 from Cmd import ContextMessage
 
-class MyClient(discord.Client):
+class RedBot(discord.Client):
     async def on_ready(self):
-        print("Admin Code: " + str(Cmd.Vars.AdminCode))
-        join = 'Logged on as {0}'.format(self.user)
-        print(join + "\n" + "="*len(join))
-        await Cmd.Other.StatusChange()
-
-        Cmd.Vars.Creator = Cmd.Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
-        # Check if it just restarted:
-        isupdate = await Cmd.Admin.CheckRestart()  # True or False if update
-
-        await Cmd.Memes.CleanMemes()  # Clean Meme Files
-        await Cmd.Other.InterpretQuickChat()  # Prepare QuickChat Data
-        await Cmd.Cooldown.SetUpCooldown()  # Set up Cooldown Data
-        Cmd.Vars.start_time = datetime.utcnow()
-
-        if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":  # vs GOLDBOT
-            string = "I have just started up"
-            if isupdate:
-                string += ". Updated."
-            em = discord.Embed(title=string, timestamp=Cmd.Vars.start_time, color=Cmd.Vars.Bot_Color)
-            await Cmd.Vars.Creator.send(embed=em)
-
-        await Cmd.Remind.CheckForOldReminders()
-        await Cmd.Poll.RefreshData()
-        await Cmd.Poll.CleanData()
-
-
-        Cmd.Vars.Ready = True
+        await Cmd.OnEvents.On_Ready(self)
 
     async def on_message(self, message):
         if message.author.bot:
             return
 
-        if not Cmd.Vars.Ready:  # Ensures the bot is ready to go if a message is sent
-            await asyncio.sleep(2)
+        # Ok so let's see if it's starting in Safety_Mode
+        if Cmd.Vars.Safety_Mode:
+            if not message.author.id == Cmd.Vars.Creator.id:
+                await message.channel.send("I am currently in safety mode due to an error during the startup process")
+                return
+            await message.channel.send("`Safety Mode Response:`")
+
+
+        if not Cmd.Vars.Ready and not Cmd.Vars.Safety_Mode:  # Ensures the bot is ready to go if a message is sent
+            await asyncio.sleep(1)
             if not Cmd.Vars.Ready:  # If, after a second, it's not ready, the bot returns this thread
                 return
 
@@ -46,17 +28,14 @@ class MyClient(discord.Client):
         Context = ContextMessage(message)
 
         if Cmd.Vars.Disabled:
-            #await Cmd.Log.LogSent(message)
-            await Cmd.NewLog.LogSent(Context)
+            await Cmd.Log.LogSent(Context)
             Continue = await Cmd.Admin.Enable(Context)
             if not Continue:
                 return
 
         await Cmd.test(Context)
-        await Cmd.test2(Context)
 
-        #await Cmd.Log.LogSent(message)
-        await Cmd.NewLog.LogSend(Context)
+        await Cmd.Log.LogSend(Context)
 
         await Cmd.Poll.OnMessage(Context)
         await Cmd.Help.OnMessage(Context)
@@ -96,136 +75,16 @@ class MyClient(discord.Client):
 
         await Cmd.Admin.SinglePrivateMessage(Context)
 
-
     async def on_message_edit(self, before, after):
         #await Cmd.Log.LogEdit(before, after)
 
         BeforeContext = ContextMessage(before)
         AfterContext = ContextMessage(after)
-        await Cmd.NewLog.LogEdit(BeforeContext, AfterContext)
-
+        await Cmd.Log.LogEdit(BeforeContext, AfterContext)
 
     async def on_error(self, event_method, *args, **kwargs):
-        argument = args[0]
-
-        has_channel = True
-        context = None
-        # argument could be reaction, or message
-        if type(argument) == discord.reaction.Reaction:
-            channel = argument.message.channel
-            context = "**Reaction** on message by `" + argument.message.author + "` saying `" + argument.message.content[0:40]
-            try:
-                context += "`\nReaction was `" + argument.emoji + "` by `" + str(await argument.users().flatten())
-            except:
-                context += "\nError Retrieving Reaction Info"
-        elif type(argument) == discord.message.Message:
-            channel = argument.channel
-            context = "**Message** by  `" + argument.author.name + "`   `" + str(argument.author.id) + \
-                      "`   saying   `" + argument.content[0:80] + "`  "
-
-
-        else:
-            has_channel = False
-
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
-
-        NewTBList = []
-        for item in tblist:
-            if "site-packages\discord" not in item:
-                temp = item.replace("\\", "/")
-                temp = temp.replace("C:/Users/spong/Desktop", "").replace("/home/pi/Desktop", "")
-                temp = temp.replace("File \"/", "")
-                temp = temp.replace("RedBot/", "").replace("GoldBot/", "")
-
-                temp = "\"" + temp.strip()
-
-                temp = temp.replace("\n", ":\n")
-                NewTBList.append(temp)
-
-        NewTBList = NewTBList[1:]
-
-        ErrorMessage = NewTBList[-1][1:]
-
-        NewTBList = NewTBList[0 : len(NewTBList) - 1]
-
-        FullTraceBack = "\n".join(NewTBList)
-        FullTraceBack += "\n" + ErrorMessage
-
-        # First we send the small error message, and then the big boys come out
-        description = Sys.Response(Conversation.Error_Response).strip()
-        description += "\n    *`" + ErrorMessage + "`*"
-        em = discord.Embed(color=Cmd.Vars.Bot_Color, description=description)
-        em.set_author(name="RedBot Error", icon_url=bot.user.avatar_url, url="http://www.github.com/ElGrubb/RedBot")
-
-        em.set_footer(text="Don't worry, I'm still running, but I have terminated the command. ")
-
-        send = "```py\n" + FullTraceBack + "```"
-
-        if bot.user.name == "RedBot":
-            try:
-                await channel.send(embed=em)
-            except discord.NotFound:
-                pass
-
-
-        # Full Error Report time:
-        UserName = ""
-        UserID = ""
-        OriginalMsg = ""
-
-        if Cmd.IsDMChannel(channel):
-            ChannelName = "Private DM"
-            GuildName = "Direct Message"
-
-        else:
-            ChannelName = "#" + channel.name + " *(" + str(channel.id) + ")*"
-            GuildName = channel.guild.name + " *(" + str(channel.guild.id) + ")*"
-
-
-        FullError = ""
-        FullError += datetime.now().strftime("%b %d %Y %r") + \
-                     "\n**Location:** " + ChannelName + " in " + GuildName + \
-                     "\n**Context:** " + context
-
-
-        FullError += "```py\n" + FullTraceBack + "```"
-
-        if "\"File" in FullError:
-            FullError = FullError.replace("\"File", "File")
-
-        crash_channel = bot.get_channel(Sys.Channel["Errors"])
-
-        await crash_channel.send(FullError)
-        if bot.user.name == "GoldBot":
-            try:
-                await channel.send(FullError)
-            except discord.NotFound:
-                pass
-
-
-
+        await Cmd.OnEvents.On_Error(event_method, *args, **kwargs)
         return
-
-        # Log in #Crashes
-        to_log = datetime.now().strftime("%b %d %Y %r") + "\n**Location:**  "
-        if has_channel:
-            to_log += channel.guild.name + "   /   #" + channel.name + "   (*" + str(channel.id) + "*)"
-        to_log += "\n" + context + "\n" + to_send
-
-        if has_channel:
-            if await Cmd.CheckPermissions(channel, "send_messages"):
-                await channel.send(embed=em)
-            else:
-                has_channel = False
-        if not has_channel:
-            await crash_channel.send(Cmd.Vars.Creator.mention + ", this below was `Unlogged` in original channel.\n")
-
-
-        em = discord.Embed(description=to_log, color=Cmd.Vars.Bot_Color)
-
-        await crash_channel.send(embed=em)
-
 
     async def on_reaction_add(self, reaction, user):
         if user == bot.user:
@@ -238,7 +97,7 @@ class MyClient(discord.Client):
         if reaction.emoji == Conversation.Emoji["quote"]:
             await Cmd.Quotes.OnQuoteReaction(reaction, user)
         if reaction.emoji == Conversation.Emoji["x"]:
-            await Cmd.On_React.On_X(reaction, user)
+            await Cmd.OnEvents.On_X(reaction, user)
 
     async def on_raw_reaction_add(self, payload):
         message_id = payload.message_id
@@ -285,35 +144,18 @@ class MyClient(discord.Client):
             await self.on_reaction_add(reaction, user)
 
     async def on_message_delete(self, message):
-        await Cmd.Other.On_Message_Delete(message)
+        await Cmd.OnEvents.On_Message_Delete(message)
         Context = ContextMessage(message)
-        await Cmd.NewLog.LogDelete(Context, None)
+        await Cmd.Log.LogDelete(Context, None)
 
     async def on_member_join(self, member):
-        await Cmd.Other.On_Member_Join(member)
+        await Cmd.OnEvents.On_Member_Join(member)
 
     async def on_member_remove(self, member):
-        await Cmd.Other.On_Member_Remove(member)
+        await Cmd.OnEvents.On_Member_Remove(member)
 
     async def on_guild_join(self, guild):
-        to_send = "I have just been added to " + guild.name
-        initial_message = await Cmd.Vars.Creator.send(to_send)
-        confirmation = await Cmd.Helpers.Confirmation(Cmd.Vars.Creator, "Should I?", deny_text="Okay, leaving")
-
-        if confirmation == False:
-            await guild.leave()
-            await initial_message.delete()
-            await Cmd.Vars.Creator.send("I have officially left " + guild.name)
-
-        bot_member = None
-        for member in guild.members:
-            if member.id == Cmd.Vars.Bot.id:
-                bot_member = member
-
-        red_role = bot_member.roles[0]
-
-        color = discord.Colour(Cmd.Vars.Bot_Color)
-        await red_role.edit(color=color)
+        await Cmd.OnEvents.On_Guild_Join(guild)
 
     async def on_guild_remove(self, guild):
         creator = Cmd.Vars.Creator
@@ -327,7 +169,7 @@ async def getBot():
     return bot
 
 
-bot = MyClient()
+bot = RedBot()
 Cmd.Vars.Bot = bot
 if Sys.Read_Personal(data_type="Bot_Type") == "GoldBot":
     token = Sys.Read_Personal(data_type='Golden_Run_Code')

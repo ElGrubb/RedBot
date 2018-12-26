@@ -19,7 +19,7 @@ wolfram_client = wolframalpha.Client(Sys.Read_Personal(data_type='Wolfram_Alpha_
 class ContextMessage:
     "Okay so this class is made whenever a message is sent"
 
-    __slots__ = ['HasPrefix', 'IsAdmin', 'InDM', 'IsCreator', 'OriginalContent', "Message", 'StrippedContent', "Deleted"]
+    __slots__ = ['HasPrefix', 'IsAdmin', 'InDM', 'IsCreator', 'OriginalContent', "Message", 'StrippedContent', "Deleted", 'Channel']
 
     def __init__(self, message):
         self.Message = message
@@ -46,6 +46,8 @@ class ContextMessage:
 
         if message.author.id == Ranks.CreatorID:
             self.IsCreator = True
+
+        self.Channel = message.channel
 
         return
 
@@ -133,7 +135,7 @@ class Ranks:
 
 
 class Vars:  # Just a default class to hold a lot of the information that'll be accessed system-wide
-    Version = "5.15"
+    Version = "5.20"
     Command_Prefixes = ["/", "!", "?", "."]
 
     AdminCode = random.randint(0, 4000)
@@ -141,6 +143,9 @@ class Vars:  # Just a default class to hold a lot of the information that'll be 
     Disabled = False
     Disabler = None
     start_time = None
+    Safety_Mode = False
+
+    Safety_Mode_Info = {"Error_Message": ""}
 
     if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":
         Bot_Color = Sys.Colors["RedBot"]
@@ -214,6 +219,7 @@ async def CheckPermissions(channel, nec, return_all=False):
     use_voice_activation
     view_audit_log
     """
+
 
 class SeenMessages:
     RecentlySeen = []
@@ -368,7 +374,7 @@ def Command(Admin=False, Start=None, Prefix=True, Include=None, NotInclude=None,
                 await SeenMessages.LogFound(Context.Message.id)
 
             # ========================
-            await func(Context)  # ===
+            await func(Context)
             # ========================
 
         return Function_Wrapper
@@ -496,12 +502,13 @@ async def loadingSign(message):
 
 class Helpers:
     @staticmethod
-    async def Confirmation(Context, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
+    async def Confirmation(SendChannel, Responders, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
                            return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
-                           add_reaction=True, image=None, color=Vars.Bot_Color, footer_text=None):
+                           add_reaction=True, image=None, color=Vars.Bot_Color, footer_text=None, originalctx=None):
         """
         Sends a confirmation for a command
-        :param message: The message object
+        :param SendChannel: The channel object to send the message lmao
+        :param Responders: a List or user to send the message to
         :param text: What the message of the embed should say
         :param yes_text: If you want a confirmed message to play for 4 seconds
         :param deny_text: If you want a message to play when x is hit. 
@@ -509,19 +516,14 @@ class Helpers:
         :param mention: If the bot should mention the player in the beginning
         :return: Returns True if Yes, False if No, and None if timed out. 
         """
-        message = Context.Message
-        if type(message) == discord.message.Message:
-            author = message.author
-            channel = message.channel
-            guild = message.guild
-            is_message = True
-        elif type(message) == discord.user.User:
-            author = message
-            channel = message
-            guild = message
-            is_message = False
-        else:
-            raise TypeError("Should never be called.")
+
+        Responders_ID = []
+        if not type(Responders) == list:
+            Responders = [Responders]
+
+        for Responder in Responders:
+            Responders_ID.append(Responder.id)
+
 
         # Establish two emojis
         CancelEmoji = Conversation.Emoji['x']
@@ -541,17 +543,17 @@ class Helpers:
             em.set_image(url=image)
         # Send message and add emojis
 
-        QuestionMsg = await channel.send(before_message, embed=em)
+        QuestionMsg = await SendChannel.send(before_message, embed=em)
 
         await QuestionMsg.add_reaction(ContinueEmoji)
         await QuestionMsg.add_reaction(CancelEmoji)
 
         ReactionInfo = await Helpers.WaitForReaction(reaction_emoji=[ContinueEmoji, CancelEmoji], message=QuestionMsg,
-                                                     users_id=message.author.id, timeout=timeout, remove_wrong=True)
+                                                     users_id=Responders_ID, timeout=timeout, remove_wrong=True)
 
         if not ReactionInfo:
             await Helpers.QuietDelete(message)
-            await channel.send(deny_text, delete_after=5)
+            await SendChannel.send(deny_text, delete_after=5)
 
             if return_timeout:
                 return "Timed Out"
@@ -564,21 +566,22 @@ class Helpers:
         # If they hit the X
         if reaction.emoji == CancelEmoji:
             await QuestionMsg.delete()
-            await channel.send(deny_text, delete_after=5)
+            await SendChannel.send(deny_text, delete_after=5)
             return False
 
         # If they hit the check
         elif reaction.emoji == ContinueEmoji:
             await QuestionMsg.delete()
             if not deleted_original_message:
-                if is_message and add_reaction:
-                    await message.add_reaction(ContinueEmoji)
+                if add_reaction and originalctx:
+                    if not await originalctx.IsDeleted():
+                        await originalctx.Message.add_reaction(ContinueEmoji)
             if yes_text:
-                await channel.send(yes_text, delete_after=5)
+                await SendChannel.send(yes_text, delete_after=5)
             return True
 
     @staticmethod
-    async def UserChoice(Context, Question: str, Choices, timeout:int = 60, description=None, title=None,
+    async def UserChoice(SendChannel, Responders, Question: str, Choices, timeout:int = 60, description=None, title=None,
                          Color=Vars.Bot_Color, Show_Avatar=False, Show_Cancel=False):
         """
         Ran just like Helpers.Confirmation(), in which the bot prompts the user to answer with an option. Multiple choices not supported yet. 
@@ -588,6 +591,13 @@ class Helpers:
         :param timeout: int, how long to wait before returning None
         :return The string of the option chosen 
         """
+
+        Responders_ID = []
+        if not type(Responders) == list:
+            Responders = [Responders]
+
+        for Responder in Responders:
+            Responders_ID.append(Responder.id)
 
         if type(Choices) != list or not Choices:
             raise TypeError("Choices can be a list of dictionaries, or just a list of strings. Nothing else")
@@ -615,41 +625,6 @@ class Helpers:
             if i >= 10:  # Ensures each page of emoji get their own A B C etc
                 i = 0
 
-        # So, now we have "NewChoices", which has a dict like we wanted.
-        # Let's format the strings for each item, then make the embed
-
-        # EmbedContentList = []
-        # EmbedContent = ""
-        # i = 0
-        # for item in NewChoices:
-        #     EmbedContent +=  item["Emoji"] + "  " + Sys.FirstCap(item["Option"]) + "\n"
-        #     i += 1
-        #     if i >= 10:
-        #         i = 0
-        #         if description:
-        #             EmbedContent = description + '\n' + EmbedContent
-        #         EmbedContentList.append(EmbedContent)
-        # if EmbedContent not in EmbedContentList:
-        #     EmbedContentList.append(EmbedContent)
-        #
-        # if Show_Avatar:
-        #     Avatar = Vars.Bot.user.avatar_url
-        # else:
-        #     Avatar = ""
-        #
-        # EmbedList = []
-        # i = 0
-        # for Section in EmbedContentList:
-        #     if len(EmbedList) > 1:
-        #         FooterPageNum = "Page " + str(i+1) + "/" + str(len(EmbedList)) + " | "
-        #     else:
-        #         FooterPageNum = ""
-        #     em = discord.Embed(description=Section, title=title, color=Color, timestamp=Helpers.EmbedTime())
-        #     em.set_author(icon_url=Avatar, name=Question)
-        #     em.set_footer(text=FooterPageNum + "Times out after " + str(timeout) + " seconds")
-        #     EmbedList.append(em)
-        #     i += 1
-
         if Show_Avatar:
             Avatar = Vars.Bot.user.avatar_url
         else:
@@ -675,14 +650,14 @@ class Helpers:
             em.set_footer(text="Times out after " + str(timeout) + " seconds")
 
             # Send the first section.
-            sent = await Context.Message.channel.send(embed=em)
+            sent = await SendChannel.send(embed=em)
 
             EmojiList = []
             for item in NewChoices:
                 await sent.add_reaction(item["Emoji"])
                 EmojiList.append(item["Emoji"])
             
-            Answer = await Helpers.WaitForReaction(reaction_emoji=EmojiList, message=sent, users_id=[Context.Message.author.id], timeout=timeout, remove_wrong=True)
+            Answer = await Helpers.WaitForReaction(reaction_emoji=EmojiList, message=sent, users_id=Responders_ID, timeout=timeout, remove_wrong=True)
 
             # So this'll either be None, or a Reaction Dict thing:
             # {"Reaction": reaction, "User": user}
@@ -764,7 +739,7 @@ class Helpers:
             MaxPage = len(SeparatedNewChoices) - 1
 
             # Okay, let's send the message:
-            Prompt = await Context.Message.channel.send(embed=PageDict[CurrentPage]["Embed"])
+            Prompt = await SendChannel.send(embed=PageDict[CurrentPage]["Embed"])
 
             GoLeft =  Conversation.Emoji["TriangleLeft"]
             GoRight = Conversation.Emoji["TriangleRight"]
@@ -783,13 +758,13 @@ class Helpers:
 
                 # Wait for reactions
                 response = await Helpers.WaitForReaction(reaction_emoji = PageDict[CurrentPage]["EmojiList"]+ [GoLeft, GoRight],
-                                                         message=Prompt, users_id=[Context.Message.author.id], timeout=timeout, remove_wrong=True)
+                                                         message=Prompt, users_id=Responders_ID, timeout=timeout, remove_wrong=True)
                 if not response:
                     await Helpers.QuietDelete(Prompt)
                     return None
 
                 if response["Reaction"].emoji in [GoLeft, GoRight]:
-                    if Context.InDM:
+                    if IsDMChannel(SendChannel):
                         for reaction in PageDict[CurrentPage]["EmojiList"]:
                             # print(reaction)
                             await Prompt.remove_reaction(reaction, Vars.Bot.user)
@@ -817,7 +792,6 @@ class Helpers:
                 if Option["Emoji"] == ChosenEmoji:
                     await Helpers.QuietDelete(Prompt)
                     return Option["Option"]
-
 
     @staticmethod
     def RetrieveData(type=None):
@@ -968,7 +942,6 @@ class Helpers:
 
                     await QuestionMsg.edit(embed=Em)
             return None
-
 
     @staticmethod
     async def MessageAdmins(prompt, embed=None):
@@ -1229,9 +1202,9 @@ class Helpers:
                         Vars.Bot.loop.create_task(RemoveReaction(init_reaction, init_user))
                     return False
 
-
             if users_id:  # If the user is correct
                 if int(init_user.id) not in users_id:
+                    print("Yee?")
                     if remove_wrong:
                         Vars.Bot.loop.create_task(RemoveReaction(init_reaction, init_user))
                     return False
@@ -1300,7 +1273,7 @@ class Helpers:
         return [float(location.raw["lat"]), float(location.raw["lon"]), location.raw["display_name"], location.raw["icon"]]
 
 
-class NewLog:
+class Log:
     Guild_Directory = {}  # {GuildID: LogChannelObj}
     Logging_Folder_ID = 487134325389918218
 
@@ -1308,11 +1281,10 @@ class NewLog:
     EditColor = 0xe5c1ff
     DeleteColor = 0xAA0000
 
-
     @staticmethod
     async def LogSend(Context):  # Ran on every message; logs
         # First we need the ID of the channel for that guild
-        GuildLogChannel = await NewLog.FindLogChannel(Context.Message.channel)
+        GuildLogChannel = await Log.FindLogChannel(Context.Message.channel)
 
         # Now let's prepare the Embed to send
         title = "**Message Sent in: "
@@ -1331,9 +1303,10 @@ class NewLog:
 
         footer = "ID: " + str(Context.Message.id)
 
-        em = discord.Embed(description=title + description + timestamp, color=NewLog.SentColor)
+        em = discord.Embed(description=title + description + timestamp, color=Log.SentColor)
         em.set_author(name=name, icon_url=Context.Message.author.avatar_url)
         em.set_footer(text=footer)
+        # todo add images to log
 
         SentLogMessage = await GuildLogChannel.send(embed=em)
 
@@ -1349,7 +1322,7 @@ class NewLog:
         PlayGroundGuild = Vars.Bot.get_guild(Conversation.Server_IDs["PlayGround"])
         # Let's iterate through each category until we find the one
         for TempCategory in PlayGroundGuild.categories:
-            if TempCategory.id == NewLog.Logging_Folder_ID:
+            if TempCategory.id == Log.Logging_Folder_ID:
                 LogCategory = TempCategory
                 break
 
@@ -1358,7 +1331,7 @@ class NewLog:
     @staticmethod
     async def FindLogChannel(SentChannel):
         """
-        Checks NewLog.Guild_Directory to see if the channel is already there
+        Checks Log.Guild_Directory to see if the channel is already there
         If not, searches for it in the Discord Guild, and adds it to the directory
         If not, creates it in the discord, adds it to the directory.
         :param SentChannel: the discord.Channel obj of the channel that the message was sent in
@@ -1373,14 +1346,14 @@ class NewLog:
             SentGuildID = SentChannel.guild.id
             DM = False
 
-        # Do we already have the SentGuildID in the NewLog.Guild_Directory?
-        if SentGuildID in NewLog.Guild_Directory.keys():
+        # Do we already have the SentGuildID in the Log.Guild_Directory?
+        if SentGuildID in Log.Guild_Directory.keys():
             # If so:
-            LogChannelObj = NewLog.Guild_Directory[SentGuildID]
+            LogChannelObj = Log.Guild_Directory[SentGuildID]
             return LogChannelObj
 
         # Okay, is the channel in the cateogry?
-        LogCategory = await NewLog.FindGuildLogCategory()
+        LogCategory = await Log.FindGuildLogCategory()
 
         # Now we have LogCategory. Let's check the channels in it for the following:
         LogIdentifier = str(SentGuildID)
@@ -1400,12 +1373,12 @@ class NewLog:
                 if len(SentGuildName) > 20:
                     SentGuildName = SentGuildName[0:20]
 
-            NewLogChannelName = SentGuildName + " " + str(SentGuildID)
+            LogChannelName = SentGuildName + " " + str(SentGuildID)
             PlayGroundGuild = Vars.Bot.get_guild(Conversation.Server_IDs["PlayGround"])
-            LogChannelObj = await PlayGroundGuild.create_text_channel(NewLogChannelName, category=LogCategory)
+            LogChannelObj = await PlayGroundGuild.create_text_channel(LogChannelName, category=LogCategory)
 
-        # Okay so now we have a LogChannelObj, so let's update NewLog.Guild_Directory
-        NewLog.Guild_Directory[SentGuildID] = LogChannelObj
+        # Okay so now we have a LogChannelObj, so let's update Log.Guild_Directory
+        Log.Guild_Directory[SentGuildID] = LogChannelObj
 
         return LogChannelObj
 
@@ -1416,7 +1389,7 @@ class NewLog:
         :return: None
         """
         # First, let's iterate through each item in the GuildLog Category to see if the channels all have the right name
-        GuildLogCategory = await NewLog.FindGuildLogCategory()
+        GuildLogCategory = await Log.FindGuildLogCategory()
         for Channel in GuildLogCategory.channels:
             # We need to confirm that the item we're working with is a logchannel
             PossibleChannelID = Channel.name.split("-")[-1]  # This formula gives us the last word in it
@@ -1447,8 +1420,8 @@ class NewLog:
 
                 await Channel.edit(name=GuildName)
 
-        # Now that all of that madness is over, let's just clear the NewLog.Guild_Directory
-        NewLog.Guild_Directory = {}
+        # Now that all of that madness is over, let's just clear the Log.Guild_Directory
+        Log.Guild_Directory = {}
 
     @staticmethod
     async def AppendSentLog(Add_Str: str, Msg_ID: int, LogChannel, New_Color=None):
@@ -1466,6 +1439,8 @@ class NewLog:
         Matching_Log_Msg = None
         async for loggedmessage in LogChannel.history(limit=500):
             if not loggedmessage.embeds:  # If it doesn't have embeds, move on.
+                continue
+            if loggedmessage.author.id != Vars.Bot.user.id:
                 continue
 
             # Set Log_Embed equal to the dict of the embed content
@@ -1497,7 +1472,7 @@ class NewLog:
 
     @staticmethod
     async def LogEdit(BeforeContext, AfterContext):  # Ran on every edit; logs edits
-        GuildLogChannel = await NewLog.FindLogChannel(AfterContext.Message.channel)
+        GuildLogChannel = await Log.FindLogChannel(AfterContext.Message.channel)
 
         if BeforeContext.Message.content == AfterContext.Message.content:
             return
@@ -1511,8 +1486,7 @@ class NewLog:
 
         Edit_Log_Str = "\n**Edited To:**\n" + content + timestamp
 
-        await NewLog.AppendSentLog(Edit_Log_Str, AfterContext.Message.id, GuildLogChannel, New_Color=NewLog.EditColor)
-
+        await Log.AppendSentLog(Edit_Log_Str, AfterContext.Message.id, GuildLogChannel, New_Color=Log.EditColor)
 
     @staticmethod
     async def LogDelete(Context, Reason):
@@ -1526,7 +1500,7 @@ class NewLog:
             return
 
         # Assuming not from bot
-        GuildLogChannel = await NewLog.FindLogChannel(Context.Message.channel)
+        GuildLogChannel = await Log.FindLogChannel(Context.Message.channel)
 
 
         Delete_Log_Str = ''
@@ -1539,7 +1513,7 @@ class NewLog:
 
 
 
-        await NewLog.AppendSentLog(Delete_Log_Str, Context.Message.id, GuildLogChannel, New_Color=NewLog.DeleteColor)
+        await Log.AppendSentLog(Delete_Log_Str, Context.Message.id, GuildLogChannel, New_Color=Log.DeleteColor)
 
     @staticmethod
     async def LogCommand(message, type, success, DM=False):
@@ -1556,171 +1530,9 @@ class NewLog:
 
         description = "Content: `" + message.content + "`\nBot Response: " + success
 
-        em = discord.Embed(color=NewLog.SentColor, title=Title, description=description)
+        em = discord.Embed(color=Log.SentColor, title=Title, description=description)
 
         await CommandLog.send(embed=em)
-
-
-
-
-
-
-
-
-
-
-
-
-# class Log:
-#     LogChannel = None
-#     SentColor = 0x42a1f4
-#     EditColor = 0xe5c1ff
-#     DeleteColor = 0xAA0000
-#
-#     @staticmethod
-#     def IsRedBot():
-#         if Vars.Bot.user.name == "RedBot":
-#             return True
-#         else:
-#             return False
-#
-#
-#     @staticmethod
-#     def SetLogChannel():
-#         if Log.LogChannel:
-#             return
-#         else:
-#             Log.LogChannel = Vars.Bot.get_channel(Sys.Channel["DeleteLog"])
-#
-#     @staticmethod
-#     async def AppendLogged(givenid, append, NewColor=None):
-#         Log.SetLogChannel()
-#
-#         if not Log.IsRedBot:
-#             return
-#
-#         # Called from bot when something needs to be added to a logged message
-#         async for loggedmessage in Log.LogChannel.history(limit=1000):
-#             if loggedmessage.embeds:  # If it has embeds
-#                 FoundLog = loggedmessage.embeds[0].to_dict()
-#
-#                 # Look for footer ID
-#                 if 'footer' in FoundLog.keys():
-#                     if 'text' in FoundLog['footer'].keys():
-#                         IDStr = FoundLog['footer']['text'][4:].strip()
-#                         ID = int(IDStr)
-#
-#                         if ID == givenid:
-#                             # Then we have found the message
-#                             # Create new dict object
-#                             NewContent = FoundLog['description'] + append
-#
-#                             if NewColor:
-#                                 color = NewColor
-#                             else:
-#                                 color = FoundLog['color']
-#
-#                             em = discord.Embed(description=NewContent, color=color)
-#                             em.set_author(name=FoundLog['author']['name'], icon_url=FoundLog['author']['icon_url'])
-#                             em.set_footer(text=FoundLog['footer']['text'])
-#
-#                             if "image" in FoundLog.keys():
-#                                 em.set_image(url=FoundLog['image']['url'])
-#
-#                             await loggedmessage.edit(embed=em)
-#                             return True
-#         return False
-#
-#     @staticmethod
-#     async def LogSent(message):
-#         # Ran by bot to log a sent message
-#         Log.SetLogChannel()
-#
-#         if not Log.IsRedBot():
-#             return
-#
-#         if message.author.bot:
-#             return
-#
-#         if len(message.content) > 500:
-#             content = message.content[0:500] + " [...]"
-#         else:
-#             content = message.content
-#
-#         if type(message.channel) == discord.channel.DMChannel:
-#             GuildName = "Direct Messages"
-#         else:
-#             GuildName = message.channel.mention + "/" + message.guild.name
-#
-#         description = "**Message Sent in " + GuildName + "**\n" + content
-#         timestamp = datetime.now() + timedelta(hours = 3)
-#         timestamp = timestamp.strftime("%A %B %d at %X")
-#         timestamp = "\n_Originally sent on " + timestamp + "_"
-#
-#         em = discord.Embed(description=description + timestamp, color=Log.SentColor)
-#         em.set_author(name=message.author.name + "#" + str(message.author.discriminator),
-#                       icon_url=message.author.avatar_url)
-#         em.set_footer(text="ID: " + str(message.id))
-#         if message.attachments:
-#             em.set_image(url=message.attachments[0].url)
-#
-#         await Log.LogChannel.send(embed=em)
-#
-#     @staticmethod
-#     async def LogEdit(before, after):
-#         Log.SetLogChannel()
-#
-#         if not Log.IsRedBot():
-#             return
-#
-#         if after.author.bot:
-#             return
-#
-#         if len(after.content) > 500:
-#             content = after.content[0:500] + " [...]"
-#         else:
-#             content = after.content
-#
-#         phrase = "\n**Edited to:**\n" + content
-#         await Log.AppendLogged(before.id, phrase, NewColor=Log.EditColor)
-#
-#     @staticmethod
-#     async def LogDelete(message, type):
-#         Log.SetLogChannel()
-#
-#         if not Log.IsRedBot():
-#             return
-#
-#         if message.author.bot:
-#             return
-#
-#         phrase = "\n**" + type + "**"
-#         await Log.AppendLogged(message.id, phrase, NewColor=Log.DeleteColor)
-#
-#     @staticmethod
-#     async def LogCommand(message, type, success, DM=False):
-#         # Logs a command being done afterwards
-#         CommandLog = Vars.Bot.get_channel(Sys.Channel["CommandLog"])
-#
-#         Title = "**Command of Type: " + type + "** executed by " + message.author.name + " in "
-#
-#         if DM:
-#             Title += "**private DM.**"
-#
-#         else:
-#             Title += message.channel.name + "/" + message.guild.name
-#
-#         description = "Content: `" + message.content + "`\nBot Response: " + success
-#
-#         em = discord.Embed(color=Log.SentColor, title=Title, description=description)
-#
-#         await CommandLog.send(embed=em)
-#
-#     @staticmethod
-#     async def ErrorLog(args): # TODO Redo Logging
-#         Argument = args[0]
-#         return
-#         print(type(Argument))
 
 
 class Admin:
@@ -1762,7 +1574,7 @@ class Admin:
             return
 
         if content > 9:
-            confirmation = await Helpers.Confirmation(Context, "Delete " + str(content) + " messages?",
+            confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Delete " + str(content) + " messages?",
                                                       deny_text="Deletion Cancelled", timeout=20)
         else:
             confirmation = True
@@ -1775,7 +1587,7 @@ class Admin:
             if content < 20:  # If there are less than 20 purged
                 for deleted_message in purged_messages:
                     # For each message deleted
-                    await NewLog.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
+                    await Log.LogDelete(deleted_message, "Requested Purge by " + message.author.name + \
                                   " of " + str(content) +" messages.")
             else:
                 AllIDs = "**Logging a Systematic Purge by " + message.author.name + " **(" + str(message.author.id) + ")** of " + str(content) + " messages**\n"
@@ -1797,7 +1609,7 @@ class Admin:
         Last5Minutes = "In the Last 5 Minutes"
         CustomChoice = "OR enter a custom time"
 
-        FirstChoice = await Helpers.UserChoice(Context, "DeleteSince: How far back should I go?", description="I should delete messages sent: ",
+        FirstChoice = await Helpers.UserChoice(Context.Channel, Context.Message.author, "DeleteSince: How far back should I go?", description="I should delete messages sent: ",
                                                Choices=[Last5Minutes, LastHour, CustomChoice], Show_Cancel=True)
         if FirstChoice == "Cancel":
             return
@@ -1810,7 +1622,7 @@ class Admin:
             HourChoice = "Hours"
             DayChoice = "Days"
 
-            SecondChoice = await Helpers.UserChoice(Context, "DeleteSince: What unit would you like to use?", description="Next you'll give me a number, what will be the unit of time associated with it?",
+            SecondChoice = await Helpers.UserChoice(Context.Channel, Context.Message.author, "DeleteSince: What unit would you like to use?", description="Next you'll give me a number, what will be the unit of time associated with it?",
                                                     Choices=[MinuteChoice, HourChoice, DayChoice], Show_Cancel=True)
             if SecondChoice == "Cancel":
                 return
@@ -1838,7 +1650,6 @@ class Admin:
             SinceTimeStamp = (Helpers.EmbedTime() - timedelta(minutes=5)).timestamp()
 
         await Context.Message.channel.send("That's all. Goodbye.")  # TODO FINISHcmd
-
 
     @staticmethod
     @Command(Start="Guilds", Prefix=True, Admin=True, NoSpace=True)
@@ -1963,7 +1774,6 @@ class Admin:
 
         await Helpers.SendLongMessage(message.channel, sendmsg)
 
-
     @staticmethod
     @Command(Start="stop", Prefix=True, Admin=True, NoSpace=True)
     async def Stop(Context):
@@ -1975,7 +1785,7 @@ class Admin:
         message = Context.Message
 
         # Check to make sure the user confirms it
-        confirmation = await Helpers.Confirmation(Context, "Shut Down?", deny_text="Shut Down Cancelled")
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Shut Down?", deny_text="Shut Down Cancelled")
         if confirmation:
             await Vars.Bot.change_presence(status=discord.Status.offline)  # Status to offline
             await Vars.Bot.logout()  # Log off
@@ -1986,7 +1796,7 @@ class Admin:
         message = Context.Message
 
         text = "Leave " + message.guild.name + "?"  # Says "Leave Red Playground?"
-        confirmation = await Helpers.Confirmation(Context, text, deny_text="I will stay.")  # Waits for confirmation
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
@@ -2002,7 +1812,7 @@ class Admin:
         GuildToLeave = ChannelToLeave.guild
  # hi
         text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
-        confirmation = await Helpers.Confirmation(Context, text, deny_text="I will stay.")  # Waits for confirmation
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             invitelist = []
@@ -2024,7 +1834,7 @@ class Admin:
     async def Disable(Context):
         message = Context.Message
 
-        if not await Helpers.Confirmation(Context, "Disable?", deny_text="Will Stay Enabled."):
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Disable?", deny_text="Will Stay Enabled."):
             return
 
         Vars.Disabled = True
@@ -2045,7 +1855,7 @@ class Admin:
 
         # If still disabled:
         to_send = message.author.mention + ", would you like to Re-Enable?"
-        confirmation = await Helpers.Confirmation(Context, to_send, timeout=30, return_timeout=True, deleted_original_message=True)
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, to_send, timeout=30, return_timeout=True, deleted_original_message=True)
         if not confirmation:  # If they say X, stay disabled:
             await message.channel.send("Will stay disabled indefinitely. ", delete_after=5)
             return
@@ -2156,7 +1966,7 @@ class Admin:
             channel = await Ask('channel', message, given_guild=guild)
         if guild and channel:
             if delay:
-                response = await Helpers.Confirmation(Context, "Click when ready", timeout=120)
+                response = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Click when ready", timeout=120)
                 if not response:
                     return
             await channel.send(content)
@@ -2201,7 +2011,7 @@ class Admin:
 
         TimerIsRunning = await Timer.IsRunning()
         if not TimerIsRunning:
-            confirmation = await Helpers.Confirmation(Context, "TimeThread is NOT running. Start it?")
+            confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "TimeThread is NOT running. Start it?")
 
             if confirmation:
                 try:
@@ -2209,7 +2019,7 @@ class Admin:
                     Started_Successfully = False
 
                 except:
-                    second_confirmation = await Helpers.Confirmation(Context, "That returned an error. Continue?.")
+                    second_confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "That returned an error. Continue?.")
                     if second_confirmation:
                         Started_Successfully = True
                     else:
@@ -2227,7 +2037,7 @@ class Admin:
 
                 Choices = [RestartRedBot, RestartRaspPi]
 
-                final_choice = await Helpers.UserChoice(Context, "Didn't work. What action should I take?", Choices, Show_Cancel=True)
+                final_choice = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Didn't work. What action should I take?", Choices, Show_Cancel=True)
 
                 if not final_choice:
                     return
@@ -2254,9 +2064,6 @@ class Admin:
         #    await message.channel.send("I have not recieved a ping from the timethread yet. If I have just restarted, "
         #                               "this is okay. Otherwise, you should check for an error because I haven't started"
         #                               " the timethread since I've booted. ")
-
-
-
 
     @staticmethod
     async def BotRestart(type, Channel_ID, Log=True):
@@ -2285,7 +2092,7 @@ class Admin:
     async def Restart(Context):
         message = Context.Message
 
-        confirmation = await Helpers.Confirmation(Context, "Restart?", deny_text="Restart Cancelled")
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Restart?", deny_text="Restart Cancelled")
         if not confirmation:
             return
         # Add check to message
@@ -2319,7 +2126,7 @@ class Admin:
             await message.channel.send("Oops! Can only update rn from a group server! :)\nTerminated Update.")
             return
 
-        if not await Helpers.Confirmation(Context, "Update?", deny_text="Update Cancelled", timeout=20):
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Update?", deny_text="Update Cancelled", timeout=20):
             return
 
         channel = message.channel
@@ -2351,7 +2158,7 @@ class Admin:
 
         currentData = Helpers.RetrieveData()
 
-        if not await Helpers.Confirmation(Context, "THIS IS BROKEN. CONTINUE?"):
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "THIS IS BROKEN. CONTINUE?"):
             return
 
         def check(m):
@@ -2366,13 +2173,13 @@ class Admin:
 
         looking_for = Sys.FirstCap(response.content).strip().replace(" ", "_")
         if looking_for not in currentData:
-            confirmation = await Helpers.Confirmation(Context, "Cannot find data type. Continue?", timeout=30)
+            confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Cannot find data type. Continue?", timeout=30)
             if not confirmation:
                 # If they do not want to continue
                 return
 
         to_load = ""
-        is_long = await Helpers.Confirmation(Context, "Is it longer than 2000?")
+        is_long = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Is it longer than 2000?")
         if not is_long:
             msg = await channel.send("Please send the json.dumps string.")
             response = await Vars.Bot.wait_for("message", check=check)
@@ -2434,10 +2241,8 @@ class Admin:
             else:
                 data = data[content]
 
-        #if not await Helpers.Confirmation(Context, "Send data?"):
-        #    return
 
-        pretty_print = await Helpers.Confirmation(Context, "Do you want it to be pretty print?")
+        pretty_print = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Do you want it to be pretty print?")
 
         # Prepare data
         if pretty_print:
@@ -2469,7 +2274,7 @@ class Admin:
 
         content = message.content[16:].strip()
 
-        if not await Helpers.Confirmation(Context, "Add " + content + " To Personal? Cannot be reversed."):
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Add " + content + " To Personal? Cannot be reversed."):
             return
 
         content = content.split(":")
@@ -2497,7 +2302,7 @@ class Admin:
     async def Broadcast(Context):
         message = Context.Message
 
-        if not await Helpers.Confirmation(Context, "Are you sure you want to broadcast?"):
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Are you sure you want to broadcast?"):
             return
 
         message.content = message.content[1:].replace("broadcast", "").strip()
@@ -2539,6 +2344,532 @@ class Admin:
         await message.channel.send("== End of Output ==")
         return
 
+
+class OnEvents:
+    """
+    Class containing functions that are run on each event.
+    """
+    @staticmethod
+    async def On_Ready(selfbot):
+        """
+        Run every time the bot starts up to start important functions
+        :param selfbot: the self object of the bot that is fed through
+        :return: True if sucessful.
+        """
+        print("Admin Code: " + str(Vars.AdminCode))
+        join = 'Logged on as {0}'.format(selfbot.user)
+        print(join + "\n" + "=" * len(join))
+        Vars.Creator = Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
+
+        await Other.StatusChange()
+
+        # Check if it just restarted:
+        isupdate = await Admin.CheckRestart()  # True or False if update
+
+        await Memes.CleanMemes()  # Clean Meme Files
+        await Other.InterpretQuickChat()  # Prepare QuickChat Data
+        await Cooldown.SetUpCooldown()  # Set up Cooldown Data
+        Vars.start_time = datetime.utcnow()
+
+        if Sys.Read_Personal(data_type="Bot_Type") == "RedBot":  # vs GOLDBOT
+            string = "I have just started up"
+            if isupdate:
+                string += ". Updated."
+            em = discord.Embed(title=string, timestamp=Vars.start_time, color=Vars.Bot_Color)
+            await Vars.Creator.send(embed=em)
+
+        await Remind.CheckForOldReminders()
+        await Poll.RefreshData()
+        await Poll.CleanData()
+
+        Vars.Ready = True
+
+    @staticmethod
+    async def On_Member_Join(member):
+        guild = member.guild
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        description = "Account Created at: " + member.created_at.strftime("%H:%M:%S  on  %m-%d-%Y")
+        description += "\nJoined Server at: " + datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
+        description += '\nID: `' + str(member.id) + '`'
+        if member.bot:
+            description += '\nYou are a bot. I do not like being replaced.'
+        em = discord.Embed(description=description, colour=0xffffff)
+        em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
+        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
+
+        permissions = await CheckPermissions(default_channel, ["send_messages", "change_nickname"], return_all=True)
+
+        # Add to audit log
+        if permissions["change_nickname"]:
+            bot_member = guild.get_member(Vars.Bot.user.id)
+            old_name = bot_member.name
+            await bot_member.edit(nick="Thinking...", reason=member.name + " joined.")
+            await bot_member.edit(nick=old_name)
+
+        # Send the message
+        if permissions['send_messages']:
+            await default_channel.send("Welcome!", embed=em)
+        else:
+            for channel in guild.text_channels:
+                if await CheckPermissions(channel, "send_messages"):
+                    await channel.send("Welcome!", embed=em)
+                    return
+            await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nWelcome!", embed=em)
+
+    @staticmethod
+    async def On_Member_Remove(member):
+        # Double check if it's the bot
+        if member.id == Vars.Bot.user.id:
+            return
+
+        guild = member.guild
+        channel_list = []
+        for channel in guild.text_channels:
+            channel_list.append(channel)
+        default_channel = channel_list[0]
+
+        permissions = await CheckPermissions(default_channel, ["view_audit_log", "send_messages", "change_nickname"],
+                                             return_all=True)
+        if permissions["view_audit_log"]:
+            reason = False
+            async for entry in guild.audit_logs(limit=1):
+                if str(entry.action) == 'AuditLogAction.kick' and entry.target.id == member.id:
+                    reason = "Kicked by " + Sys.FirstCap(entry.user.name)
+                elif str(entry.action) == 'AuditLogAction.ban' and entry.target.id == member.id:
+                    reason = "Banned by " + Sys.FirstCap(entry.user.name)
+                else:
+                    reason = "Left on their own terms."
+        else:
+            reason = "[*Unable to read Audit Log*]"
+
+        description = "**Reason: **" + reason
+        description += '\n**ID:** `' + str(member.id) + '`'
+
+        # Embed
+        em = discord.Embed(description=description, colour=0xffffff, timestamp=Helpers.EmbedTime())
+        em.set_author(name=member.name + " left.", icon_url=member.avatar_url)
+        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
+
+        # Add to audit log
+        if permissions["change_nickname"]:
+            bot_member = guild.get_member(Vars.Bot.user.id)
+            old_name = bot_member.name
+            await bot_member.edit(nick="Thinking...", reason=member.name + " left.")
+            await bot_member.edit(nick=old_name)
+
+        # Send the message
+        if permissions['send_messages']:
+            await default_channel.send("Goodbye!", embed=em)
+        else:
+            for channel in guild.text_channels:
+                if await CheckPermissions(channel, "send_messages"):
+                    await channel.send("Goodbye!", embed=em)
+                    return
+            await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nGoodbye!", embed=em)
+
+    @staticmethod
+    async def On_Message_Delete(message):
+        delete_from_redbot = False
+        if Vars.Disabled:
+            return
+        guild = message.guild
+        if str(message.channel).startswith("Direct Message"):
+            return
+
+        created_at = time.mktime(message.created_at.timetuple())
+        now_time = time.mktime(datetime.utcnow().timetuple())
+        secondsDiff = (now_time - created_at)
+        maxSeconds = 60 * 60 * 4  # 4 hours
+
+        recent_from_bot = False
+        if maxSeconds > secondsDiff:  # If the message was sent less than 4 hours ago
+            if message.author == Vars.Bot.user:
+                recent_from_bot = True
+
+        permissions = await CheckPermissions(message.channel, ["send_messages", "view_audit_log"], return_all=True)
+        if permissions['view_audit_log']:
+            # If the delete was on a RedBot message and not by an admin
+            async for entry in guild.audit_logs(limit=1):
+                if str(entry.action) == 'AuditLogAction.message_delete':
+                    if message.author == Vars.Bot.user and entry.user not in Ranks.Admins:
+                        delete_from_redbot = entry.user.name
+                    else:
+                        delete_from_redbot = False
+        else:  # if it can't see the audit log
+            if recent_from_bot:
+                delete_from_redbot = "`Unknown`"
+            else:
+                delete_from_redbot = False
+
+        async def Attempt_To_Send(message, content, embed):
+            """Ran if it cannot send the message"""
+            guild = message.guild
+            channel = message.channel
+            sent = False
+            for channel in guild.text_channels:
+                if await CheckPermissions(channel, "send_messages"):
+                    await channel.send(content, embed=embed)
+                    sent = True
+                    break
+            if not sent:
+                await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\n" + content, embed=embed)
+
+        if delete_from_redbot:
+            if message.content.startswith("Welcome!") or message.content.startswith("Goodbye!"):
+                new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
+                              (delete_from_redbot, datetime.now())
+                message.content = new_content + message.content
+                if permissions['send_messages']:
+                    await message.channel.send(message.content, embed=message.embeds[0])
+                else:
+                    await Attempt_To_Send(message, message.content, embed=message.embeds[0])
+
+            elif message.content.startswith("**Reconstructed**"):
+                content = message.content.split('\n')[1]
+                new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
+                              (delete_from_redbot, datetime.now())
+                message.content = new_content + content
+                if permissions['send_messages']:
+                    await message.channel.send(message.content, embed=message.embeds[0])
+                else:
+                    await Attempt_To_Send(message, message.content, embed=message.embeds[0])
+
+    @staticmethod
+    async def On_X(reaction, user):
+        if user.id in Ranks.Bots:
+            return
+
+        if await Helpers.Deleted(reaction.message):
+            return
+
+        message = reaction.message
+        try:
+            total_users = await reaction.users().flatten()
+
+        except discord.NotFound:
+            return
+        if Vars.Bot.user in total_users:  # If bot originally reacted X
+            if message.author.id != Vars.Bot.user.id:
+                # If the message isn't by the bot:
+                try:
+                    await message.delete()
+                    return
+                except Exception:
+                    pass
+            return
+
+        # If bot didn't originally react:f
+        elif user.id in Ranks.Admins:
+            try:
+                await Log.LogDelete(message, "Requested Delete by " + user.name)
+                await message.delete()
+            except Exception:
+                pass
+            return
+
+    @staticmethod
+    async def On_Error(event_method, *args, **kwargs):
+        """
+        Ran on every error within the bot.
+        :param event_method:    Tells you what function had the error
+        :param args:            The stuff affected (message obj, reaction obj, etc)
+        :param kwargs:          Other stuff? Not really sure what goes here tbh
+        :return:                Nothing really. Sends in channel
+        """
+        # Okay so we want these two things from the args/kwargs:
+        Context   = None  # The context in which it happened
+        Traceback = None  # What lines of code stopped this
+        Channel = None
+
+        Context, Location = None, None
+        if args:  # Okay so if there's a message, or a reaction, sent along
+            First_Argument = args[0]
+
+            # So now we have this First_Argument, here's what we want
+            ArgumentType = None
+            if type(First_Argument) == discord.reaction.Reaction:
+                ArgumentType = "Reaction"
+            elif type(First_Argument) == discord.message.Message:
+                ArgumentType = "Message"
+            elif type(First_Argument) == discord.guild.Guild:
+                ArgumentType = "Guild"
+
+            # Now we know what type the argument was, let's dictate what we want from this
+
+            # Let's start with Context
+            if ArgumentType == "Reaction":
+                Channel = First_Argument.message.channel
+
+                Context = "**Reaction** on message by `" + First_Argument.message.author + "` saying `" + First_Argument.message.content[                                                                                   0:60]
+                try:
+                    Context += "`\nReaction was `" + First_Argument.emoji + "` by `" + str(await First_Argument.users().flatten())
+                except:
+                    Context += "\nError Retrieving Reaction Info"
+
+            elif ArgumentType == "Message":
+                Channel = First_Argument.channel
+
+                Context = "**Message** by " + First_Argument.author.name + " *`(" + str(First_Argument.author.id) + \
+                          ")`* saying **\"**`" + First_Argument.content[0:80] + "`**\"**"
+
+            # Now let's do Location
+            if ArgumentType == "Message" or ArgumentType == "Reaction":
+                # Quick if DM Channel
+                if IsDMChannel(Channel):
+                    Location = "**Location:** #Direct Messages Channel"
+                else:
+                    Location = "**Location:** #" + Channel.name + " *`(" + str(Channel.id) + ")`* in " \
+                                                 + Channel.guild.name + " *`(" + str(Channel.guild.id) + ")`*"
+
+            # Okay so now we have an official Location and Context
+
+        if not Context or not Location:
+            print("Running")
+            # So if there is no Context and no Location
+            Context = "**RedBot Internal Error** in *`" + str(event_method) + "`* function."
+            Location = "No futher knowledge"
+
+        # Okay so now we have Context and Location. Let's figure out the Long_TraceBack and Short_Traceback
+        Short_TraceBack = ""
+        Long_TraceBack  = ""
+
+        # This will create a list of the system traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        tblist = tblist[2:]
+
+        # Now let's work with the traceback a bit
+        new_tblist = []
+        for part in tblist:
+            # Okay so these are some things to shorten the criteria
+            part = part.replace("\\", "/").strip()
+            part = part.replace("C:/Users/spong/Desktop/", "").replace("/home/pi/Desktop/", "")
+            part = part.replace("C:/Users/spong/AppData/Local/Programs/Python/Python36-32/lib/site-packages/", "")
+            part = part.replace("During ", "# During ")
+            part = part.replace("RedBot/", "").replace("GoldBot/", "")
+            part = part.replace("File ", "")
+            part = part.replace("    ", "\t")
+
+            if part.startswith("\"discord/") or part.startswith("Traceback"):
+                continue
+
+            # After all that nonsense, we need to add it to new_tblist
+            new_tblist.append(part)
+
+        # Now let's set up the Short_TraceBack and Long_Traceback
+        Short_TraceBack = new_tblist[-1]
+        Long_TraceBack  = '\n'.join(new_tblist)
+
+        # Now we have both of them. Let's make two messages, Short_Em and Long_Em
+        # SHORT_EM
+        CatchPhrase = Sys.Response(Conversation.Error_Response).strip()
+        Short_Em_Description = CatchPhrase + "\n\t*`" + Short_TraceBack + "`*"
+        Short_Em = discord.Embed(color=Vars.Bot_Color, description=Short_Em_Description)
+        Short_Em.set_author(name="RedBot Error", icon_url=Vars.Bot.user.avatar_url, url="http://www.github.com/ElGrubb/RedBot")
+        Short_Em.set_footer(text="I'm still running, but I have terminated the command. ")
+
+        # LONG_EM
+        DateStamp = datetime.now().strftime("%b %d %Y at %r")
+        Long_Em_Description = Context + "\n" + Location + "\n```py\n" + Long_TraceBack + "```"
+        Long_Em = discord.Embed(color=Vars.Bot_Color, description=Long_Em_Description)
+        Long_Em.set_author(name="RedBot Error", icon_url=Vars.Bot.user.avatar_url, url="http://www.github.com/ElGrubb/RedBot")
+        Long_Em.set_footer(text="Error Occurred on " + DateStamp+ ", but I could recover successfully with no damage done. Crisis Averted")
+
+        # Let's just test to see if it's with on_ready
+        if str(event_method).lower() == "on_ready":
+            Vars.Safety_Mode = True
+            await Vars.Creator.send("Error during On_Ready! Starting in safety mode.")
+
+        # Quick test if it's GoldBot or not
+        if Vars.Bot.user.name == "GoldBot":
+            if Channel:  await Channel.send(embed=Long_Em)
+            else:   await Vars.Creator.send(embed=Long_Em)
+            return
+
+        Crash_Channel = Vars.Bot.get_channel(Sys.Channel["Errors"])
+        await Crash_Channel.send(embed=Long_Em)
+
+        if Channel:  await Channel.send(embed=Short_Em)
+        else:   await Vars.Creator.send(embed=Long_Em)
+
+        return
+
+    @staticmethod
+    async def On_Guild_Join(Guild):
+        # Ran when the bot joins a guild
+        # First thing to do is check that the bot is given all permissions
+        Bot_Member = Guild.get_member(Vars.Bot.user.id)
+
+        # Tell Creator that it joined the server
+        to_send = "I have just been added to " + Guild.name
+        Creator_Message = await Vars.Creator.send(to_send)
+
+        Integration_Role = None
+        # Find the role created by Integration (Should be named RedBot/GoldBot)
+        for Bot_Role in Bot_Member.roles:
+            if Bot_Role.name == Vars.Bot.user.name:
+                Integration_Role = Bot_Role
+
+        # Create a Permission Dictionary (PermDict) of the Integration Roles given
+        PermDict = {}
+        for permission in Integration_Role.permissions:
+            PermDict[permission[0]] = permission[1]
+
+        # Now we want to see if it can read and write messages. Otherwise we have to leave.
+        if not PermDict["read_messages"] or not PermDict["send_messages"]:
+            await Guild.leave()
+            return
+
+        # Assuming you can send messages, let's send a hello message in the Top Channel
+        Top_Channel = Guild.text_channels[0]
+
+        def CreateEmbed(Description, Done_Working=False):
+            """
+            Creates the embed necessary for the Guild Join
+            :param Description: What to put in the message
+            :return: The discord.Embed object
+            """
+
+            title = "I'm Setting Everything Up."
+            bottom = "  ---  Hang tight while I work through all the calculations."
+            if Done_Working:
+                title = ""
+                bottom = ""
+
+            em = discord.Embed(color=Vars.Bot_Color, description=Description, title=title)
+            em.set_author(name="Hi, I'm " + Vars.Bot.user.name + ".", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text="Joining " + Guild.name + bottom, icon_url=Guild.icon_url)
+            return em
+
+        ProgressMsg = await Top_Channel.send(embed=CreateEmbed("Checking Guild Permissions..."))
+
+        # Okay so now we need to check what permissions we don't have.
+        Necessary_Permissions = ['add_reactions', 'attach_files', 'change_nickname', 'embed_links', 'external_emojis',
+                                 'manage_channels', 'manage_messages', 'manage_roles', 'read_message_history', 'read_messages',
+                                 'send_messages', 'view_audit_log']
+        Recommended_Permissions = ['administrator', 'manage_guild', 'mention_everyone', 'manage_emojis', 'kick_members']
+        Not_Needed_Permissions = ['ban_members', 'connect', 'manage_nicknames', 'manage_webhooks', 'move_members', 'mute_members',
+                                  'send_tts_messages', 'speak', 'use_voice_activation']
+
+        # So let's go through each permission!
+        # NECESSARY PERMISSIONS
+        Missing_Necessary_Permission = False
+        Necessary_String = ""
+        for permission in Necessary_Permissions:
+            if not PermDict[permission]:
+                Necessary_String += "\n" + Conversation.Emoji['x'] + " " + Sys.FirstCap(permission)
+                Missing_Necessary_Permission = True
+        if Necessary_String:
+            Necessary_String = "Absolutely Necessary Permissions: ```" + Necessary_String + "```"
+
+        # RECOMMENDED PERMISSIONS
+        Recommended_String = ""
+        for permission in Recommended_Permissions:
+            if not PermDict[permission]:
+                Recommended_String += "\n" + Conversation.Emoji['x'] + " " + Sys.FirstCap(permission)
+        if Recommended_String:
+            Recommended_String = "Recommended Permissions: ```" + Recommended_String + "```"
+
+        # See if there's anything we need :)
+        await ProgressMsg.delete()
+        All_Strings = ""
+        if Recommended_String or Necessary_String:
+            All_Strings = Necessary_String + Recommended_String
+            All_Strings.strip()
+            All_Strings += "\nPlease add these to the `" + Vars.Bot.user.name + "` role, not my color one!"
+
+            PermissionMsg = await Top_Channel.send(embed=CreateEmbed(All_Strings, Done_Working=True))
+
+        if Missing_Necessary_Permission:
+            # If the bot is missing a necessary permission, it should leave the server
+            await Top_Channel.send(embed=CreateEmbed("I am going to leave now. Please give me the permissions when you add "
+                                   "me in the server and it'll be put in my integration role.", Done_Working=True))
+            await Guild.leave()
+            return
+
+        # Moving on, now we know we have the right permissions. Let's put some filler text
+        ProgressMsg = await Top_Channel.send(embed=CreateEmbed("Creating Color Role"))
+        color = discord.Color(Vars.Bot_Color)
+        color_role = await Guild.create_role(name=Vars.Bot.user.name + " Color", color=color,
+                                           reason="Created to have my color be true")
+        await Bot_Member.add_roles(color_role)
+
+        # Now we have the color role. We now are pretty great to go. Let's add some weird filler because it does nothing important
+        async def ProgressMessageEdits():
+            try:
+                await asyncio.sleep(2)
+                await ProgressMsg.edit(embed=CreateEmbed("Creating Database entry for Guild..."))
+
+                await asyncio.sleep(2)
+                await ProgressMsg.edit(embed=CreateEmbed("Creating Database entry for Guild...\n"
+                                                         "Adding members to database..."))
+
+                await asyncio.sleep(6)
+                await ProgressMsg.edit(embed=CreateEmbed("Checking Guild Statistic..."))
+
+                await asyncio.sleep(1)
+                await ProgressMsg.edit(embed=CreateEmbed("Doing other random ass stuff"))
+
+                await asyncio.sleep(2)
+                await ProgressMsg.edit(embed=CreateEmbed("Cleaning stuff up..."))
+
+                await asyncio.sleep(5)
+                await ProgressMsg.edit(embed=CreateEmbed("Waiting for Confirmation..."))
+
+            except discord.NotFound:
+                return 0
+
+        # Okay so we're going to run the ProgressMessageEdits thread simotaneously while waiting for confirmation
+        NewThread = Vars.Bot.loop.create_task(ProgressMessageEdits())
+        Confirmation = await Helpers.Confirmation(Vars.Creator, Vars.Creator, "Should I stay?", extra_text=All_Strings,
+                                                  deny_text="Okay, leaving", yes_text="Okay, staying!")
+
+        await Helpers.QuietDelete(ProgressMsg)
+
+        if Confirmation == False:
+            await Top_Channel.send(embed=CreateEmbed("I'm leaving due to a negative confirmation. <3", Done_Working=True))
+            await Guild.leave()
+            return
+
+        # If the confirmation is true, send the Hello Message
+
+        WelcomeEmbed = discord.Embed(description="\nI am a bot created by *`Dom#2774`*  to help with all sorts of stuff."
+                                                 "\nHere are some commands and functions you can do with me:", color=Vars.Bot_Color)
+        WelcomeEmbed.set_thumbnail(url=Vars.Bot.user.avatar_url)
+        WelcomeEmbed.set_author(name="Hi, I'm RedBot")
+        OtherText = "**Reminders** - I can remind you of text, links, or images at any given time"\
+                    "```>>> /remind {When you want to be reminded} {Stuff to be reminded with}"\
+                    "\n>>> /remind 6 hours 2 minutes http://www.WPI.edu"\
+                    "\n>>> /r 12:24 that I need to water my plant"\
+                    "\n>>> /editreminders```"\
+                    "\n**Polls** - I can create polls for user votes in the guild"\
+                    "```>>> /poll Should we add RedBot?\n\tAbsolutely\n\tMaybe not\n\tNever!```"\
+                    "\n**Tags** - I can save images, links, and data under a 'key' to be recalled at any time"\
+                    "```>>> /settag {Key-Separated-By-Hyphens} Content to save"\
+                    "\n>>> /settag WPI-Website http://www.WPI.edu  # To set the tag"\
+                    "\n>>> /tag WPI-Website  # To call the tag (shorten /tag to /t)"\
+                    "\n>>> /setptag {Personal-Tag-Key} Content # To set a tag only you can access"\
+                    "\n>>> /ptag Personal Tag Key # To call that personal tag```"\
+                    "\n**Calculations** - I can access Wolfram Alpha to provide in-Discord-queries"\
+                    "```>>> =5 + 3"\
+                    "\n>>> Capital of Oregon"\
+                    "\n>>> Derivative of f(x) = 3 sin(x) + 7x"\
+                    "\n>>> CO2 structure```"\
+                    "\n**Other Functions** - This is barely all I can do."\
+                    "```>>> /weather {location}"\
+                    "\n>>> /color {Hex Code}  # To change your rank color"\
+                    "\n>>> /upload {image attachment}"\
+                    "\n>>> /shorten {link}"\
+                    "\n>>> /send {meme/doggo/cringe/surreal}"\
+                    "\nAnd quote functionality {/help quote}```"\
+                    "\nPlease perform /help {command name} to learn more about specific commands"
+
+        await Top_Channel.send(embed=WelcomeEmbed)
+        await Top_Channel.send(OtherText)
 
 
 class Cooldown:
@@ -2591,7 +2922,6 @@ class Cooldown:
                 Cooldown.data[meme_type][user]["refrac"] = 480
 
             return Cooldown.data[meme_type][user]["wait"]
-
 
     @staticmethod
     def CheckCooldown(meme_type, user, guild):
@@ -2660,9 +2990,8 @@ class Timer:
                     except Exception as e:
                         await Vars.Creator.send("Error during weather, error = " + str(e))
 
-                if current_time == '12:00':
-                    await Remind.CheckForOldReminders()
-                    await Poll.CleanData()
+                if current_time == '23:00':
+                    await Timer.NightlyCheck()
 
                 await Remind.CheckForReminders()
 
@@ -2687,6 +3016,31 @@ class Timer:
         if Now - Timer.Ping >= 120:  # Two minutes since last ping:
             return False
         return True
+
+    @staticmethod
+    async def NightlyCheck():
+        """
+        So these are the things that happen nightly at 11:00 PM
+        :return: None
+        """
+
+        # So first let's send the DataFile
+        DataLogChannel = Conversation
+        DateStamp = datetime.now().strftime("%b %d %Y at %r")
+
+        OrigPath = os.getcwd()
+        if OrigPath.startswith("C:"):       Slash = "\\"
+        elif OrigPath.startswith("/home"):  Slash = "/"
+        addpath = Slash + "Data.txt"
+
+        newfile = discord.File(os.getcwd() + addpath)
+        FileChannel = Vars.Bot.get_channel(Conversation.Channel_IDs["FileLog"])
+        await FileChannel.send("**Nightly File Send: **" + DateStamp, file=newfile)
+
+
+        # Other checks to do nightly!
+        await Remind.CheckForOldReminders()
+        await Poll.CleanData()
 
 
 class Quotes:
@@ -2727,7 +3081,7 @@ class Quotes:
 
         if GuildID not in data.keys():
             em = discord.Embed(description="There are no saved quotes for this server!\n"
-                                                                "To save a quote, add a " + Conversation.Emoji["quote"] + " reaction"
+                                                                "To save a quote, add a " + Conversation.Emoji["quote"] + " reaction "
                                                                 "to a message.", timestamp=Helpers.EmbedTime())
             em.set_author(name="Quote Error", icon_url=Vars.Bot.user.avatar_url)
             em.set_footer(text=message.guild.name, icon_url=message.guild.icon_url)
@@ -3135,7 +3489,6 @@ class Memes:
                 continue_on = False  # Do not continue
         return
 
-
     @staticmethod
     async def AddMeme(guild_id, meme_url):
         data = Helpers.RetrieveData(type="Memes")
@@ -3225,6 +3578,7 @@ class Other:
         # Let's add a bit of variance
         Variance = random.randrange(0, 200)
 
+
         ActivityType = discord.ActivityType.playing
         StatusPrefix = "v" + Vars.Version + " | "
 
@@ -3243,8 +3597,6 @@ class Other:
 
         game = discord.Activity(type=ActivityType, name=StatusPrefix + New_Status)
         await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
-
-
 
     @staticmethod
     async def PrepareWeatherData():
@@ -3460,163 +3812,6 @@ class Other:
             await channel.send(msg)
             return
         return
-
-    @staticmethod
-    async def On_Member_Join(member):
-        guild = member.guild
-        channel_list = []
-        for channel in guild.text_channels:
-            channel_list.append(channel)
-        default_channel = channel_list[0]
-
-        description = "Account Created at: " + member.created_at.strftime("%H:%M:%S  on  %m-%d-%Y")
-        description += "\nJoined Server at: " + datetime.now().strftime("%H:%M:%S  on  %m-%d-%Y")
-        description += '\nID: `' + str(member.id) + '`'
-        if member.bot:
-            description += '\nYou are a bot. I do not like being replaced.'
-        em = discord.Embed(description=description, colour=0xffffff)
-        em.set_author(name=member.name + "#" + str(member.discriminator), icon_url=member.avatar_url)
-        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
-
-        permissions = await CheckPermissions(default_channel, ["send_messages", "change_nickname"], return_all=True)
-
-        # Add to audit log
-        if permissions["change_nickname"]:
-            bot_member = guild.get_member(Vars.Bot.user.id)
-            old_name = bot_member.name
-            await bot_member.edit(nick="Thinking...", reason=member.name + " joined.")
-            await bot_member.edit(nick=old_name)
-
-        # Send the message
-        if permissions['send_messages']:
-            await default_channel.send("Welcome!", embed=em)
-        else:
-            for channel in guild.text_channels:
-                if await CheckPermissions(channel, "send_messages"):
-                    await channel.send("Welcome!", embed=em)
-                    return
-            await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nWelcome!", embed=em)
-
-    @staticmethod
-    async def On_Member_Remove(member):
-        guild = member.guild
-        channel_list = []
-        for channel in guild.text_channels:
-            channel_list.append(channel)
-        default_channel = channel_list[0]
-
-        permissions = await CheckPermissions(default_channel, ["view_audit_log", "send_messages", "change_nickname"], return_all=True)
-        if permissions["view_audit_log"]:
-            reason = False
-            async for entry in guild.audit_logs(limit=1):
-                if str(entry.action) == 'AuditLogAction.kick' and entry.target.id == member.id:
-                    reason = "Kicked by " + Sys.FirstCap(entry.user.name)
-                elif str(entry.action) == 'AuditLogAction.ban' and entry.target.id == member.id:
-                    reason = "Banned by " + Sys.FirstCap(entry.user.name)
-                else:
-                    reason = "Left on their own terms."
-        else:
-            reason = "[*Unable to read Audit Log*]"
-
-        description = "**Reason: **" + reason
-        description += '\n**ID:** `' + str(member.id) + '`'
-
-        # Embed
-        em = discord.Embed(description=description, colour=0xffffff, timestamp=Helpers.EmbedTime())
-        em.set_author(name=member.name + " left.", icon_url=member.avatar_url)
-        em.set_footer(text=Sys.FirstCap(guild.name), icon_url=guild.icon_url)
-
-        # Add to audit log
-        if permissions["change_nickname"]:
-            bot_member = guild.get_member(Vars.Bot.user.id)
-            old_name = bot_member.name
-            await bot_member.edit(nick="Thinking...", reason=member.name + " left.")
-            await bot_member.edit(nick=old_name)
-
-        # Send the message
-        if permissions['send_messages']:
-            await default_channel.send("Goodbye!", embed=em)
-        else:
-            for channel in guild.text_channels:
-                if await CheckPermissions(channel, "send_messages"):
-                    await channel.send("Goodbye!", embed=em)
-                    return
-            await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\nGoodbye!", embed=em)
-
-    @staticmethod
-    async def On_Message_Delete(message):
-        delete_from_redbot = False
-        if Vars.Disabled:
-            return
-        guild = message.guild
-        if str(message.channel).startswith("Direct Message"):
-            return
-
-        created_at = time.mktime(message.created_at.timetuple())
-        now_time = time.mktime(datetime.utcnow().timetuple())
-        secondsDiff = (now_time - created_at)
-        maxSeconds = 60 * 60 * 4  # 4 hours
-
-        #async def LogDeletion(message):
-        #    await Log.LogDelete(message, "Deleted.")
-        #    return
-
-
-        #if not message.author.bot:  # If neither of these things are true, so it's just any other message, log it
-            #await LogDeletion(message)
-
-        recent_from_bot = False
-        if maxSeconds > secondsDiff:  # If the message was sent less than 4 hours ago
-            if message.author == Vars.Bot.user:
-                recent_from_bot = True
-
-        permissions = await CheckPermissions(message.channel, ["send_messages", "view_audit_log"], return_all=True)
-        if permissions['view_audit_log']:
-            # If the delete was on a RedBot message and not by an admin
-            async for entry in guild.audit_logs(limit=1):
-                if str(entry.action) == 'AuditLogAction.message_delete':
-                    if message.author == Vars.Bot.user and entry.user not in Ranks.Admins:
-                        delete_from_redbot = entry.user.name
-                    else:
-                        delete_from_redbot = False
-        else:  # if it can't see the audit log
-            if recent_from_bot:
-                delete_from_redbot = "`Unknown`"
-            else:
-                delete_from_redbot = False
-
-        async def Attempt_To_Send(message, content, embed):
-            """Ran if it cannot send the message"""
-            guild = message.guild
-            channel = message.channel
-            sent = False
-            for channel in guild.text_channels:
-                if await CheckPermissions(channel, "send_messages"):
-                    await channel.send(content, embed=embed)
-                    sent = True
-                    break
-            if not sent:
-                await Helpers.MessageAdmins("Cannot send this in " + guild.name + "\n" + content, embed=embed)
-
-        if delete_from_redbot:
-            if message.content.startswith("Welcome!") or message.content.startswith("Goodbye!"):
-                new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
-                              (delete_from_redbot, datetime.now())
-                message.content = new_content + message.content
-                if permissions['send_messages']:
-                    await message.channel.send(message.content, embed=message.embeds[0])
-                else:
-                    await Attempt_To_Send(message, message.content, embed=message.embeds[0])
-
-            elif message.content.startswith("**Reconstructed**"):
-                content = message.content.split('\n')[1]
-                new_content = "**Reconstructed** after deletion attempt by %s at %s + \n" % \
-                              (delete_from_redbot, datetime.now())
-                message.content = new_content + content
-                if permissions['send_messages']:
-                    await message.channel.send(message.content, embed=message.embeds[0])
-                else:
-                    await Attempt_To_Send(message, message.content, embed=message.embeds[0])
 
     @staticmethod
     @Command(Prefix=True, Start="fullweather", NoSpace=True)
@@ -3889,8 +4084,6 @@ class Other:
         Context.Message.content = Context.Message.content[8:].strip()
         await Other.ChatLinkShorten(Context, command=True)
 
-
-
     @staticmethod
     @Command(Start="Count", Prefix=True)
     async def CountMessages(Context):
@@ -3900,7 +4093,7 @@ class Other:
         text = "I will count messages until I see a " + stop_emoji + " reaction. My limit is: `2500` messages."
         description = "Click the Check when you're ready!"
 
-        if not await Helpers.Confirmation(Context, text=text, deny_text="Count cancelled", timeout=120,
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, text=text, deny_text="Count cancelled", timeout=120,
                                           extra_text=description):
             return
         await message.channel.trigger_typing()
@@ -4282,7 +4475,6 @@ class Other:
         AttachmentUploaded = await Helpers.DownloadAndUpload(message, message.attachments[0], SendProgress=False)
         await message.channel.send("<" + AttachmentUploaded.link + ">")
 
-
     @staticmethod
     @Command(Start="UpdateNotes", Prefix=True, NoSpace=True)
     async def UpdateNotes(Context):
@@ -4344,7 +4536,6 @@ class Other:
         newfile = discord.File(os.getcwd() + addpath)
         await Context.Message.channel.send(file=newfile)
 
-
     @staticmethod
     @Command(Start="NewFile", Prefix=True, Admin=True, NoSpace=True)
     async def NewFile(Context):
@@ -4387,7 +4578,7 @@ class Other:
 
         File = Context.Message.attachments[0]
 
-        confirmation = await Helpers.Confirmation(Context, "Are you absolutely you want to replace?", extra_text=os.getcwd() + addpath, deny_text="That's what I thought. Cancelled")
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Are you absolutely you want to replace?", extra_text=os.getcwd() + addpath, deny_text="That's what I thought. Cancelled")
 
         if not confirmation:
             return
@@ -4461,7 +4652,7 @@ class Poll:
 
         await message.channel.trigger_typing()
 
-        await NewLog.LogCommand(message, "Poll", "Successfully Set Up Poll.")
+        await Log.LogCommand(message, "Poll", "Successfully Set Up Poll.")
 
         # Prepare some strings for later use
         Characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+/\\\'\".,~`<>: "
@@ -4719,7 +4910,6 @@ class Poll:
     @Command(Prefix=True, Start="Polls")
     async def ListPolls(Context):
         pass
-
 
 
 class Calculate:
@@ -5012,7 +5202,7 @@ class Tag:
                 if not PersonalTag:
                     PersonalTagData = await Tag.RetrievePTagList(id=message.author.id)
                     if TagKey not in PersonalTagData.keys():
-                        confirmation = await Helpers.Confirmation(Context, "Tag already exists. Create Personal Tag?")
+                        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Tag already exists. Create Personal Tag?")
                         if confirmation:
                             PersonalTag = True
                             TagData = await Tag.RetrievePTagList(id=message.author.id)
@@ -5038,7 +5228,7 @@ class Tag:
                 command = "/tag"
                 footer_text = "Everyone will be able to call this tag."
             Extra_Text = "```You Send:  > " + command + " " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
-            Confirmation = await Helpers.Confirmation(Context, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+            Confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
                                                   deny_text="Tag Creation Cancelled", yes_text=yes_text,
                                                   image=image, footer_text=footer_text)
             if not Confirmation:
@@ -5334,7 +5524,7 @@ class Tag:
     async def ClearTagData(Context):
         message = Context.Message
 
-        if not await Helpers.Confirmation(Context, "Are you sure you want to clear?"):
+        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Are you sure you want to clear?"):
             return
 
         Helpers.SaveData({}, type="Tag")
@@ -5618,7 +5808,7 @@ class Tag:
         OptFour = "Change Tag Color"
         OptFive = "Delete Tag"
 
-        Response = await Helpers.UserChoice(Context, "Edit " + TagType + ": " + TagKey,
+        Response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Edit " + TagType + ": " + TagKey,
                     Choices= [OptOne, OptTwo, OptThree, OptFour, {'Option': OptFive, 'Emoji': Conversation.Emoji["trash"]}],
                     Color=discord.Embed.Empty, timeout=60, title="Choose the option of the action you'd like to do", Show_Cancel=True)
 
@@ -5642,7 +5832,7 @@ class Tag:
 
         # Delete tag if requested
         if EditMode == "Delete":
-            if not await Helpers.Confirmation(Context, "Delete " + TagType + "? " + TagKey):
+            if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Delete " + TagType + "? " + TagKey):
                 return
             AllTagData.pop(TagKey)
             await SaveData(AllTagData, PersonalTag)
@@ -5757,7 +5947,7 @@ class Tag:
         if not TagData["Color"]:
             TagData["Color"] = Vars.Bot_Color
         Extra_Text = "```You Send:  > " + Command + TagData["Key"] + "\nI Respond: > " + TagData["Content"].replace("```", "\'\'\'") + "```"
-        Confirmation = await Helpers.Confirmation(Context, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
+        Confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
                                                   deny_text= TagType + " Edit Cancelled",
                                                   image=TagData["Image"], color=TagData["Color"])
         if not Confirmation:
@@ -6051,7 +6241,7 @@ class Remind:
         sent = await message.channel.send(FirstTitleString, embed=em)
         await sent.edit(content=FinalTitleString, embed=em)
 
-        await NewLog.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=Context.InDM)
+        await Log.LogCommand(message, "Reminder", "Successfully Set Reminder", DM=Context.InDM)
 
         if Context.InDM:
             reaction_to_add = Conversation.Emoji["clock"]
@@ -6852,7 +7042,7 @@ class Remind:
 
         Description = "My time is " + CurrentTime.strftime("%I:%M %p") + ", so 'tomorrow' could mean later today, or tomorrow. Which did you mean?"
 
-        Response = await Helpers.UserChoice(Context, "What did you mean by 'Tomorrow'?", Choices=Choices, description=Description, timeout=60,
+        Response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "What did you mean by 'Tomorrow'?", Choices=Choices, description=Description, timeout=60,
                                             Color=Remind.embed_color)
 
 
@@ -7089,16 +7279,18 @@ class Remind:
 
             # And let's try to remove that clock from the original message
             if "OriginalMessageID" not in Reminder.keys():
-                return
+                continue
 
             if not Reminder["OriginalMessageID"] or not SentMsg or not SendChannel:
-                return
+                continue
 
-            originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
+            try:
+                originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
 
-            if not originalmsg:
-                return
-
+                if not originalmsg:
+                    return
+            except:
+                continue
 
             await Helpers.RemoveAllReactions(originalmsg)
             await originalmsg.add_reaction(Conversation.Emoji["check"])
@@ -7412,7 +7604,7 @@ class Remind:
             OptionList.append(tempStr)
             OptionDict[tempStr] = Reminder
 
-        response = await Helpers.UserChoice(Context, "Which Reminder would you like to edit?", OptionList, Show_Cancel=True)
+        response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Which Reminder would you like to edit?", OptionList, Show_Cancel=True)
 
         if not response:
             return
@@ -7439,7 +7631,7 @@ class Remind:
 
         Description = "What would you like to change about this reminder?```md\n# " + RemindTimeString + "\nI say >> " + RemindMsg + "```"
 
-        response = await Helpers.UserChoice(Context, "Edit Reminder?", Options, description=Description, Show_Cancel=True)
+        response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Edit Reminder?", Options, description=Description, Show_Cancel=True)
 
         if not response or response == "Cancel":
             return
@@ -7486,7 +7678,7 @@ class Remind:
                     ]
 
 
-                    VerifyTime = await Helpers.UserChoice(Context, "I'll remind you: " + await Remind.GiveDateString(NewRemindTime, datetime.now()), VerifyTimeOptions, Show_Cancel=True )
+                    VerifyTime = await Helpers.UserChoice(Context.Channel, Context.Message.author, "I'll remind you: " + await Remind.GiveDateString(NewRemindTime, datetime.now()), VerifyTimeOptions, Show_Cancel=True )
 
                     if not VerifyTime or VerifyTime == "Cancel":
                         return
@@ -7586,7 +7778,6 @@ class Remind:
         await Context.Message.channel.send(embed=em)
 
 
-
 class Todo:
     @staticmethod
     async def OnMessage(Context):
@@ -7679,6 +7870,8 @@ class Help:
         if not type:
             type = "Help"
 
+        type = type.lower()
+
         AllHelpTexts = Conversation.Help
         if type not in AllHelpTexts.keys():
             raise KeyError("Help type isn't in prepared listings!")
@@ -7690,7 +7883,6 @@ class Help:
 
         await channel.send(embed=em)
         return
-
 
     @staticmethod
     async def HelpGUI(message):
@@ -7707,41 +7899,6 @@ class Help:
         em.set_footer(text=message.content)
 
         await message.channel.send(embed=em)
-
-
-class On_React:
-    @staticmethod
-    async def On_X(reaction, user):
-        if user.id in Ranks.Bots:
-            return
-
-        if await Helpers.Deleted(reaction.message):
-            return
-
-        message = reaction.message
-        try:
-            total_users = await reaction.users().flatten()
-
-        except discord.NotFound:
-            return
-        if Vars.Bot.user in total_users:  # If bot originally reacted X
-            if message.author.id != Vars.Bot.user.id:
-                # If the message isn't by the bot:
-                try:
-                    await message.delete()
-                    return
-                except Exception:
-                    pass
-            return
-
-        # If bot didn't originally react:f
-        elif user.id in Ranks.Admins:
-            try:
-                await NewLog.LogDelete(message, "Requested Delete by " + user.name)
-                await message.delete()
-            except Exception:
-                pass
-            return
 
 
 class Call:
@@ -7766,7 +7923,7 @@ class Call:
             await Context.Message.channel.send(embed=em)
             return
 
-        confirmation = await Helpers.Confirmation(Context, "Delete this channel?")
+        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Delete this channel?")
         if confirmation:
             await Context.Message.channel.delete()
 
@@ -7776,7 +7933,6 @@ class Call:
         if Call.CurrentCallChannels:
             if before.channel != after.channel:
                 await Call.CallChannelAdd(member, before, after)
-
 
     @staticmethod
     @Command(Start="CreateCallChannel", Prefix=True, NoSpace=True)
@@ -7848,7 +8004,6 @@ class Call:
 
         await CallChannel.send(Welcome_Message)
 
-
     @staticmethod
     async def CallChannelAdd(member, before, after):
         if (before.channel and not after.channel):
@@ -7904,56 +8059,4 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
-    #bob = os.system("pip install wolframalpha")
-
-    await NewLog.CleanUpLogData()
-    return
-
-    print(await Helpers.NewAskQuestion(Context.Message.channel, "Hello?", SpecSender=Context.Message.author.id))
-
-
-    return
-    from geopy.geocoders import Nominatim
-
-    geolocator = Nominatim(user_agent="bing")
-
-    content = Context.Message.content[5:].strip()
-
-
-    location = geolocator.geocode(content)
-
-    print(location.raw['type'])
-
-    print(location.raw)
-    add = location.address
-
-    Choices = [
-        {"Emoji": Conversation.Emoji["check"],
-         "Option": "Yes"},
-        {"Emoji": Conversation.Emoji["repeat"],
-         "Option": "No, let me try again"}
-    ]
-
-    response = await Helpers.UserChoice(Context, Conversation.Emoji["pushpin"] + " Is the location in " + add, Choices, Show_Cancel=True)
-
-    print(response)
-
-
-
-
-
-
-
-
-    #await Context.Message.delete()
-
-    #await Context.add_reaction(["x", "check"], just_names=True)
-
-    #chicken = await Helpers.UserChoice(Context, "Choose one", [str(i) for i in range(0, 18)], Show_Cancel=True)
-    #chicken = await Helpers.UserChoice(Context, "Do you want this to be a test", ["Yes", "No", {"Option": "Sure", "Emoji": Conversation.Emoji["clock"]}])
-    #await Context.Message.channel.send(chicken)
-
-
-@Command(Admin=True, Start="retest", Prefix=True, NoSpace=True)
-async def test2(Context):
-    chicken = await Helpers.UserChoice(Context, "Choose One out of the two", ["hi", "bye"], Show_Cancel=True)
+    await Timer.NightlyCheck()
