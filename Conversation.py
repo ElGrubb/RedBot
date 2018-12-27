@@ -499,6 +499,9 @@ Help = {
              "\n\n**Command Usage:**"
              "\n```/color #{Hex}"
              "\n/color #FFA124```"
+             "\nYou can do other color commands as well:"
+             "\n```md\n/color clear  # Remove the color role"
+             "/color info  # Receive information about the color role```"
              "\nMake sure I have enough permissions to make roles, order them, etc. ",
     "weather": "I can send you the weather in lynnfield (soon will work for other locations)."
                "\nTo get the new weather widget, type:"

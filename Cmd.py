@@ -6160,8 +6160,6 @@ class Remind:
         RemindTime, Ignored_Words = await Remind.RemindInterpretation(RemindTimeList)
 
         # HAS INTERPRETATION
-        # HAS INTERPRETATION
-        # HAS INTERPRETATION
         CurrentTime = datetime.now()
 
         # If they say "Tomorrow" But it's early in the morning, see what they really mean
