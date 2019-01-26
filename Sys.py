@@ -265,6 +265,7 @@ def Response(type, message=None):
     else:
         return type[randnumber]
 
+
 Channel = {
     "Errors": 343422937380028420,
     "DeleteLog": 422850384088793092,
@@ -307,6 +308,7 @@ def DateFixer(month, day, year):
         month = month - 12
 
     return month, day, year
+
 
 def LowerStripList(item):
     # returns a list that's lower() and strip()

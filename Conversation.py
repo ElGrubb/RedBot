@@ -120,7 +120,11 @@ Emoji = {
     'upload': '\U00002b06',
     'trash': '\U0001f5d1',
     'peopleoutlines': '\U0001f465',
-    'pushpin': '\U0001f4cd'
+    'pushpin': '\U0001f4cd',
+    'key': '\U0001f511',
+    'notepad': '\U0001f5d2',
+    'camera': '\U0001f4f7',
+    'paintbrush': '\U0001f58c'
 }
 
 # Nice Tries

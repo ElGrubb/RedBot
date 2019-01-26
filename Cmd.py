@@ -472,7 +472,6 @@ async def CheckMessage(message, start=None, notInclude=None, close=None, prefix=
             numberCorrect += 1
 
     if not start:
-        #print(numberCorrect, totalPossibleCorrect)
         pass
 
     if numberCorrect == totalPossibleCorrect:
@@ -504,7 +503,8 @@ class Helpers:
     @staticmethod
     async def Confirmation(SendChannel, Responders, text:str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
                            return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
-                           add_reaction=True, image=None, color=Vars.Bot_Color, footer_text=None, originalctx=None):
+                           add_reaction=True, image=None, color=Vars.Bot_Color, footer_text=None, originalctx=None, Embed=None,
+                           Outside_Text=None, Delete_After=True):
         """
         Sends a confirmation for a command
         :param SendChannel: The channel object to send the message lmao
@@ -531,16 +531,22 @@ class Helpers:
 
         if mention:
             before_message = mention.mention
+            if Outside_Text:
+                before_message += ", " + Outside_Text
         else:
-            before_message = None
+            before_message = Outside_Text
 
-        em = discord.Embed(title=text, description=extra_text, timestamp=Helpers.EmbedTime(), colour=color)
+        if not Embed:
+            em = discord.Embed(title=text, description=extra_text, timestamp=Helpers.EmbedTime(), colour=color)
 
-        em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
-        if footer_text:
-            em.set_footer(text=footer_text)
-        if image:
-            em.set_image(url=image)
+            em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
+            if footer_text:
+                em.set_footer(text=footer_text)
+            if image:
+                em.set_image(url=image)
+        else:
+            em = Embed
+
         # Send message and add emojis
 
         QuestionMsg = await SendChannel.send(before_message, embed=em)
@@ -552,7 +558,8 @@ class Helpers:
                                                      users_id=Responders_ID, timeout=timeout, remove_wrong=True)
 
         if not ReactionInfo:
-            await Helpers.QuietDelete(message)
+            if Delete_After:
+                await QuestionMsg.delete()
             await SendChannel.send(deny_text, delete_after=5)
 
             if return_timeout:
@@ -565,13 +572,15 @@ class Helpers:
 
         # If they hit the X
         if reaction.emoji == CancelEmoji:
-            await QuestionMsg.delete()
+            if Delete_After:
+                await QuestionMsg.delete()
             await SendChannel.send(deny_text, delete_after=5)
             return False
 
         # If they hit the check
         elif reaction.emoji == ContinueEmoji:
-            await QuestionMsg.delete()
+            if Delete_After:
+                await QuestionMsg.delete()
             if not deleted_original_message:
                 if add_reaction and originalctx:
                     if not await originalctx.IsDeleted():
@@ -584,7 +593,7 @@ class Helpers:
     async def UserChoice(SendChannel, Responders, Question: str, Choices, timeout:int = 60, description=None, title=None,
                          Color=Vars.Bot_Color, Show_Avatar=False, Show_Cancel=False):
         """
-        Ran just like Helpers.Confirmation(), in which the bot prompts the user to answer with an option. Multiple choices not supported yet. 
+        Ran just like Interraction.Confirmation(), in which the bot prompts the user to answer with an option. Multiple choices not supported yet. 
         :param Context: The Context object of the message
         :param Question:  String, what to ask
         :param Choices: Either a list of choices, or a list of dicts of 'Option', 'Emoji'
@@ -1158,7 +1167,7 @@ class Helpers:
     @staticmethod
     def EmbedTime(utc=True):
         if utc:
-            return datetime.now() + timedelta(hours=4)
+            return datetime.now() + timedelta(hours=5)
         else:
             return datetime.now()
 
@@ -1204,7 +1213,6 @@ class Helpers:
 
             if users_id:  # If the user is correct
                 if int(init_user.id) not in users_id:
-                    print("Yee?")
                     if remove_wrong:
                         Vars.Bot.loop.create_task(RemoveReaction(init_reaction, init_user))
                     return False
@@ -1271,6 +1279,451 @@ class Helpers:
 
         # print(location.raw)
         return [float(location.raw["lat"]), float(location.raw["lon"]), location.raw["display_name"], location.raw["icon"]]
+
+    @staticmethod
+    async def ShortenTextInLink(text):
+        """
+        Takes in text and shortens all of the links within
+        :param text: String with some links
+        :return:     String with the links shortened using TinyUrl
+        """
+        LinkList = []
+        EditedText = text
+
+        # Iterate through each word in the text and replace the links in EditedText
+        for Word in text.split(" "):
+            if not Word.lower().startswith("http"):
+                # If the Word doesn't start with http, keep moving
+                continue
+
+            # If we're here, it means that the word is a link
+            Shortened_Link = Sys.Shorten_Link(Word)
+
+            # Let's now add the little part of the word in parethesis
+            MainDomain = Word.replace("//", "/").split("/")[1]
+            MainDomain = MainDomain.replace("www.", "")
+            MainDomain = "*(" + Sys.FirstCap(MainDomain) + ")*"
+
+            Shortened_Word = Shortened_Link + " " + MainDomain
+
+            # Compare to see if its shorter than the original
+            if len(Word) > len(Shortened_Word) + 8:  # If the shortened_link is 8 less or more than the original, replace it
+                EditedText = EditedText.replace(Word, Shortened_Word)
+
+        return EditedText
+    
+    
+    
+class Interraction:
+    @staticmethod
+    async def Confirmation(SendChannel, Responders, text: str, yes_text=None, deny_text="Action Cancelled.", timeout=60,
+                           return_timeout=False, deleted_original_message=False, mention=None, extra_text=None,
+                           add_reaction=True, image=None, color=Vars.Bot_Color, footer_text=None, originalctx=None,
+                           Embed=None,
+                           Outside_Text=None, Delete_After=True):
+        """
+        Sends a confirmation for a command
+        :param SendChannel: The channel object to send the message lmao
+        :param Responders: a List or user to send the message to
+        :param text: What the message of the embed should say
+        :param yes_text: If you want a confirmed message to play for 4 seconds
+        :param deny_text: If you want a message to play when x is hit. 
+        :param timeout: How long to wait for a conclusion
+        :param mention: If the bot should mention the player in the beginning
+        :return: Returns True if Yes, False if No, and None if timed out. 
+        """
+
+        Responders_ID = []
+        if not type(Responders) == list:
+            Responders = [Responders]
+
+        for Responder in Responders:
+            Responders_ID.append(Responder.id)
+
+        # Establish two emojis
+        CancelEmoji = Conversation.Emoji['x']
+        ContinueEmoji = Conversation.Emoji['check']
+
+        if mention:
+            before_message = mention.mention
+            if Outside_Text:
+                before_message += ", " + Outside_Text
+        else:
+            before_message = Outside_Text
+
+        if not Embed:
+            em = discord.Embed(title=text, description=extra_text, timestamp=Helpers.EmbedTime(), colour=color)
+
+            em.set_author(name="Confirmation:", icon_url=Vars.Bot.user.avatar_url)
+            if footer_text:
+                em.set_footer(text=footer_text)
+            if image:
+                em.set_image(url=image)
+        else:
+            em = Embed
+
+        # Send message and add emojis
+
+        QuestionMsg = await SendChannel.send(before_message, embed=em)
+
+        await QuestionMsg.add_reaction(ContinueEmoji)
+        await QuestionMsg.add_reaction(CancelEmoji)
+
+        ReactionInfo = await Helpers.WaitForReaction(reaction_emoji=[ContinueEmoji, CancelEmoji], message=QuestionMsg,
+                                                     users_id=Responders_ID, timeout=timeout, remove_wrong=True)
+
+        if not ReactionInfo:
+            if Delete_After:
+                await QuestionMsg.delete()
+            await SendChannel.send(deny_text, delete_after=5)
+
+            if return_timeout:
+                return "Timed Out"
+            else:
+                return False
+
+        reaction = ReactionInfo["Reaction"]
+        user = ReactionInfo["User"]
+
+        # If they hit the X
+        if reaction.emoji == CancelEmoji:
+            if Delete_After:
+                await QuestionMsg.delete()
+            await SendChannel.send(deny_text, delete_after=5)
+            return False
+
+        # If they hit the check
+        elif reaction.emoji == ContinueEmoji:
+            if Delete_After:
+                await QuestionMsg.delete()
+            if not deleted_original_message:
+                if add_reaction and originalctx:
+                    if not await originalctx.IsDeleted():
+                        await originalctx.Message.add_reaction(ContinueEmoji)
+            if yes_text:
+                await SendChannel.send(yes_text, delete_after=5)
+            return True
+
+    @staticmethod
+    async def UserChoice(SendChannel, Responders, Question: str, Choices, timeout: int = 60, description=None,
+                         title=None,
+                         Color=Vars.Bot_Color, Show_Avatar=False, Show_Cancel=False):
+        """
+        Ran just like Interraction.Confirmation(), in which the bot prompts the user to answer with an option. Multiple choices not supported yet. 
+        :param Context: The Context object of the message
+        :param Question:  String, what to ask
+        :param Choices: Either a list of choices, or a list of dicts of 'Option', 'Emoji'
+        :param timeout: int, how long to wait before returning None
+        :return The string of the option chosen 
+        """
+
+        Responders_ID = []
+        if not type(Responders) == list:
+            Responders = [Responders]
+
+        for Responder in Responders:
+            Responders_ID.append(Responder.id)
+
+        if type(Choices) != list or not Choices:
+            raise TypeError("Choices can be a list of dictionaries, or just a list of strings. Nothing else")
+        if len(Choices) > 10:
+            MultiplePages = True
+        else:
+            MultiplePages = False
+
+        # This is a list of the letters A-J
+        LetterEmoji = ['\U0001F1E6', '\U0001F1E7', '\U0001F1E8', '\U0001F1E9', '\U0001F1EA', '\U0001F1EB',
+                       '\U0001F1EC', '\U0001F1ED', '\U0001F1EE', '\U0001F1EF']
+
+        # Iterates through all choices, creating a dict for each if not already there
+        NewChoices = []
+        i = 0
+        for item in Choices:
+            if type(item) == str:
+                NewChoices.append({'Option': item, 'Emoji': LetterEmoji[i]})
+            elif type(item) == dict:
+                NewChoices.append(item)
+            else:
+                raise TypeError(
+                    "Choices should be a list of strings or a list of dicts containing 'Option' and 'Emoji'")
+            i += 1
+            if i >= 10:  # Ensures each page of emoji get their own A B C etc
+                i = 0
+
+        if Show_Avatar:
+            Avatar = Vars.Bot.user.avatar_url
+        else:
+            Avatar = ""
+
+        if not MultiplePages:
+            if Show_Cancel:  # If the user wants to show the cancel option:
+                NewChoices.append({"Option": "Cancel", "Emoji": Conversation.Emoji["x"]})
+
+            ChoiceStringList = []
+            for choice in NewChoices:
+                tempStr = choice["Emoji"] + "  " + Sys.FirstCap(choice["Option"])
+                ChoiceStringList.append(tempStr)
+
+            EmbedContent = "\n".join(ChoiceStringList)
+
+            if description:
+                EmbedContent = description + "\n" + EmbedContent
+
+            em = discord.Embed(description=EmbedContent, title=title, color=Color, timestamp=Helpers.EmbedTime())
+            em.set_author(icon_url=Avatar, name=Question)
+            em.set_footer(text="Times out after " + str(timeout) + " seconds")
+
+            # Send the first section.
+            sent = await SendChannel.send(embed=em)
+
+            EmojiList = []
+            for item in NewChoices:
+                await sent.add_reaction(item["Emoji"])
+                EmojiList.append(item["Emoji"])
+
+            Answer = await Helpers.WaitForReaction(reaction_emoji=EmojiList, message=sent, users_id=Responders_ID,
+                                                   timeout=timeout, remove_wrong=True)
+
+            # So this'll either be None, or a Reaction Dict thing:
+            # {"Reaction": reaction, "User": user}
+
+            await Helpers.QuietDelete(sent)
+
+            if not Answer:
+                return None
+
+            AnswerReaction = Answer["Reaction"]
+            for item in NewChoices:
+                if AnswerReaction.emoji == item["Emoji"]:
+                    return item['Option']
+
+        elif MultiplePages:
+            # Create lists that have certain purposes for each page
+            PageDict = {}  # will house all information about the page:
+            """
+            PageDict = {
+                0: {
+                "Content": str,
+                "EmojiList": [str],
+                "Embed": discord.Embed(),
+                "Options": 
+                }}
+            """
+            CurrentPage = 0
+            MaxPage = None
+
+            SeparatedNewChoices = []  # Houses a list of lists, for each possible choice
+            i = 0
+            tempChoices = []
+            # Separate each group of 10 choices into a list, for SeparatedNewChoices
+            for Choice in NewChoices:
+                tempChoices.append(Choice)
+                i += 1
+                if i >= 10:
+                    SeparatedNewChoices.append(tempChoices)
+                    i = 0
+                    tempChoices = []
+
+            if tempChoices not in SeparatedNewChoices:
+                SeparatedNewChoices.append(tempChoices)
+
+            if Show_Cancel:
+                for ChoiceList in SeparatedNewChoices:
+                    ChoiceList.append({"Option": "Cancel", "Emoji": Conversation.Emoji["x"]})
+
+            MaxPage = len(SeparatedNewChoices) - 1
+
+            # Now we have a list of each list. This'll make it easy to separate things out.
+            i = 0
+            for Grouping in SeparatedNewChoices:
+                # For each group of 10
+                EmojiList = []
+                EmbedContentList = []
+                for Choice in Grouping:  # For each option inside of each page
+                    EmojiList.append(Choice["Emoji"])  # Add the emoji to the grouping's listing
+                    tempStr = Choice["Emoji"] + "  " + Sys.FirstCap(Choice["Option"])
+                    EmbedContentList.append(tempStr)
+
+                # Now, move EmbedContentList into EmbedContent
+                EmbedContent = "\n".join(EmbedContentList)
+                if description:
+                    EmbedContent = description + "\n" + EmbedContent
+
+                em = discord.Embed(description=EmbedContent, title=title, color=Color, timestamp=Helpers.EmbedTime())
+                em.set_author(icon_url=Avatar, name=Question)
+                em.set_footer(text="Page " + str(i + 1) + "/" + str(MaxPage + 1) + " | Times out after " + str(
+                    timeout) + " seconds")
+
+                tempDict = {"EmojiList": EmojiList,
+                            "Content": EmbedContent,
+                            "Embed": em,
+                            "Options": Grouping}
+                PageDict[i] = tempDict
+                i += 1
+
+            # Now we have PageDict, which has all the information we'd ever need.
+            MaxPage = len(SeparatedNewChoices) - 1
+
+            # Okay, let's send the message:
+            Prompt = await SendChannel.send(embed=PageDict[CurrentPage]["Embed"])
+
+            GoLeft = Conversation.Emoji["TriangleLeft"]
+            GoRight = Conversation.Emoji["TriangleRight"]
+
+            await Prompt.add_reaction(GoLeft)
+            await Prompt.add_reaction(GoRight)
+
+            ChosenEmoji = None
+            Stop = False
+            while not Stop:
+                # Add Reactions
+                for reaction in PageDict[CurrentPage]["EmojiList"]:
+                    await Prompt.add_reaction(reaction)
+
+                AllPossibleEmoji = PageDict
+
+                # Wait for reactions
+                response = await Helpers.WaitForReaction(
+                    reaction_emoji=PageDict[CurrentPage]["EmojiList"] + [GoLeft, GoRight],
+                    message=Prompt, users_id=Responders_ID, timeout=timeout, remove_wrong=True)
+                if not response:
+                    await Helpers.QuietDelete(Prompt)
+                    return None
+
+                if response["Reaction"].emoji in [GoLeft, GoRight]:
+                    if IsDMChannel(SendChannel):
+                        for reaction in PageDict[CurrentPage]["EmojiList"]:
+                            # print(reaction)
+                            await Prompt.remove_reaction(reaction, Vars.Bot.user)
+                    else:
+                        await Helpers.RemoveAllReactions(Prompt)
+                        await Prompt.add_reaction(GoLeft)
+                        await Prompt.add_reaction(GoRight)
+
+                    if response["Reaction"].emoji == GoLeft:
+                        CurrentPage -= 1
+                        if CurrentPage < 0:
+                            CurrentPage = MaxPage
+                    elif response["Reaction"].emoji == GoRight:
+                        CurrentPage += 1
+                        if CurrentPage > MaxPage:
+                            CurrentPage = 0
+
+                    await Prompt.edit(embed=PageDict[CurrentPage]["Embed"])
+                else:
+                    ChosenEmoji = response["Reaction"].emoji
+                    Stop = True
+
+            # Exiting, we have "response" now
+            for Option in PageDict[CurrentPage]["Options"]:
+                if Option["Emoji"] == ChosenEmoji:
+                    await Helpers.QuietDelete(Prompt)
+                    return Option["Option"]
+
+
+    @staticmethod
+    async def ListStrings(SendChannel, StringList, Title, TimeOut=60, Limited_Responders=None, Color=Vars.Bot_Color,
+                          Footer_Text=None, Footer_Image=None, Extra_Text="", Max_Items=10, Author_Image=None):
+        """
+        Creates an interractive movable list of the StringList, each one after another, with functioning arrows
+        :param SendChannel: The channel to send the ListString in
+        :param StringList:  List of all the strings that you want to be in the list, organized
+        :param Title:       The title of the embed
+        :param TimeOut:     How long to wait before the Bot kills the list
+        :param Limited_Responders:   Who can respond? If None, everyone
+        :param Color:       Color of the embed before it is killed
+        :param Footer_Text: Text in the footer
+        :param Extra_Text:  Stuff to add before the list
+        :return: None
+        """
+
+        if not Author_Image:
+            Author_Image = Vars.Bot.user.avatar_url
+
+        IsDM = IsDMChannel(SendChannel)
+
+        # We want a dictionary Page_Dict that contains information for each page.
+        Page_Dict = {}
+        if Max_Items:
+            temp = []
+            for i in range(0, len(StringList)):
+                if i % Max_Items == 0 and i != 0:
+                    Page_Dict[len(Page_Dict)] = {"OriginalContents": temp}
+                    temp = [StringList[i]]
+                elif i == len(StringList) - 1:
+                    temp.append(StringList[i])
+                    Page_Dict[len(Page_Dict)] = {"OriginalContents": temp}
+                else:
+                    temp.append(StringList[i])
+        elif not Max_Items:
+            raise AttributeError("Interraction.ListStrings needs an attribute Max_Items to be set to an integer, not " + repr(Max_Items))
+
+        for PageNum in Page_Dict:
+            Page_Dict[PageNum]["FlattenedContent"] = Extra_Text + "\n".join(Page_Dict[PageNum]["OriginalContents"])
+
+            Footer = "Page " + str(PageNum + 1) + "/" + str(len(Page_Dict))
+            if Footer_Text:
+                Footer += " | " + Footer_Text
+
+            em = discord.Embed(description=Page_Dict[PageNum]["FlattenedContent"], color=Color, timestamp=Helpers.EmbedTime())
+            em.set_author(name=Title, icon_url=Author_Image)
+
+            if Footer_Image:
+                em.set_footer(text=Footer, icon_url = Footer_Image)
+
+            else:
+                em.set_footer(text=Footer)
+
+            Page_Dict[PageNum]["Embed"] = em
+
+
+        CurrentPage = 0
+        List_Object = await SendChannel.send(embed=Page_Dict[0]["Embed"])
+
+        # Reactions:
+        ButtonNext = Conversation.Emoji["TriangleRight"]
+        ButtonBack = Conversation.Emoji["TriangleLeft"]
+        ButtonSkip = Conversation.Emoji["SkipRight"]
+
+        ButtonList = [ButtonBack, ButtonNext, ButtonSkip]
+
+        # Add to message
+        for button in ButtonList:
+            await List_Object.add_reaction(button)
+
+        Stop = False
+        while not Stop:
+            Reactions = await Helpers.WaitForReaction(reaction_emoji=ButtonList, message=List_Object, timeout=TimeOut,
+                                                      remove_wrong=True)
+            if Reactions == None:
+                Stop = True
+                continue
+
+            elif Reactions:
+                # Okay so at this point we have some reactions
+                ReactionEmoji = Reactions["Reaction"].emoji
+                if ReactionEmoji == ButtonNext:
+                    CurrentPage = CurrentPage + 1 if CurrentPage + 1 < len(Page_Dict) else 0
+
+                elif ReactionEmoji == ButtonBack:
+                    CurrentPage = CurrentPage - 1 if CurrentPage - 1 >= 0 else len(Page_Dict) - 1
+
+                elif ReactionEmoji == ButtonSkip:
+                    CurrentPage = len(Page_Dict) - 1
+
+                if not IsDM:
+                    await List_Object.remove_reaction(ReactionEmoji, Reactions["User"])
+                await List_Object.edit(embed=Page_Dict[CurrentPage]["Embed"])
+
+
+        newembed = Page_Dict[CurrentPage]["Embed"]
+        newembed.color = discord.Embed.Empty
+        await List_Object.edit(embed=newembed)
+        await Helpers.RemoveAllReactions(List_Object)
+        return
+
+
+
 
 
 class Log:
@@ -1574,7 +2027,7 @@ class Admin:
             return
 
         if content > 9:
-            confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Delete " + str(content) + " messages?",
+            confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Delete " + str(content) + " messages?",
                                                       deny_text="Deletion Cancelled", timeout=20)
         else:
             confirmation = True
@@ -1609,7 +2062,7 @@ class Admin:
         Last5Minutes = "In the Last 5 Minutes"
         CustomChoice = "OR enter a custom time"
 
-        FirstChoice = await Helpers.UserChoice(Context.Channel, Context.Message.author, "DeleteSince: How far back should I go?", description="I should delete messages sent: ",
+        FirstChoice = await Interraction.UserChoice(Context.Channel, Context.Message.author, "DeleteSince: How far back should I go?", description="I should delete messages sent: ",
                                                Choices=[Last5Minutes, LastHour, CustomChoice], Show_Cancel=True)
         if FirstChoice == "Cancel":
             return
@@ -1622,7 +2075,7 @@ class Admin:
             HourChoice = "Hours"
             DayChoice = "Days"
 
-            SecondChoice = await Helpers.UserChoice(Context.Channel, Context.Message.author, "DeleteSince: What unit would you like to use?", description="Next you'll give me a number, what will be the unit of time associated with it?",
+            SecondChoice = await Interraction.UserChoice(Context.Channel, Context.Message.author, "DeleteSince: What unit would you like to use?", description="Next you'll give me a number, what will be the unit of time associated with it?",
                                                     Choices=[MinuteChoice, HourChoice, DayChoice], Show_Cancel=True)
             if SecondChoice == "Cancel":
                 return
@@ -1785,7 +2238,7 @@ class Admin:
         message = Context.Message
 
         # Check to make sure the user confirms it
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Shut Down?", deny_text="Shut Down Cancelled")
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Shut Down?", deny_text="Shut Down Cancelled")
         if confirmation:
             await Vars.Bot.change_presence(status=discord.Status.offline)  # Status to offline
             await Vars.Bot.logout()  # Log off
@@ -1796,7 +2249,7 @@ class Admin:
         message = Context.Message
 
         text = "Leave " + message.guild.name + "?"  # Says "Leave Red Playground?"
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, text, deny_text="I will stay.")  # Waits for confirmation
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             await message.channel.send(Vars.Bot.user.name + " Left at " + current_time)  # Sends goodbye
@@ -1812,7 +2265,7 @@ class Admin:
         GuildToLeave = ChannelToLeave.guild
  # hi
         text = "Leave " + GuildToLeave.name + "?"  # Says "Leave Red Playground?"
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, text, deny_text="I will stay.")  # Waits for confirmation
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, text, deny_text="I will stay.")  # Waits for confirmation
         if confirmation:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Set up Time String
             invitelist = []
@@ -1834,7 +2287,7 @@ class Admin:
     async def Disable(Context):
         message = Context.Message
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Disable?", deny_text="Will Stay Enabled."):
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, "Disable?", deny_text="Will Stay Enabled."):
             return
 
         Vars.Disabled = True
@@ -1855,7 +2308,7 @@ class Admin:
 
         # If still disabled:
         to_send = message.author.mention + ", would you like to Re-Enable?"
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, to_send, timeout=30, return_timeout=True, deleted_original_message=True)
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, to_send, timeout=30, return_timeout=True, deleted_original_message=True)
         if not confirmation:  # If they say X, stay disabled:
             await message.channel.send("Will stay disabled indefinitely. ", delete_after=5)
             return
@@ -1966,7 +2419,7 @@ class Admin:
             channel = await Ask('channel', message, given_guild=guild)
         if guild and channel:
             if delay:
-                response = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Click when ready", timeout=120)
+                response = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Click when ready", timeout=120)
                 if not response:
                     return
             await channel.send(content)
@@ -2011,7 +2464,7 @@ class Admin:
 
         TimerIsRunning = await Timer.IsRunning()
         if not TimerIsRunning:
-            confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "TimeThread is NOT running. Start it?")
+            confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "TimeThread is NOT running. Start it?")
 
             if confirmation:
                 try:
@@ -2019,7 +2472,7 @@ class Admin:
                     Started_Successfully = False
 
                 except:
-                    second_confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "That returned an error. Continue?.")
+                    second_confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "That returned an error. Continue?.")
                     if second_confirmation:
                         Started_Successfully = True
                     else:
@@ -2037,7 +2490,7 @@ class Admin:
 
                 Choices = [RestartRedBot, RestartRaspPi]
 
-                final_choice = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Didn't work. What action should I take?", Choices, Show_Cancel=True)
+                final_choice = await Interraction.UserChoice(Context.Channel, Context.Message.author, "Didn't work. What action should I take?", Choices, Show_Cancel=True)
 
                 if not final_choice:
                     return
@@ -2092,7 +2545,7 @@ class Admin:
     async def Restart(Context):
         message = Context.Message
 
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Restart?", deny_text="Restart Cancelled")
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Restart?", deny_text="Restart Cancelled")
         if not confirmation:
             return
         # Add check to message
@@ -2126,7 +2579,7 @@ class Admin:
             await message.channel.send("Oops! Can only update rn from a group server! :)\nTerminated Update.")
             return
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Update?", deny_text="Update Cancelled", timeout=20):
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, "Update?", deny_text="Update Cancelled", timeout=20):
             return
 
         channel = message.channel
@@ -2158,7 +2611,7 @@ class Admin:
 
         currentData = Helpers.RetrieveData()
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "THIS IS BROKEN. CONTINUE?"):
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, "THIS IS BROKEN. CONTINUE?"):
             return
 
         def check(m):
@@ -2173,13 +2626,13 @@ class Admin:
 
         looking_for = Sys.FirstCap(response.content).strip().replace(" ", "_")
         if looking_for not in currentData:
-            confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Cannot find data type. Continue?", timeout=30)
+            confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Cannot find data type. Continue?", timeout=30)
             if not confirmation:
                 # If they do not want to continue
                 return
 
         to_load = ""
-        is_long = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Is it longer than 2000?")
+        is_long = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Is it longer than 2000?")
         if not is_long:
             msg = await channel.send("Please send the json.dumps string.")
             response = await Vars.Bot.wait_for("message", check=check)
@@ -2208,20 +2661,7 @@ class Admin:
 
     @staticmethod
     async def OnUpdate(channel):
-
         return
-        tempTagList = await Tag.RetrieveTagList()
-        for TagKey in tempTagList.keys():
-            tempTagList[TagKey]["Personal"] = False
-            if "Color" not in tempTagList[TagKey].keys():
-                tempTagList[TagKey]["Color"] = Vars.Bot_Color
-            if not tempTagList[TagKey]["Color"]:
-                tempTagList[TagKey]["Color"] = Vars.Bot_Color
-
-
-        Helpers.SaveData(tempTagList, type="Tag")
-
-        pass
 
     @staticmethod
     @Command(Start="Download Data", Prefix=True, Admin=True, NoSpace=True)
@@ -2242,7 +2682,7 @@ class Admin:
                 data = data[content]
 
 
-        pretty_print = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Do you want it to be pretty print?")
+        pretty_print = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Do you want it to be pretty print?")
 
         # Prepare data
         if pretty_print:
@@ -2274,7 +2714,7 @@ class Admin:
 
         content = message.content[16:].strip()
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Add " + content + " To Personal? Cannot be reversed."):
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, "Add " + content + " To Personal? Cannot be reversed."):
             return
 
         content = content.split(":")
@@ -2302,7 +2742,7 @@ class Admin:
     async def Broadcast(Context):
         message = Context.Message
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Are you sure you want to broadcast?"):
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, "Are you sure you want to broadcast?"):
             return
 
         message.content = message.content[1:].replace("broadcast", "").strip()
@@ -2628,7 +3068,6 @@ class OnEvents:
             # Okay so now we have an official Location and Context
 
         if not Context or not Location:
-            print("Running")
             # So if there is no Context and no Location
             Context = "**RedBot Internal Error** in *`" + str(event_method) + "`* function."
             Location = "No futher knowledge"
@@ -2825,7 +3264,7 @@ class OnEvents:
 
         # Okay so we're going to run the ProgressMessageEdits thread simotaneously while waiting for confirmation
         NewThread = Vars.Bot.loop.create_task(ProgressMessageEdits())
-        Confirmation = await Helpers.Confirmation(Vars.Creator, Vars.Creator, "Should I stay?", extra_text=All_Strings,
+        Confirmation = await Interraction.Confirmation(Vars.Creator, Vars.Creator, "Should I stay?", extra_text=All_Strings,
                                                   deny_text="Okay, leaving", yes_text="Okay, staying!")
 
         await Helpers.QuietDelete(ProgressMsg)
@@ -3000,6 +3439,7 @@ class Timer:
                         await Other.StatusChange()  # NEvermind
 
         Timer.Running = False
+        print("TimeThread Terminated.")
 
     @staticmethod
     async def StartTimeThread():
@@ -4010,7 +4450,6 @@ class Other:
         # Now we need to find the link:
         ContentWords = UsableContent.replace("\n", " ").split(" ")
         for Word in ContentWords:
-            #print(Word)
             if Word.lower().strip().startswith("http"):
                 Links.append(Word)
 
@@ -4083,7 +4522,6 @@ class Other:
         """
         Shortens a given link using TinyUrl
         """
-
         Context.Message.content = Context.Message.content[8:].strip()
         await Other.ChatLinkShorten(Context, command=True)
 
@@ -4096,7 +4534,7 @@ class Other:
         text = "I will count messages until I see a " + stop_emoji + " reaction. My limit is: `2500` messages."
         description = "Click the Check when you're ready!"
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, text=text, deny_text="Count cancelled", timeout=120,
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, text=text, deny_text="Count cancelled", timeout=120,
                                           extra_text=description):
             return
         await message.channel.trigger_typing()
@@ -4165,7 +4603,6 @@ class Other:
 
             # Set up the Time Information
             Time = {}
-            # print(dir(day))
             DayNum = datetime.fromtimestamp(int(day.d['time'])).strftime('%m')
             DayWeek = datetime.fromtimestamp(int(day.d['time'])).strftime('%a')
             DayWeekFull = datetime.fromtimestamp(int(day.d['time'])).strftime('%A')
@@ -4581,14 +5018,14 @@ class Other:
 
         File = Context.Message.attachments[0]
 
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Are you absolutely you want to replace?", extra_text=os.getcwd() + addpath, deny_text="That's what I thought. Cancelled")
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Are you absolutely you want to replace?", extra_text=os.getcwd() + addpath, deny_text="That's what I thought. Cancelled")
 
         if not confirmation:
             return
 
         await Context.Message.channel.trigger_typing()
         await Context.Message.channel.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
-        await Cmd.Vars.Creator.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
+        await Vars.Creator.send("@RedBot" + addpath + " Replacement by " + Context.Message.author.name, file=newfile)
 
         await Context.Message.channel.trigger_typing()
 
@@ -5015,866 +5452,946 @@ class Calculate:
 
 
 class Tag:
+    embed_color = 0x41f4bb
+    ReservedTags = ["list", "help", "delete", "edit", "info", "random"]
+
     @staticmethod
     async def OnMessage(Context):
         await Tag.SetTag(Context)
         await Tag.TagFunction(Context)
-        await Tag.ClearTagData(Context)
+        #await Tag.ClearTagData(Context)
 
         return
 
-    embed_color = Vars.Bot_Color
     @staticmethod
-    async def RetrieveTagList():
-        # Called internally, retrieves the dictionary of tags
-        taglist = Helpers.RetrieveData(type="Tag")
-        if not taglist:
-            return {}
-        return taglist
-
-    @staticmethod
-    async def RetrievePTagList(id=None):
-        # Called internally, retrieves the dictionary of Personal Tags for an invidual
-        AllPTags = Helpers.RetrieveData(type="PTag")
-        if not AllPTags:
-            return {}
-        if not id:
-            return AllPTags
-
-        if str(id) not in AllPTags.keys():
-            return {}
+    async def FormatEmbed(TagDict, Context):
+        if TagDict["Personal"]:
+            IsPersonalTag = True
         else:
-            return AllPTags[str(id)]
+            IsPersonalTag = False
 
-    @staticmethod
-    @Command(Prefix=True, Start=["settag", "st", "setptag", "spt", "psettag"])
-    async def SetTag(Context):
-        message = Context.Message
+        TagKey = TagDict["Key"]
 
-        PersonalTag = False
-        if Context.StrippedContent.startswith(("setptag", "spt", "psettag")):
-            PersonalTag = True
-            # Creates the Tag given, starts a TagVote if not an admin.
+        # Now, we have the correct tag dict. Time to format the embed and send it.
+        TagType = Context.Message.author.name + "'s Personal Tag" if IsPersonalTag else Context.Message.guild.name + "'s Server Tag"
+        TagColor = await Tag.GetTagColor(Context, IsPersonalTag)
+        TagImage = Context.Message.author.avatar_url if IsPersonalTag else Context.Message.guild.icon_url
 
-        async def ReturnError(message, error_message, sendformat=False):
-            # If there is some issue, this will make things easier.
-            await message.add_reaction(Conversation.Emoji["x"])
+        if TagDict["Color"]:
+            TagColor = TagDict["Color"]
 
-            if sendformat:
-                format = "```\n/settag Class-Schedule <attach image to message>"
-                format += "\n/st Band-Twitter https://www.twitter.com/[...]"
-                format += "\n/psettag access-code-for-discord OU812 I814U```"
-                error_message += format
+        TagTypeAdd = ": " + Sys.FirstCap(TagKey) if IsPersonalTag else "  >> /Tag " + Sys.FirstCap(TagKey)
 
-            em = discord.Embed(color=Tag.embed_color, description=error_message)
-            em.set_author(name="SetTag Error", icon_url=Vars.Bot.user.avatar_url)
+        TagSendEmbed = discord.Embed(description=TagDict["Content"], color=TagColor)
+        TagSendEmbed.set_footer(text=TagType + TagTypeAdd, icon_url=TagImage)
 
-            await message.channel.send(embed=em, delete_after=40)
-            return
+        if TagDict["Image"]:
+            TagSendEmbed.set_image(url=TagDict["Image"])
 
-        # Format: /settag cheese-and-stuff https://www.cheese.com
-        content = message.content[1:].strip()
-        for item in ["settag", "st", "setptag", "psettag", "spt"]:
-            if content.lower().startswith(item):
-                content = content[len(item):].strip()
-
-        if "-a" in content.lower().split(" "):
-            AdminTag = True
-            SpaceList = content.split(" ")
-            NewSpaceList = []
-            for part in SpaceList:
-                if part.lower() != "-a":
-                    NewSpaceList.append(part)
-            contentstr = ""
-            for part in NewSpaceList:
-                if contentstr:
-                    contentstr += " " + part
-                else:
-                    contentstr = part
-            content = contentstr
-        else:
-            AdminTag = False
-
-        if "-f" in content.lower().split(" "):
-            ForceTag = True
-            SpaceList = content.split(" ")
-            NewSpaceList = []
-            for part in SpaceList:
-                if part.lower() != "-f":
-                    NewSpaceList.append(part)
-            contentstr = ""
-            for part in NewSpaceList:
-                if contentstr:
-                    contentstr += " " + part
-                else:
-                    contentstr = part
-            content = contentstr
-        else:
-            ForceTag = False
-
-        # User: > .t TagKey
-        # Bot : > TagContent
-        TagKey = content.split(" ")[0].split("\n")[0].strip().lower()
-        TagContent = content[len(TagKey):].strip()
-
-        TagKey = TagKey.replace("-", " ")  # Replaces "Cheese-And-Stuff" with "Cheese And Stuff"
-        TagKey = TagKey.replace("_", " ")
-
-        # Shorten Links within Tag
-        if "http" in TagContent:
-            ContentWords = TagContent.split(" ")  # Split by spaces
-            for word in ContentWords:
-                if "http" in word.lower():  # If this particular word contains the link
-
-                    while not word.lower().startswith("http"):  # Keep going one by one until you find it
-                        word = word[1:]
-                    # We now have word starting in the right place, but not ending yet
-                    if word.endswith("\""):
-                        word = word.replace("\"", "")
-                    word = word.strip()
-                    while "\n" in word:
-                        word = word[:len(word)-1]
-
-                    shortened_word = Sys.Shorten_Link(word)
-                    # Replace original usage with shortened link
-                    TagContent = TagContent.replace(word, shortened_word)
-
-        # ATTACHMENTS
-        if message.attachments:
-            HasAttachment = True
-            AttachmentUploaded = await Helpers.DownloadAndUpload(message, message.attachments[0])
-
-            if not AttachmentUploaded:
-                HasAttachment = False
-        else:
-            HasAttachment = False
-
-        ReservedTags = ["list", "help", "delete", "edit", "info", "random"]
-
-
-        # Some Fail-Safes about size and stuff
-        if TagKey.count(" ") >= 6:
-            await ReturnError(message, error_message="Key can only be 6 or less words/numerals", sendformat=True)
-            return
-        if len(TagKey) > 100:
-            await ReturnError(message, error_message="Your key is too long!", sendformat=True)
-            return
-        if len(TagContent) > 1000:
-            await ReturnError(message, error_message="Tag Content is too long!", sendformat=True)
-            return
-        if not HasAttachment and not TagContent.strip():
-            await ReturnError(message, error_message="Missing Tag Content", sendformat=True)
-            return
-        if TagKey in ReservedTags:
-            await ReturnError(message, error_message="Sorry, that tag is reserved for a system function.", sendformat=True)
-            return
-        if TagKey.lower().startswith("list"):
-            try:
-                int(TagKey.split(" ")[-1])
-                await ReturnError(message, error_message="Sorry, that tag is reserved for a system function.", sendformat=False)
-                return
-            except:
-                pass
-
-        # Verify that they're an admin
-        IsAdmin = await CheckMessage(message, prefix=True, admin=True, CalledInternally=True)
-
-        if IsAdmin or PersonalTag:
-            yes_text = None
-        elif not IsAdmin:
-            yes_text = "Let's take it to a vote!"
-
-        if not IsAdmin and AdminTag:
-            AdminTag = False
-        if not IsAdmin and ForceTag:
-            ForceTag = False
-
-        # See if TagKey is already used:
-        if PersonalTag:
-            TagData = await Tag.RetrievePTagList(message.author.id)
-        else:
-            TagData = await Tag.RetrieveTagList()
-        if TagKey in TagData.keys():
-            if TagData[TagKey]["Admin"] and not IsAdmin:
-                # If the tag they want to overwrite is admin and they are not:
-                await ReturnError(message, error_message="This Tag is Occupied by a more important function. Insufficient "
-                                           "Permissions to Overwrite.")
-                return
-            else:
-                # If its not an admin tag, give them opportunity to override
-                if not PersonalTag:
-                    PersonalTagData = await Tag.RetrievePTagList(id=message.author.id)
-                    if TagKey not in PersonalTagData.keys():
-                        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Tag already exists. Create Personal Tag?")
-                        if confirmation:
-                            PersonalTag = True
-                            TagData = await Tag.RetrievePTagList(id=message.author.id)
-                        else:
-                            await ReturnError(message, "To edit, type ```css\n/tag edit " + TagKey + "```")
-                elif PersonalTag:
-                    SendMsg = "This personal tag is already occupied by you! To edit it, type ```css\n/ptag edit " + TagKey + "```"
-                    await message.channel.send(SendMsg)
-                    return
-        if HasAttachment:
-            image = AttachmentUploaded.link
-        else:
-            image = None
-
-
-        if not ForceTag:
-            if PersonalTag:
-                ConfirmMessage = "Create Personal Tag?"
-                command = "/ptag"
-                footer_text = "You will be the only person able to access this tag."
-            else:
-                ConfirmMessage = "Create Tag?"
-                command = "/tag"
-                footer_text = "Everyone will be able to call this tag."
-            Extra_Text = "```You Send:  > " + command + " " + TagKey  + "\nI Respond: > " + TagContent.replace("```","\'\'\'") + "```"
-            Confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
-                                                  deny_text="Tag Creation Cancelled", yes_text=yes_text,
-                                                  image=image, footer_text=footer_text)
-            if not Confirmation:
-                return
-
-        await message.channel.trigger_typing()
-
-        if not IsAdmin and not PersonalTag:
-            # Initiate a Vote
-            em = discord.Embed(title="Tag this?", timestamp=Helpers.EmbedTime(), colour=Vars.Bot_Color,
-                               description=Extra_Text)
-            em.set_author(name=message.author, icon_url=message.author.avatar_url)
-            em.set_footer(text="10 minute timeout")
-            if HasAttachment:
-                em.set_image(url=AttachmentUploaded.link)
-
-            # Send Message
-            msg = await message.channel.send("Create Tag?", embed=em)
-
-            def check(init_reaction, init_user):  # Will be used to validate answers
-                # Returns if there are 3 more reactions who aren't this bot
-
-                if init_reaction.message.id != msg.id or init_user.id == Vars.Bot.user.id:
-                    return False
-                if init_reaction.count >= 4  and init_reaction.emoji == Conversation.Emoji["tag"]:
-                    return init_reaction, init_user
-                else:
-                    return False
-
-            await msg.add_reaction(Conversation.Emoji["tag"])
-
-            try:
-                # Wait for the reaction(s)
-                reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=600, check=check)
-
-            except asyncio.TimeoutError:
-                # If it times out
-                await Helpers.QuietDelete(msg)
-                await message.channel.send("Failed to receive 3 reactions", delete_after=5)
-                return None
-
-            # Elif it has all 3 needed
-            await Helpers.QuietDelete(msg)
-
-        if Context.InDM:
-            GuildID = None
-        else:
-            GuildID = message.guild.id
-
-        # If accepted or if IsAdmin:
-        NewTagDict = {
-            "Key": TagKey,
-            "Content": TagContent,
-            "Creator": message.author.id,
-            "Guild": GuildID,
-            "Channel": message.channel.id,
-            "Time": (datetime.now() + timedelta(hours=3)).timestamp(),
-            "Admin": AdminTag,
-            "Image": Vars.Bot_Color,
-            "Personal": PersonalTag,
-            "Color": None
-        }
-        if HasAttachment:
-            NewTagDict["Image"] = AttachmentUploaded.link
-        else:
-            NewTagDict["Image"] = None
-
-        # Download current data and save the new tag there
-        if PersonalTag:
-            FullPTagData = await Tag.RetrievePTagList()
-            if not FullPTagData:
-                FullPTagData = {}
-
-            # Add the key of the ID to the dict
-            if str(message.author.id) not in FullPTagData.keys():
-                FullPTagData[str(message.author.id)] = {}
-
-            FullPTagData[str(message.author.id)][TagKey] = NewTagDict
-
-            Helpers.SaveData(FullPTagData, type="PTag")
-
-        else:
-            FullTagData = await Tag.RetrieveTagList()
-            if not FullTagData:  # If it's not yet set up / used
-                FullTagData = {}
-            # Add the key to the dict
-            FullTagData[TagKey] = NewTagDict
-            # Save the data and close out
-            Helpers.SaveData(FullTagData, type="Tag")
-
-        if not await Helpers.Deleted(message):
-            await message.add_reaction(Conversation.Emoji["check"])
-
-        ExitMessage = "Successfully Created "
-
-        if PersonalTag: ExitMessage += "**Personal**"
-        elif AdminTag: ExitMessage += " **Admin**"
-
-        ExitMessage += " Tag. To use it, type: ```css\n"
-
-        if PersonalTag: ExitMessage += Sys.FirstCap(message.author.name) + " >> /ptag " + TagKey + "```"
-        else: ExitMessage += "/tag " + TagKey + "```"
-
-        await message.channel.send(ExitMessage)
-        return
-
-    @staticmethod
-    async def GetTag(message, TagKey, PersonalTag=False, MoveDown=True):
-        # Called Internally, retrieves the tag and if it can't, sends a message.
-        # Returns None: No tag. Message Sent.
-        # Returns TagData
-
-        PTagData = await Tag.RetrievePTagList(id=message.author.id)
-        AllTagData = await Tag.RetrieveTagList()
-
-        add = ""
-
-        if PersonalTag:
-            if TagKey in PTagData.keys():
-                return PTagData[TagKey]
-            FullTagData = PTagData
-
-        elif not PersonalTag:
-            if TagKey in AllTagData.keys():
-                return AllTagData[TagKey]
-            FullTagData = AllTagData
-            if TagKey in PTagData:
-
-                if MoveDown:
-                    # If MoveDown, it'll send the personal tag even if it's not requested
-                    return PTagData[TagKey], True
-
-                add = "\nYou have a personal tag named __" + TagKey + "__."
-
-        # If it can't find it:
-        DidYouMean = ""
-        if TagKey not in FullTagData.keys():
-            KeyList = []  # Create list of Tag Keys
-            for TagData in FullTagData:
-                KeyList.append(FullTagData[TagData]["Key"])
-
-            # Filter out Keys with similar starts
-            FirstLetterList = []
-            for Key in KeyList:
-                if Key.startswith(TagKey[0]):
-                    FirstLetterList.append(Key)
-
-            if len(FirstLetterList) > 0:  # If there are any similar starting Tags
-                if len(FirstLetterList) > 10:  # Shorten down the list to less than 10
-                    NextList = []
-                    for value in FirstLetterList:
-                        if value.startswith(TagKey[0:2]):
-                            NextList.append(value)
-
-                    # Double check that NextList has any values
-                    if len(NextList) == 0:
-                        NextList = FirstLetterList
-                    elif len(NextList) > 10:
-                        NextList = FirstLetterList[0:10]
-
-                    FinalList = NextList
-                else:
-                    FinalList = FirstLetterList
-
-                # Now we have a list of tags to concatenate
-                DidYouMean = ""
-                for tag in FinalList:
-                    if DidYouMean:
-                        DidYouMean += ", "
-                    DidYouMean += tag
-
-                DidYouMean = "**Did you mean:** *" + DidYouMean + "*?"
-            else:
-                Tagstring = ""
-
-            if PersonalTag:
-                SendString = "Cannot find Key __" + Sys.FirstCap(TagKey) + "__ in your Personal Tag Data!  " + DidYouMean
-            else:
-                SendString = "Cannot find Key __" + Sys.FirstCap(TagKey) + "__ in Data!  " + DidYouMean
-
-            SendString += add
-            await message.channel.send(SendString)
-
-            await message.add_reaction(Conversation.Emoji["x"])
-            return None
+        return TagSendEmbed
 
     @staticmethod
     @Command(Prefix=True, Start=["t", "tag", "pt", "ptag"])
     async def TagFunction(Context):
-        message = Context.Message
+        """
+        The function when someone wants to call a Tag
+        :param Context:  The ContextMessage object of the message sent
+        :return: None
+        """
+        async def ReturnError(ErrorStr, SendFormat=False):
+            # If there is some issue, this will make things easier.
+            Color = await Tag.GetTagColor(Context, IsPersonalTag)
 
-        PersonalTag = False
+            em = discord.Embed(color=Color, description=ErrorStr)
+            em.set_author(name="Something Went Wrong.", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text="For help creating and using Tags, perform \"/help Tag\"")
+
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
+            await Context.Channel.send(embed=em)
+            return
+
+        IsPersonalTag = False
         if Context.StrippedContent.startswith(("pt ", "ptag")):
-            PersonalTag = True
+            IsPersonalTag = True
+        elif Context.InDM:
+            IsPersonalTag = True
 
-        content = message.content[1:]
+        # Find TagKey
+        SplitContentParts = Context.Message.content.split(" ")
+        if len(SplitContentParts) == 1:
+            # If there is no key in the tag, it's wrong.
+            await ReturnError("Seems you forgot a key... ```css\n/tag {key}   # To call a Server Tag"
+                              "\n/ptag {key}  # To call a Personal Tag```")
+            return
+        TagKey = SplitContentParts[1:]
+        TagKey = " ".join(TagKey)
 
-        Message_Starts = ["ptag", "tag", "pt", "t"]
-        for Start in Message_Starts:
-            if content.startswith(Start):
-                content = content[len(Start):]
+        # Return error if there's no TagKey
+        if not TagKey:
+            await Help.InternalHelp(Context.Channel, type="tag")
+            return
+
+        # If it's a system function, run the function and return
+        TagKey = TagKey.lower().strip()
+        if TagKey.split(" ")[0] in Tag.ReservedTags:
+            await Tag.Reserve(TagKey, Context, IsPersonalTag)
+            return
+
+        # Set up LocationID and then retrieve the tag
+        AuthorID = Context.Message.author.id
+        if Context.InDM:
+            GuildID = AuthorID
+        else:
+            GuildID = Context.Message.guild.id
+
+        TagDict = await Tag.GetTag(TagKey, IsPersonalTag, AuthorID, GuildID)
+
+        if not TagDict:  # If there's no tag found
+            await Tag.NoTagFound(TagKey, Context, IsPersonalTag)
+            return
+
+        TagSendEmbed = await Tag.FormatEmbed(TagDict, Context)
+
+        await Context.Channel.send(embed=TagSendEmbed)
+        return
+
+    @staticmethod
+    async def GetTagColor(Context, IsPersonalTag):
+        if Context.InDM:
+            return 0xFFFFFF
+
+        if IsPersonalTag:
+            # If it's a personal tag, choose one:
+            return Context.Message.author.color
+        else:
+            return Tag.embed_color
+
+    @staticmethod
+    async def NoTagFound(TagKey, Context, IsPersonalTag):
+        if IsPersonalTag:
+            AllTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+        else:
+            AllTagData = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
+
+        DidYouMean = await Tag.DidYouMean(TagKey, AllTagData)
+
+        ListCommand = "/PTag List" if IsPersonalTag else "/Tag List"
+        TagType = "Personal" if IsPersonalTag else "Server"
+
+        DidYouMean += "\n\nType `" + ListCommand + "` to view all " + TagType + " Tags."
+
+        OtherTag = ""
+
+        # If there's a tag by that name in the other data list, check
+        if IsPersonalTag and not Context.InDM:
+            GuildTagData = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
+            if TagKey in list(GuildTagData.keys()):
+                OtherTag = "\n" + Sys.FirstCap(Context.Message.guild.name) + " has a Server Tag named " + TagKey
+        elif Context.InDM:
+            OtherTag = ""
+        else:
+            PersonalTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+            if TagKey in list(PersonalTagData.keys()):
+                OtherTag = "\nYou have a Personal Tag named " + TagKey
+
+        Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+        NoTag_Embed = discord.Embed(description=DidYouMean.strip() + OtherTag, color=Color)
+        NoTag_Embed.set_author(name="No " + TagType + " Tag found with the key: `" + Sys.FirstCap(TagKey) + "`")
+
+        if IsPersonalTag:
+            NoTag_Embed.set_footer(text=Context.Message.author.name + "'s Personal Tag: Cannot find.",
+                                   icon_url=Context.Message.author.avatar_url)
+
+        else:
+            NoTag_Embed.set_footer(text=Context.Message.guild.name + "'s Server Tag: Cannot find.",
+                                   icon_url=Context.Message.guild.icon_url)
+
+        await Context.Channel.send(embed=NoTag_Embed)
+        if not await Context.IsDeleted():
+            # If the message is not deleted, add an X
+            await Context.Message.add_reaction(Conversation.Emoji['x'])
+        return
+
+    @staticmethod
+    async def GetTag(TagKey, IsPersonalTag, AuthorID, GuildID):
+        """
+        Runs internally and returns the Tag Object
+        :param TagKey:          The Key of the Tag
+        :param IsPersonalTag:   True/False
+        :param LocationID:      The GuildID or PersonalID
+        :return:               (True/False, TagObject)
+        """
+
+        AllGuildTagsList = await Tag.GetGuildTagList(ID=GuildID)
+        AllPersonalTagsList = await Tag.GetPersonalTagList(ID=AuthorID)
+
+        # Look to see if there's a Guild Tag
+        InGuildTagsList = None
+        if TagKey in AllGuildTagsList:
+            # If the Key is in the GuildTags:
+            InGuildTagsList = AllGuildTagsList[TagKey]
+
+        # Look to see if there's a PersonalTag
+        InPersonalTagsList = None
+        if TagKey in AllPersonalTagsList:
+            # If the Key is in the GuildTags:
+            InPersonalTagsList = AllPersonalTagsList[TagKey]
+
+        if IsPersonalTag:
+            # If it's a Personal Tag, check to see if it's in the GuildTag list
+            if InPersonalTagsList:
+                return InPersonalTagsList
+            else:  # If it's not a
+                return {}
+
+        else:
+            # If it's a Guild tag
+            if InGuildTagsList:
+                return InGuildTagsList
+            elif InPersonalTagsList:
+                return InPersonalTagsList
+            else:
+                return {}
+
+    @staticmethod
+    async def DidYouMean(TagKey, TagDict):
+        # Returns a string of "Did you mean: " after a tag doens't work.
+        # Takes in a dictionary
+        TagNameList = list(TagDict.keys())
+
+        # Okay so we want to score each tag in the list by similarity to the Key
+        SimilarDict = {}
+
+        for item in TagNameList:
+            item = item.lower().strip()
+
+            # If the key is in the item, the score is the length minus the nonlength
+            if TagKey in item:
+                Difference = len(item) - len(TagKey)
+                Average = (len(item) + len(TagKey)) / 2
+                Score = abs(Difference) / Average
+                Score = 1 / Score
+                SimilarDict[item] = Score + 4
+                continue
+
+            # Go through each letter to see how similar it is
+            Score = 0
+            Limit = len(TagKey) if len(TagKey) < len(item) else len(item)
+            for i in range(0, Limit - 1):
+                if TagKey[i] == item[i]:
+                    Score += 1
+
+            SimilarDict[item] = Score
+
+        SortedTupleList = sorted(SimilarDict.items(), key=lambda x: x[1])
+        SortedTupleList.reverse()  # Now it is the biggest one first
+
+        AddToDidYouMean = []  # Will house all of the words that we want to ask the user if they wanted
+
+        # Now we iterate through each one in the SortedTupleList
+        PreviousScore = None
+        for WordScore in SortedTupleList:
+            if WordScore[1] == 0:
+                # If the score is zero, break, since we know that everything after is less than or equal to 0
+                break
+            elif WordScore[1] <= 1 and len(AddToDidYouMean) > 1:
+                # If the score is already 1 and there's at least one word in there, break
+                break
+            elif WordScore[1] <= 2 and len(AddToDidYouMean) <= 1:
                 break
 
-        TagKey = content.lower().strip()
-        if not TagKey.strip():
-            await Help.InternalHelp(message.channel, type="tag")
-            return
+            if PreviousScore:
+                # If there was a previous score, break if this score is less than 33% of that
+                Cutoff = 0.33 * PreviousScore
 
-        AllTagData = await Tag.RetrieveTagList()
+                if WordScore[1] <= Cutoff:  # If the score is less than the cutoff, break
+                    break
+            # If we're this far, it's good to add
+            AddToDidYouMean.append(WordScore[0])
+            PreviousScore = WordScore[1]
 
-        if TagKey.startswith("list"):
-            # If they did /tag list
-            if TagKey == "list":
-                await Tag.ListTag(message, PersonalTag=PersonalTag)
-                return
-            # Else, if there's a number afterwards:
-            try:
-                integer = int(TagKey.split(" ")[-1].strip())
-                await Tag.ListTag(message, PersonalTag=PersonalTag)
-                return
-            except ValueError:
-                pass
-        if TagKey == "help":
-            # If they did /tag help
-            await Tag.HelpTag(message)
-            return
-        if "info" == TagKey.split(" ")[0]:
-            # If the key starts with "info"
-            await Tag.InfoTag(message, TagKey, PersonalTag=PersonalTag)
-            return
-        if "edit" == TagKey.split(" ")[0]:
-            # /tag edit ___
-            await Tag.EditTag(Context, TagKey, PersonalTag=PersonalTag)
-            return
-        if TagKey == "random":
-            await Tag.RandomTag(message, PersonalTag=PersonalTag)
-            return
+        # So now we should have a DidYouMean list.
+        # If not, return nothing
+        if not AddToDidYouMean:
+            return ""
 
-        TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag, MoveDown=True)
-        if type(TagData) == tuple:
-            DidMoveDown = TagData[1]
-            TagData = TagData[0]
+        # Capitalize each value of AddToDidYouMean
+        FinalAddToDidYouMean = []
+        for word in AddToDidYouMean:
+            FinalAddToDidYouMean.append("`" + Sys.FirstCap(word)+ "`")
+
+        DidYouMeanString = "**Did You Mean: **" + ",  ".join(FinalAddToDidYouMean) + "  ?"
+
+        return DidYouMeanString
+
+    @staticmethod
+    async def GetGuildTagList(ID=None):
+        """
+        Returns the list of all Guild Tags with a given ID
+        :param ID: The int (or str)
+        :return:   Dict of the tags, either all tags within a guild or all tags total
+        """
+        AllPublicTagsDict = Helpers.RetrieveData(type="Tag")
+
+        if not AllPublicTagsDict:
+            # If there are no saved Public tags, return {}
+            return {}
+
+        elif not ID:
+            # If they don't want any specific guild
+            return AllPublicTagsDict
+
+        elif str(ID) in AllPublicTagsDict.keys():
+            # If the guild is registered
+            return AllPublicTagsDict[ str(ID) ]
+
         else:
-            DidMoveDown = False
+            # If the guild isn't in the AllPublicTagsDict, return nothing
+            return {}
 
+    @staticmethod
+    async def GetPersonalTagList(ID=None):
+        """
+        Return the list of all Personal Tags for the given person
+        :param ID: the int (or str)
+        :return:   The Dict of all of the Personal Tags
+        """
+        AllPersonalTagsDict = Helpers.RetrieveData(type="PTag")
 
-        if not TagData:
-            return
-        Title = None
-        FooterAdd = ""
+        if not AllPersonalTagsDict:
+            # If there are no PTags, return {}
+            return {}
 
-        if DidMoveDown:
+        elif not ID:
+            # If they don't want any specific person
+            return AllPersonalTagsDict
 
-            if not Context.InDM:
-                Title = message.author.name + "'s Personal Tag: " + TagKey
+        elif str(ID) in AllPersonalTagsDict.keys():
+            # If the person does have personal tags registered
+            return AllPersonalTagsDict[ str(ID) ]
 
-            PersonalTag = True
-            FooterAdd = "No Public Tags by that Key  >> "
-
-
-
-        # If it does exist in the data
-        # TagData = AllTagData[TagKey]
-        if TagData["Admin"]:
-            # If it's an admin only tag:
-            IsAdmin = await CheckMessage(message, prefix=True, admin=True, CalledInternally=True)
-            if not IsAdmin:
-                await message.channel.send(Conversation.Emoji["x"] + " This is an admin-only tag! Sorry.")
-                await message.add_reaction(Conversation.Emoji["x"])
-                return
-            # If it is an admin then there's no issue
-
-        if "Color" not in TagData.keys():
-            TagData["Color"] = Vars.Bot_Color
-        elif not TagData["Color"]:
-            TagData["Color"] = Vars.Bot_Color
-
-        em = discord.Embed(description=TagData["Content"], color=TagData["Color"], title=Title)
-        if "Image" in TagData.keys():
-            if TagData["Image"]:
-                em.set_image(url=TagData["Image"])
-
-        if PersonalTag:
-            em.set_footer(text=FooterAdd + "/ptag " + TagData["Key"])
         else:
-            em.set_footer(text=FooterAdd + "/tag " + TagData["Key"])
+            # If the person has no tags registered
+            return {}
 
-        await message.channel.send(embed=em) #TagData["Content"])
+    @staticmethod
+    @Command(Prefix=True, Start=["settag", "st", "setptag", "spt", "psettag", "ptagset"])
+    async def SetTag(Context):
+        """
+        Creates a Tag
+        :param Context: The Cmd.ContextMessage object that's passed into it
+        :return:        None, hopefully :)
+        """
+        async def ReturnError(ErrorStr, SendFormat=False):
+            # If there is some issue, this will make things easier.
+            if SendFormat:
+                format = "\n\nTry following the format:\n" \
+                         "**Setting a Server-Wide Tag:**" \
+                         "```py\n>> /settag Bot-Color 0xFFFFFFF  # Create a tag of the bots color within a guild"\
+                         "\n>> /settag Class-Schedule <attach image to message>  # Add an Image to an Embed" \
+                         "\n>> /settag Band-Twitter https://www.twitter.com/[...]  # Add a link to be shortened```" \
+                         "**Setting a Personal Tag:**" \
+                         "```py\n>> /psettag access-code-discord OU812 I814U  # Create a personal tag with personal details" \
+                         "\n# Only you can access Personal Tags```"
+            else:
+                format = ""
+
+            Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+            em = discord.Embed(color=Color, description=ErrorStr + format)
+            em.set_author(name="SetTag Error", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text="For help creating and using Tags, perform \"/help Tag\"")
+
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
+            await Context.Channel.send(embed=em)
+
+            return
+
+        IsPersonalTag = False
+
+        if Context.StrippedContent.startswith(("setptag", "spt", "psettag", "ptagset")):
+            # If the Message starts with any of those, it's a personal tag
+            IsPersonalTag = True
+
+        elif Context.InDM:
+            # If it's in a Direct Messages channel, it's a Personal Tag
+            IsPersonalTag = True
+
+        Split_Content_Segments = Context.Message.content.split(" ")  # The concent of the message split by sentence
+
+        # The 3 horsemen of the apocolapse:
+        TagKey      = ""
+        TagContent  = ""
+        TagImageUrl = ""
+
+        # So the second item in Split_Content_Segments is the key
+        if len(Split_Content_Segments) < 2:
+            # If there's less than 2 items in the Split_Content_Segments, ["/settag", "key", "content"]
+            await ReturnError("Remember to follow the format!", SendFormat=True); return
+
+        # KEY
+        TagKey = Split_Content_Segments[1]
+        TagKey = TagKey.replace("-", " ").replace("_", " ").lower()
+
+        # CONTENT
+        if len(Split_Content_Segments) >= 2:
+            # No content following in the tag
+            Total_Content_Segments = Split_Content_Segments[2:]
+            TagContent = " ".join(Total_Content_Segments)
+
+            TagContent = await Helpers.ShortenTextInLink(TagContent)
+
+        # IMAGE
+        if Context.Message.attachments:
+            # Add image to the Tag Content
+            AttachmentUploaded = await Helpers.DownloadAndUpload(Context.Message, Context.Message.attachments[0])
+            if AttachmentUploaded:
+                TagImageUrl = AttachmentUploaded.link
+
+        # Check the Tag
+        if IsPersonalTag or Context.InDM:
+            AlreadyGivenTagDict = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+        else:
+            AlreadyGivenTagDict = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
+        Response = await Tag.CheckPotentialTag(TagKey, TagContent, TagImageUrl, AlreadyGivenTagDict)
+
+        if Response:  # If there's an error, let's format the error and then send it out
+            Type_Replacement = "Personal Tag" if IsPersonalTag else "Server Tag"
+            Cmd_Replacement  = "ptag" if IsPersonalTag else "tag"
+            Response = Response.replace("{Type}", Type_Replacement).replace("{TagCommand}", Cmd_Replacement)
+            await ReturnError(Response, SendFormat=True)
+            return
+
+        # Tag is good to go! Let's confirm it
+        TagCommand = "/ptag" if IsPersonalTag else "/tag"
+        TagType = "Personal Tag" if IsPersonalTag else "Server Tag"
+
+        YouSayISay = "```You Send:  >> " + TagCommand + " " + TagKey
+        YouSayISay += "\nI Respond: >> " + TagContent
+        YouSayISay += " {+Attachment:}```" if TagImageUrl else "```"
+
+        Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+        ConfirmationEmbed = discord.Embed(title="Create " + TagType + "?", description=YouSayISay, color=Color,
+                                          timestamp=Helpers.EmbedTime())
+        if IsPersonalTag:
+            ConfirmationEmbed.set_author(name=Context.Message.author.name + "#" + Context.Message.author.discriminator,
+                                         icon_url=Context.Message.author.avatar_url)
+            ConfirmationEmbed.set_footer(text="This will only be callable by you. 60 second Timeout.")
+        else:
+            ConfirmationEmbed.set_author(name=Context.Message.guild.name + " Tag",
+                                         icon_url=Context.Message.guild.icon_url)
+            ConfirmationEmbed.set_footer(text="Everyone in this server can call this tag here. 60 second Timeout.")
+
+        if TagImageUrl:
+            ConfirmationEmbed.set_image(url=TagImageUrl)
+
+        # Let's see if there's a response
+        response = await Interraction.Confirmation(Context.Channel, Context.Message.author, "", Embed=ConfirmationEmbed,
+                                              deny_text="Okay, I cancelled the tag.", originalctx=Context, mention=Context.Message.author,
+                                              Outside_Text="Does this all look correct?", add_reaction=False)
+
+        if not response:
+            # If it timed out or wasn't liked, return
+            return
+
+        # Next let's see if the creator is a guild administrator
+        IsGuildAdmin = False
+        if Context.InDM:  # If it's a DM channel
+            IsGuildAdmin = True
+        elif Context.IsAdmin:  # If the user is known to RedBot as an admin
+            IsGuildAdmin = True
+        else:  # Check guild to see if the user has a few permissions
+            Guild_Permissions = Context.Message.author.guild_permissions
+            IsGuildAdmin = Guild_Permissions.manage_guild or Guild_Permissions.administrator
+
+        IsGuildAdmin = True  # TODO REMOVE
+
+        if not IsGuildAdmin and not IsPersonalTag:
+            # If it's not a personal tag and if the creator isn't an admin, create a vote
+            # Let's make a slight change to our embed
+            VoteEmbed = ConfirmationEmbed
+            VoteEmbed.title = "Tag Vote: Should this be a Server Tag?"
+            VoteEmbed.color = await Tag.GetTagColor(Context, IsPersonalTag)
+            VoteEmbed.set_footer(text="Add a reaction to vote. Anyone here can call the tag. 10 minute Timeout.")
+
+            # Send VoteMsg
+            VoteMsg = await Context.Channel.send("**Public Vote**: You need _3_ votes to save the tag", embed=VoteEmbed)
+
+            # Establish TagEmoji
+            TagEmoji = Conversation.Emoji["tag"]
+            await VoteMsg.add_reaction(TagEmoji)
+
+            # Wait for 4 reactions
+            NecessaryVotes = await Helpers.WaitForReaction(reaction_emoji=TagEmoji, message=VoteMsg, timeout=610,
+                             emoji_num=3, remove_wrong=True)
+
+            await Helpers.QuietDelete(VoteMsg)
+
+            if not NecessaryVotes:
+                await Context.Channel.send("Timed out without enough votes. Cancelled.", delete_after=20)
+                await Context.Message.add_reaction(Conversation.Emoji["x"])
+                return
+
+        # If we've gotten this far, it's good to save! Let's use a function built for this
+        SaveID = Context.Message.author.id if IsPersonalTag else Context.Message.guild.id
+        await Tag.SaveTag(TagKey, TagContent, TagImageUrl, SaveID, IsPersonalTag, Context)
+
+        await Context.Message.add_reaction(Conversation.Emoji["check"])
+
+        # SuccessEmbed
+        SuccessEmbed = ConfirmationEmbed
+        SuccessEmbed.title = "Successfully saved Tag"
+        SuccessEmbed.color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+
+        footer_text = "This Tag will be only callable by " + Context.Message.author.name if IsPersonalTag else "Everyone in the server can call this."
+        SuccessEmbed.set_footer(text=footer_text)
+
+        await Context.Channel.send(embed=SuccessEmbed)
+
         return
 
     @staticmethod
-    @Command(Start="ClearTagData", Admin=True, Prefix=True, NoSpace=True)
-    async def ClearTagData(Context):
-        message = Context.Message
+    async def CheckPotentialTag(TagKey, TagContent, TagImageUrl, AlreadyGivenTagDict, DoNotCheck=[]):
+        """
+        Takes in 3 objects to check all of the things in the Tag to double check everything
+        :param TagKey:      The Key of the tag
+        :param TagContent:  The Text Content of the Tag  (Maybe None)
+        :param TagImage:    An image  (Maybe None)
+        :return             None if it checks out, or gives a String if it's wrong
+        """
 
-        if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Are you sure you want to clear?"):
-            return
+        ErrorMessage = ""
 
-        Helpers.SaveData({}, type="Tag")
+        # Let's start performing some checks!
+        if TagKey in AlreadyGivenTagDict.keys():
+            ErrorMessage = "{Type} Key already in use!\nPerform the following to see the key: " \
+                           "```/{TagCommand} " + TagKey + "```" \
+                                                          "To edit or delete that tag, do this command:" \
+                                                          "```/{TagCommand} edit " + TagKey + "```"
+            if "key" in DoNotCheck:
+                ErrorMessage = ""
+
+        elif len(TagKey.split(" ")) >= 8:
+            ErrorMessage = "Key is too long! Max of 150 characters and 8 words or less." \
+                           "\nViolation: " + str(len(TagKey.split(" "))) + " words, 8 max."
+
+        elif len(TagKey) > 150:
+            ErrorMessage = "Key is too long! Max of 150 characters and 8 words or less." \
+                           "\nViolation: " + str(len(TagKey)) + " characters, 150 max."
+
+        elif len(TagKey) < 3:
+            ErrorMessage = "Key is far too short! Minimum of 3 characters." \
+                           "\nViolation: " + str(len(TagKey)) + " characters, 3 min."
+
+        elif len(TagContent) > 1000:
+            ErrorMessage = "Tag Content is too long." \
+                           "\nViolation: " + str(len(TagContent)) + " characters, 1000 max. Remember that Discord can only send 1000 characters at once  :)"
+
+        elif not TagContent and not TagImageUrl:
+            ErrorMessage = "You need to add either an image or text content!"
+
+        elif TagKey in Tag.ReservedTags:
+            ErrorMessage = "TagKey \"`" + TagKey + "`\" reserved for system function."
+
+        return ErrorMessage
 
     @staticmethod
-    async def ListTag(message, PersonalTag=False):
-        # Called internally with /tag list
-        ListDict = {
-            "Showing": 0
+    async def SaveTag(TagKey, TagContent, TagImageUrl, ID, IsPersonalTag, Context):
+        if not TagImageUrl:
+            TagImageUrl = None
+
+        if IsPersonalTag:
+            GuildID = None
+        else:
+            GuildID = Context.Message.guild.id
+
+        NewTagDict = {
+            "Key": TagKey,
+            "Content": TagContent,
+            "Creator": Context.Message.author.id,
+            "Guild": GuildID,
+            "Channel": Context.Channel.id,
+            "Time": (datetime.now() + timedelta(hours=3)).timestamp(),
+            "Admin": False,
+            "Image": TagImageUrl,
+            "Personal": IsPersonalTag,
+            "Color": None
         }
+        # Now it adds it to the correct section, or creates it
+        if IsPersonalTag:
+            AllPersonalTagData = await Tag.GetPersonalTagList()
+            if str(ID) in AllPersonalTagData.keys():
+                # If the person already has some personal tags registered, add it in
+                AllPersonalTagData[str(ID)][TagKey] = NewTagDict
+            else:
+                # Otherwise create a section for the person with this tag
+                AllPersonalTagData[str(ID)] = {TagKey: NewTagDict}
 
-        if PersonalTag:
-            AllTagData = await Tag.RetrievePTagList(id=message.author.id)
-            ListType = Sys.FirstCap(message.author.name) + "'s"
+            Helpers.SaveData(AllPersonalTagData, type="PTag")
+
         else:
-            ListType = "Public"
-            AllTagData = await Tag.RetrieveTagList()
+            AllGuildTagData = await Tag.GetGuildTagList()
+            if str(ID) in AllGuildTagData.keys():
+                # If the person already has some personal tags registered, add it in
+                AllGuildTagData[str(ID)][TagKey] = NewTagDict
+            else:
+                # Otherwise create a section for the person with this tag
+                AllGuildTagData[str(ID)] = {TagKey: NewTagDict}
 
-        if message.content.strip().split(" ")[-1].lower() != "list":
-            # If it's something else added to the end:
-            if await CheckMessage(message, admin=True, CalledInternally=True, prefix=True):
-                # If they're an admin
-                try:
-                    User_ID = int(message.content.strip().split(" ")[-1].strip())
-                    user = Vars.Bot.get_user(User_ID)
+            Helpers.SaveData(AllGuildTagData, type="Tag")
 
-                    AllTagData = await Tag.RetrievePTagList(id=message.content.strip().split(" ")[-1].lower().strip())
+        return True
 
-                    ListType = Sys.FirstCap(user.name) + "'s"
+    @staticmethod
+    async def Reserve(TagKey, Context, IsPersonalTag):
+        # ["list", "help", "delete", "edit", "info", "random"]
+        if Context.InDM:
+            IsPersonalTag = True
 
-                except ValueError:
-                    pass
-
-
-        SectionedKeyList = []  # Contains the keys each in groups of 10
-        TempList = []
-        for FoundTag in sorted(AllTagData):
-            # 10 tags per list
-            if len(TempList) == 10:  # If there are 10 in the queue
-                SectionedKeyList.append(TempList)  # Box them up and put them in the SectionedKeyList
-                TempList = []  # Reset Queue
-            FoundTag = AllTagData[FoundTag]
-            KeyStr = FoundTag["Key"]  # Make string KeyStr that keeps track of the key's name
-            if "Image" in FoundTag.keys():
-                if FoundTag["Image"]:
-                    KeyStr += " [Image]"  # Add quantifier if its an image
-
-            TempList.append(KeyStr)  # Add to TempList
-
-        if TempList:  # If there are any remaining values
-            SectionedKeyList.append(TempList)  # Box up and put in SectionedKeyList
-            TempList = []
-
-        FinalKeyList = []  # List of strings per page
-        for box in SectionedKeyList:
-            string = ""
-            for key in box:
-                if string:
-                    string += "\n"
-                string += "- " + key
-            FinalKeyList.append(string)
-
-        ListDict["Keys"] = FinalKeyList
-
-        # Now send the first message
-        if PersonalTag:
-            ListType += " Personal"
-        title = "List of " + ListType + " Saved Tags"
-
-        if not ListDict["Keys"]:
-            em = discord.Embed(description="You have No Personal Tags. Do ```css\n/setptag <key> <tag> <image attachment>``` to create one!")
-            em.set_author(name="Personal Tag List Error", icon_url=Vars.Bot.user.avatar_url)
-            await message.channel.send(embed=em)
+        # Go through the functions and choose one
+        if TagKey == "list":
+            await Tag.Reserve_List(TagKey, Context, IsPersonalTag)
             return
 
-        em = discord.Embed(title=title, description=ListDict["Keys"][0], color=Vars.Bot_Color)
-        em.set_footer(text="Page 1/" + str(len(ListDict["Keys"])))
-        ListMsg = await message.channel.send(embed=em)
-
-        # If there's only one page, do not show the buttons.
-        if len(ListDict["Keys"]) <= 1:
+        elif TagKey.split(" ")[0] == ("delete"):
+            await Tag.Reserve_Delete(TagKey, Context, IsPersonalTag)
             return
 
-        # Prepare the Buttons
-        ButtonNext = Conversation.Emoji["TriangleRight"]
-        ButtonBack = Conversation.Emoji["TriangleLeft"]
-        ButtonSkip = Conversation.Emoji["SkipRight"]
+        elif TagKey == "random":
+            await Tag.Reserve_Random(TagKey, Context, IsPersonalTag)
+            return
 
-        ButtonList = [ButtonBack, ButtonNext, ButtonSkip]
+        elif TagKey.split(" ")[0] == ("info"):
+            await Tag.Reserve_Info(TagKey, Context, IsPersonalTag)
+            return
 
-        # Add to message
-        for button in ButtonList:
-            await ListMsg.add_reaction(button)
+        elif TagKey.split(" ")[0] == ("edit"):
+            await Tag.EditTag(TagKey, Context, IsPersonalTag)
 
-        StopWhileLoop = False
-        while not StopWhileLoop:
-            # Standard loop that runs per each reaction added
+    @staticmethod
+    async def Reserve_List(TagKey, Context, IsPersonalTag):
+        # Called from Tag.Reserve, which is called from Tag.TagFunction
+        if IsPersonalTag:
+            AllTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+        elif Context.InDM:
+            AllTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+            IsPersonalTag = True
+        else:
+            AllTagData = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
 
-            # Will be able to remove an indifferent reaction
-            async def remove_reaction(init_reaction, init_user):
-                # Can remove a reaction without needing async
-                await asyncio.sleep(.25)
-                await init_reaction.message.remove_reaction(init_reaction.emoji, init_user)
-                return
+        TagKeyList = list(AllTagData.keys())
+        TagKeyList.sort()
 
-            # Checks to make sure the reaction is valid
-            def check(init_reaction, init_user):
-                if init_reaction.message.id != ListMsg.id:  # On this message
-                    return
-                if init_user.id == Vars.Bot.user.id:  # Not a bot
-                    return
-                if init_reaction.emoji in ButtonList and init_user.id == message.author.id:  # Acceptable Emoji & Origional User
-                    return True
-                else:  # If not:  Start Async loop to remove reaction
-                    Vars.Bot.loop.create_task(remove_reaction(init_reaction, init_user))
-                    return
+        NewTagKeyList = []
 
-            # Wait for Reaction
-            try:
-                reaction, user = await Vars.Bot.wait_for('reaction_add', timeout=60, check=check)
+        for i in range(0, len(TagKeyList)):
+            Add = "`" + str(i+1) + ".  `  " + Sys.FirstCap(TagKeyList[i])
+            if AllTagData[TagKeyList[i]]["Image"]:
+                Add += "  *+[Image]*"
+            NewTagKeyList.append(Add)
 
-            except asyncio.TimeoutError:
-                # If timed out
-                await Helpers.RemoveAllReactions(ListMsg)
-                StopWhileLoop = True  # Ensure it won't loop again
-                break  # Break Loop
+        Title = Context.Message.author.name + "\'s Personal Tag List" if IsPersonalTag else Context.Message.guild.name + " Server Tag List"
+        Color = await Tag.GetTagColor(Context, IsPersonalTag)
+        Icon = Context.Message.author.avatar_url if IsPersonalTag else Context.Message.guild.icon_url
 
-            # If we are successful, remove the reaction and check which emoji it is
-            Vars.Bot.loop.create_task(remove_reaction(reaction, user))
+        if not NewTagKeyList:
+            NoTagsMsg = "You have no saved tags :(\nDo `/setPtag {key} {content} {+image}` to create one" if IsPersonalTag else \
+                Context.Message.guild.name + " has no saved tags :(\nDo `/settag {key} {content} {+image}` to create one"
+            em = discord.Embed(description=NoTagsMsg, color=Color)
+            em.set_footer(icon_url=Icon, text=Title)
+            await Context.Channel.send(embed=em)
+            return
 
-            # Back Button
-            if reaction.emoji == ButtonBack:
-                MoveTo = ListDict['Showing'] - 1
-                if MoveTo < 0:
-                    MoveTo = len(ListDict['Keys']) - 1
 
-            # Next Button
-            if reaction.emoji == ButtonNext:
-                MoveTo = ListDict['Showing'] + 1
-                if MoveTo >= len(ListDict['Keys']):
-                    MoveTo = 0
-
-            # Skip Ahead Button
-            if reaction.emoji == ButtonSkip:
-                if ListDict['Showing'] == len(ListDict["Keys"]) - 1:
-                    MoveTo = 0
-                else:
-                    MoveTo = len(ListDict["Keys"]) - 1
-
-            # Update ListDict
-            ListDict['Showing'] = MoveTo
-
-            # Update Message / Send it
-            em = discord.Embed(title="List of Saved Tags", description=ListDict["Keys"][MoveTo], color=Vars.Bot_Color)
-            em.set_footer(text="Page " + str(MoveTo +1) + "/" + str(len(ListDict['Keys'])))
-            await ListMsg.edit(embed=em)
-
-            # Update the message item we have
-            ListMsg = await Helpers.ReGet(ListMsg)
-
-        # When we're out of the loop now:
-        em = discord.Embed(title="List of Saved Tags", description=ListDict["Keys"][ListDict["Showing"]])
-        em.set_footer(text="Page " + str(ListDict["Showing"] + 1) + "/" + str(len(ListDict['Keys'])) + " - /tag List")
-        await ListMsg.edit(embed=em)
+        await Interraction.ListStrings(Context.Channel, NewTagKeyList, Title, Color=Color, Author_Image=Icon)
         return
 
     @staticmethod
-    async def HelpTag(message):
-        HelpDesc = "The Tag Command allows me to remember certain images, links, or phrases and send them after a key " \
-                   "phrase is given, IE `/tag tailgate`" \
-                   "\n\n**To Call A Tag**\n" \
-                   "- To call a tag in my memory, type `/tag ___` or `/t ___` with the appropriate key." \
-                   "\n\n **To Create a Tag**\n" \
-                   "- To create a tag, type `/settag <key> <content>`. For example, You could say `/settag Dog I like Dogs`" \
-                   ". When you type `/t dog`, I'll respond with 'I like Dogs'." \
-                   "\n- Sometimes I decide to call a vote on a tag if I feel it may be niche or bad." \
-                   "\n- If you want to tag with an image, type `/settag <key>` in the message attached to the image. You can" \
-                   "have an image and content such as a link in the same tag. " \
-                   "\n- *Keep in mind that I upload all images to Imgur and shorten all links using TinyURL" \
-                   "\n\n**Helpful Commands**" \
-                   "\n  -  /tag Help" \
-                   "\n  -  /tag List" \
-                   "\n  -  /tag Info ____" \
-                   "\n  -  /tag Edit ____"
-        em = discord.Embed(title="Tag Help", description=HelpDesc, color=Vars.Bot_Color)
-        await message.channel.send(embed=em)
+    async def Reserve_Delete(TagKey, Context, IsPersonalTag):
+        # Deletes a Tag
+        async def RaiseError(Error):
+            Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+            em = discord.Embed(color=Color,
+                               description=Error)
+            em.set_author(name="Tag Deletion Error", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text="For help deleting and using tags, perform \"/help Tag\"")
+
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
+            await Context.Channel.send(embed=em)
+            return
+
+        if IsPersonalTag:
+            TagType = "your Personal Tag"
+        else:
+            TagType = "the Server Tag"
+
+        if not " " in TagKey:
+            await RaiseError("Format: /tag delete (key)\nFor Personal Tags: /ptag delete (key)")
+            return
+
+        TagKey = " ".join(TagKey.split(" ")[1:])
+
+        # Let's verify we can get the key:
+        TagData = await Tag.GetTag(TagKey, IsPersonalTag, Context.Message.author.id, Context.Message.guild.id)
+        if not TagData:
+            TagDict = await Tag.RetrievePTagList(id=Context.Message.author.id) if IsPersonalTag else \
+                await Tag.RetrieveTagList(GuildID=Context.Message.guild.id)
+            DidYouMean = await Tag.DidYouMean(TagKey, TagDict)
+            await RaiseError("Tag key not found!\n" + DidYouMean)
+            return
+
+        if TagData["Personal"]:
+            IsPersonalTag = True
+
+        Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+
+        if not await Interraction.Confirmation(Context.Channel, Context.Message.author, "Delete " + TagType + ": " + TagKey + " ",
+                                               deny_text="Tag Re-Saved.",color=Color):
+            return
+
+        if IsPersonalTag:
+            AllPersonalTagData = await Tag.GetPersonalTagList()
+            AllPersonalTagData[str(Context.Message.author.id)].pop(TagKey)
+            Helpers.SaveData(AllPersonalTagData, type="PTag")
+
+        Success_Em = discord.Embed(color=Color, description="Sucessfully deleted " + TagType + " *" + TagKey + "* from my database.")
+        Success_Em.set_author(name=TagType + " Deletion")
+        await Context.Channel.send(embed=Success_Em)
+        await Context.Message.add_reaction(Conversation.Emoji["check"])
         return
 
     @staticmethod
-    async def TagErrorEmbed(textmessage):
-        em = discord.Embed(description=textmessage, color=Vars.Bot_Color, timestamp=Helpers.EmbedTime())
-        em.set_author(name="Tag Error", icon_url=Vars.Bot.user.avatar_url)
+    async def Reserve_Random(TagKey, Context, IsPersonalTag):
+        if IsPersonalTag:
+            AllTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+        else:
+            AllTagData = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
 
-        return em
+        # Now let's randomly choose one
+
+        ChosenTagKey = random.choice(list( AllTagData.keys() ))
+        ChosenTagDict = AllTagData[ChosenTagKey]
+
+        TagEmbed = await Tag.FormatEmbed(ChosenTagDict, Context)
+
+        await Context.Channel.send(embed=TagEmbed)
 
     @staticmethod
-    async def InfoTag(message, TagKey, PersonalTag=False):
-        # Display some info about the tag's creation
+    async def Reserve_Info(TagKey, Context, IsPersonalTag):
 
-        if PersonalTag:
-            AllTagData = await Tag.RetrievePTagList(id=message.author.id)
-        else:
-            AllTagData = await Tag.RetrieveTagList()
+        async def RaiseError(Error):
+            Color = await Tag.GetTagColor(Context, IsPersonalTag)
 
-        TagKey = TagKey.replace("info", "").strip()
+            em = discord.Embed(color=Color,
+                               description=Error)
+            em.set_author(name="Tag Info Error", icon_url=Vars.Bot.user.avatar_url)
+            em.set_footer(text="For help deleting and using tags, perform \"/help Tag\"")
+
+            await Context.Message.add_reaction(Conversation.Emoji["x"])
+            await Context.Channel.send(embed=em)
+            return
+
+        Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+        TagKey = " ".join(TagKey.split(" ")[1:]).strip().lower()
 
         if not TagKey:
-            await message.channel.send(embed=await Tag.TagErrorEmbed("You need to specify a key to request the info of: ```You >> /tag info {tag key}```"))
+            await RaiseError("Please specify which tag you'd like the info for. ```>> "
+                       "/tag info {key}\n>> /ptag info {key}```")
             return
 
-        TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
+        AuthorID = Context.Message.author.id
+        GuildID = AuthorID if Context.InDM else Context.Message.guild.id
+
+        TagData = await Tag.GetTag(TagKey, IsPersonalTag, AuthorID, GuildID)
+
         if not TagData:
+            await Tag.NoTagFound(TagKey, Context, IsPersonalTag)
             return
-        if type(TagData) == tuple:
-            TagData, PersonalTag = TagData[0], TagData[1]
 
-        SendMsg = "```\nKey: " + TagData["Key"]
+        if TagData["Personal"]:  IsPersonalTag = True
+
+        SendMsg = "Key: " + TagData["Key"]
         SendMsg += "\nContent: " + TagData["Content"]
         SendMsg += "\nCreator: " + Vars.Bot.get_user(TagData["Creator"]).name + " (" + str(TagData["Creator"]) + ")"
         SendMsg += "\nGuild: " + Vars.Bot.get_guild(TagData["Guild"]).name + " (" + str(TagData["Guild"]) + ")"
         SendMsg += "\nTime: " + str(datetime.fromtimestamp(TagData["Time"]))
-        SendMsg += "\nAdmin Only? " + str(TagData["Admin"])
         SendMsg += "\nImage: " + str(TagData["Image"])
         SendMsg += "\nColor: " + str(TagData["Color"])
 
-        SendMsg += "\n```"
-        if PersonalTag:
-            title = "Personal Tag Info"
-        else:
-            title = "Tag Info"
-        em = discord.Embed(title=title, description=SendMsg, color=Vars.Bot_Color)
 
-        if TagData["Image"]:
-            em.set_image(url=TagData["Image"])
+        Footer = Context.Message.author.name + "\'s Personal Tag: " + TagKey if IsPersonalTag \
+            else Context.Message.guild.name + "'s Server Tag >> /tag " + TagKey
+        Image = Context.Message.author.avatar_url if IsPersonalTag else Context.Message.guild.icon_url
+        Title = "Personal Tag Information: " + TagKey if IsPersonalTag else "Server Tag Information: " + TagKey
 
-        await message.channel.send(embed=em)
-        return
+        em = discord.Embed(color=await Tag.GetTagColor(Context, IsPersonalTag), description=SendMsg)
+        em.set_footer(text=Footer, icon_url=Image)
+        em.set_author(name=Title)
+
+        await Context.Channel.send(embed=em)
 
     @staticmethod
-    async def EditTag(Context, TagKey, PersonalTag=False):
+    async def EditTag(TagKey, Context, IsPersonalTag):
         message = Context.Message
+        StrGuildID = str(Context.Message.guild.id)
 
         TagKey = TagKey.replace("edit", "").strip()
 
-        async def SaveData(TagData, PersonalTag):
-            if PersonalTag:
-                PersonalTagData = await Tag.RetrievePTagList()
-                PersonalTagData[str(message.author.id)] = TagData
+        async def SaveData(AllTagData, NewTagData, IsPersonalTag):
+            AllTagData[NewTagData["Key"]] = NewTagData
+            if IsPersonalTag:
+                AllTagData[NewTagData["Key"]] = NewTagData
+                IsPersonalTagData = await Tag.RetrievePTagList()
+                IsPersonalTagData[str(message.author.id)] = AllTagData
                 Helpers.SaveData(PersonalTagData, type="PTag")
                 return
-            elif not PersonalTag:
-                Helpers.SaveData(TagData, type="Tag")
+            elif not IsPersonalTag:
+                # Okay so first we need to check if the Data is ready to go
+                AllGuildTagData = await Tag.RetrieveTagList()
+                AllGuildTagData[StrGuildID] = AllTagData
 
-        if not PersonalTag:
-            if message.author.id not in Ranks.Admins:
+                Helpers.SaveData(AllGuildTagData, type="Tag")
+            return
+
+        async def SendMessage(text, title=None):
+            Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+            Footer = "Editing "
+            Footer += Context.Message.author.name + "\'s Personal Tag: " + TagKey if IsPersonalTag \
+                else Context.Message.guild.name + "'s Server Tag >> /tag " + TagKey
+            Image = Context.Message.author.avatar_url if IsPersonalTag else Context.Message.guild.icon_url
+
+            em = discord.Embed(color=Color, description=text)
+            em.set_footer(text="Tag Edit: " + Footer, icon_url=Image)
+            if title:
+                em.set_author(name=Title)
+
+            sentmsg = await Context.Channel.send(embed=em)
+            return sentmsg
+
+        if not IsPersonalTag:
+            if Context.Message.author.id not in Ranks.Admins:
                 return
 
         if not TagKey:
-            await message.channel.send(embed=await Tag.TagErrorEmbed("You need to specify a key to request the edit of: ```You >> /tag edit {tag key}```"))
+            await SendMessage("Please Specify which Tag you'd like to edit: ```"
+                              ">> /tag edit {key}\n>>/ptag edit {key}")
             return
 
-        TagData = await Tag.GetTag(message, TagKey, PersonalTag=PersonalTag)
+        AuthorID = Context.Message.author.id
+        GuildID = AuthorID if IsPersonalTag else Context.Message.guild.id
+
+        TagData = await Tag.GetTag(TagKey, IsPersonalTag, AuthorID, GuildID)
         if not TagData:
+            await Tag.NoTagFound(TagKey, Context, IsPersonalTag)
             return
-        if type(TagData) == tuple:
-            TagData, PersonalTag = TagData[0], TagData[1]
 
-        if PersonalTag:
-            AllTagData = await Tag.RetrievePTagList(id=message.author.id)
+        if TagData["Personal"]:
+            IsPersonalTag = True
+
+        if IsPersonalTag:
+            AllTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
             TagType = "Personal Tag"
         else:
-            AllTagData = await Tag.RetrieveTagList()
-            TagType = "Public Tag"
-
+            AllTagData = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
+            TagType = "Server Tag"
 
         # Prepare Dialogue asking what action they wish to do
 
-        OptOne = "Change Tag Key"
-        OptTwo = "Change Tag Content"
-        OptThree = "Change Tag Image"
-        OptFour = "Change Tag Color"
-        OptFive = "Delete Tag"
+        OptOne = {"Option": "Change Tag Key", "Emoji": Conversation.Emoji["key"]}
+        OptTwo = {"Option": "Change Tag Content", "Emoji": Conversation.Emoji['notepad']}
+        OptThree = {"Option": "Change Tag Image", "Emoji": Conversation.Emoji['camera']}
+        OptFour = {"Option": "Change Tag Color", "Emoji": Conversation.Emoji['paintbrush']}
+        OptFive = {"Option": "Delete Tag", "Emoji": Conversation.Emoji['trash']}
 
-        Response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Edit " + TagType + ": " + TagKey,
-                    Choices= [OptOne, OptTwo, OptThree, OptFour, {'Option': OptFive, 'Emoji': Conversation.Emoji["trash"]}],
-                    Color=discord.Embed.Empty, timeout=60, title="Choose the option of the action you'd like to do", Show_Cancel=True)
+        Color = await Tag.GetTagColor(Context, IsPersonalTag)
+
+        Response = await Interraction.UserChoice(Context.Channel, Context.Message.author,
+                                                 "Edit " + TagType + ": " + TagKey,
+                                                 Choices=[OptOne, OptTwo, OptThree, OptFour, OptFive],
+                                                 Color=Color, timeout=60,
+                                                 title="Choose the option of the action you'd like to do",
+                                                 Show_Cancel=True)
 
         if Response == None:
-            await message.channel.send(embed=await Tag.TagErrorEmbed("Tag Edit Timed Out."))
+            await SendMessage("Tag Edit Timed Out.")
             return
         elif Response == "Cancel":
             return
 
+
         # Now we find which they chose
-        if Response == OptOne:
+        if Response == OptOne["Option"]:
             EditMode = "Key"
-        if Response == OptTwo:
+        if Response == OptTwo["Option"]:
             EditMode = "Content"
-        if Response == OptThree:
+        if Response == OptThree["Option"]:
             EditMode = "Image"
-        if Response == OptFour:
+        if Response == OptFour["Option"]:
             EditMode = "Color"
-        if Response == OptFive:
+        if Response == OptFive["Option"]:
             EditMode = "Delete"
 
         # Delete tag if requested
         if EditMode == "Delete":
-            if not await Helpers.Confirmation(Context.Channel, Context.Message.author, "Delete " + TagType + "? " + TagKey):
+            if not await Interraction.Confirmation(Context.Channel, Context.Message.author,
+                                                   "Delete " + TagType + ": " + TagKey, color=Color):
                 return
             AllTagData.pop(TagKey)
-            await SaveData(AllTagData, PersonalTag)
-            await message.channel.send("Deleted " + TagType + " " + TagKey + " from RedBot Database")
-            await message.add_reaction(Conversation.Emoji["check"])
+
+            if IsPersonalTag:
+                AllPersonalTagData = await Tag.GetPersonalTagList()
+                AllPersonalTagData[str(Context.Message.author.id)].pop(TagKey)
+                Helpers.SaveData(AllPersonalTagData, type="PTag")
+
+            else:
+                AllGuildTagData = await Tag.GetGuildTagList()
+                AllGuildTagData[str(Context.Message.guild.id)].pop(TagKey)
+                Helpers.SaveData(AllGuildTagData, type="Tag")
+
+
+            await SendMessage("Deleted " + TagType + " " + TagKey + " from RedBot Database")
+            await Context.Message.add_reaction(Conversation.Emoji["check"])
             return
 
-        ResponsePrompt = await message.channel.send("Okay, send the new **" + EditMode + "** that you desire for your "
+        ResponsePrompt = await SendMessage("Okay, send the new **" + EditMode + "** that you desire for your "
                                                     + TagType + ".")
 
         def check2(init_msg):
-            if init_msg.author.id == message.author.id:
+            if init_msg.author.id == Context.Message.author.id:
                 return True
 
         try:
             ResponseMsg = await Vars.Bot.wait_for('message', timeout=60, check=check2)
 
         except asyncio.TimeoutError:
-            await message.send("Edit Timed Out.")
-            await Helpers.QuietDelete(ChoiceBoxMsg)
+            await SendMessage("Edit Timed Out.")
+            await Helpers.QuietDelete(ResponsePrompt)
             return
-
 
         await Helpers.QuietDelete(ResponsePrompt)
         await message.channel.trigger_typing()
 
         # Okay so now we have the new part of the tag, so it's time to split off and run the command per grouping
 
+        if IsPersonalTag:
+            AllTagData = await Tag.GetPersonalTagList(ID=Context.Message.author.id)
+        else:
+            AllTagData = await Tag.GetGuildTagList(ID=Context.Message.guild.id)
+
         # KEY
         if EditMode == "Key":
             NewKey = ResponseMsg.content.strip().replace("-", " ").lower()
-            if len(NewKey) > 100:
-                await message.channel.send("Key is too long!")
-                return
-            elif NewKey.count(" ") >= 6:
-                await message.channel.send("Key has too many spaces!")
-                return
-            elif NewKey in AllTagData:
-                await message.channel.send(TagType + " already exists!")
+            IsSafeMsg = await Tag.CheckPotentialTag(NewKey, TagData["Content"], TagData["Image"], AllTagData)
+
+            if IsSafeMsg:
+                await SendMessage(IsSafeMsg)
                 return
 
             # if Key is good:
@@ -5884,38 +6401,22 @@ class Tag:
             NewContent = ResponseMsg.content.strip()
 
             # Shorten any links
-            if "http" in NewContent:
-                ContentWords = NewContent.split(" ")  # Split by spaces
-                for word in ContentWords:
-                    if "http" in word.lower():  # If this particular word contains the link
-
-                        while not word.lower().startswith("http"):  # Keep going one by one until you find it
-                            word = word[1:]
-                        # We now have word starting in the right place, but not ending yet
-                        if word.endswith("\""):
-                            word = word.replace("\"", "")
-                        word = word.strip()
-                        while "\n" in word:
-                            word = word[:len(word) - 1]
-
-                        shortened_word = Sys.Shorten_Link(word)
-                        # Replace original usage with shortened link
-                        NewContent = NewContent.replace(word, shortened_word)
+            NewContent = await Helpers.ShortenTextInLink(NewContent)
 
             # Okay so now all links are shortened, check length:
-            if len(NewContent) > 1000:
-                await message.channel.send("Too long!")
+            IsSafeMsg = await Tag.CheckPotentialTag(TagData["Key"], NewContent, TagData["Image"], AllTagData, DoNotCheck=["key"])
+            if IsSafeMsg:
+                await SendMessage(IsSafeMsg)
                 return
 
             # if it's cleared to go
-            print(type(TagData), TagData)
             TagData["Content"] = NewContent
 
         elif EditMode == "Image":
             try:
                 NewImage = ResponseMsg.attachments[0]
             except:
-                await message.channel.send("You forgot to attach an image, bud.")
+                await SendMessage("You forgot to attach an image, bud.")
                 return
 
             ImageLink = await Helpers.DownloadAndUpload(message, NewImage)
@@ -5929,10 +6430,10 @@ class Tag:
             except:
                 failure = "Please use a Hex Code. Try this link: "
                 failure += Sys.Shorten_Link('https://www.webpagefx.com/web-design/color-picker/')
-                second_message = await message.channel.send(failure)
+                second_message = await SendMessage(failure)
                 return
 
-            TagData["Color"] = str(color).replace("#","")
+            TagData["Color"] = str(color).replace("#", "")
             TagData['Color'] = color.value
 
         await Helpers.QuietDelete(ResponseMsg)
@@ -5942,66 +6443,37 @@ class Tag:
             TagData["Color"] = Vars.Bot_Color
 
         ConfirmMessage = "This is the " + TagType + " you want?"
-        if PersonalTag:
+        if IsPersonalTag:
             Command = "/ptag "
         else:
             Command = "/tag "
 
         if not TagData["Color"]:
             TagData["Color"] = Vars.Bot_Color
-        Extra_Text = "```You Send:  > " + Command + TagData["Key"] + "\nI Respond: > " + TagData["Content"].replace("```", "\'\'\'") + "```"
-        Confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, ConfirmMessage, extra_text=Extra_Text, add_reaction=False,
-                                                  deny_text= TagType + " Edit Cancelled",
-                                                  image=TagData["Image"], color=TagData["Color"])
+        Extra_Text = "```You Send:  > " + Command + TagData["Key"] + "\nI Respond: > " + TagData["Content"].replace(
+            "```", "\'\'\'") + "```"
+        Confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, ConfirmMessage,
+                                                       extra_text=Extra_Text, add_reaction=False,
+                                                       deny_text=TagType + " Edit Cancelled",
+                                                       image=TagData["Image"], color=TagData["Color"])
         if not Confirmation:
             return
 
         # If they confirmed it:
         AllTagData.pop(TagKey)
-        AllTagData[TagData["Key"]] = TagData
+
+        # AllTagData[TagData["Key"]] = TagData
 
         # Set it in the new dict
-        await SaveData(AllTagData, PersonalTag)
+        await SaveData(AllTagData, TagData, IsPersonalTag)
 
-        ExitMessage = "Successfully Edited the " + TagType + ". To use it, type: ```css\n" + Command + TagData["Key"] + "```"
-        await message.channel.send(ExitMessage)
+        ExitMessage = "Successfully Edited the " + TagType + ". To use it, type: ```css\n" + Command + TagData[
+            "Key"] + "```"
+        await SendMessage(ExitMessage)
 
         return
 
-    @staticmethod
-    async def RandomTag(message, PersonalTag=False):
-        # Called if /tag random
-        if PersonalTag:
-            AllTagData = await Tag.RetrievePTagList(id=message.author.id)
-        else:
-            AllTagData = await Tag.RetrieveTagList()
 
-        SelectedTagKey = random.choice(list(AllTagData.keys()))
-
-        TagData = AllTagData[SelectedTagKey]
-
-        if TagData["Admin"]:
-            # If it's an admin only tag:
-            IsAdmin = await CheckMessage(message, prefix=True, admin=True, CalledInternally=True)
-            if not IsAdmin:
-                await message.channel.send("This is an admin-only tag! Sorry.")
-                await message.add_reaction(Conversation.Emoji["x"])
-                return
-            # If it is an admin then there's no issue
-
-        if "Color" not in TagData.keys():
-            TagData["Color"] = Vars.Bot_Color
-        elif not TagData["Color"]:
-            TagData["Color"] = Vars.Bot_Color
-
-        em = discord.Embed(description=TagData["Content"], color=TagData["Color"])
-        if "Image" in TagData.keys():
-            if TagData["Image"]:
-                em.set_image(url=TagData["Image"])
-        em.set_footer(text="/tag " + TagData["Key"])
-
-        await message.channel.send(embed=em) #TagData["Content"])
-        return
 
 
 class Remind:
@@ -7043,7 +7515,7 @@ class Remind:
 
         Description = "My time is " + CurrentTime.strftime("%I:%M %p") + ", so 'tomorrow' could mean later today, or tomorrow. Which did you mean?"
 
-        Response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "What did you mean by 'Tomorrow'?", Choices=Choices, description=Description, timeout=60,
+        Response = await Interraction.UserChoice(Context.Channel, Context.Message.author, "What did you mean by 'Tomorrow'?", Choices=Choices, description=Description, timeout=60,
                                             Color=Remind.embed_color)
 
 
@@ -7586,7 +8058,7 @@ class Remind:
             await Remind.ReturnError(message, "You have no reminders scheduled! Use `/remind` to schedule some!")
             return
 
-        # We're going to be using the Helpers.UserChoice Framework. What we need is a list of option strings
+        # We're going to be using the Interraction.UserChoice Framework. What we need is a list of option strings
         OptionList = []
         # We also want a dictionary of the options to their respective Reminders
         OptionDict = {}
@@ -7605,7 +8077,7 @@ class Remind:
             OptionList.append(tempStr)
             OptionDict[tempStr] = Reminder
 
-        response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Which Reminder would you like to edit?", OptionList, Show_Cancel=True)
+        response = await Interraction.UserChoice(Context.Channel, Context.Message.author, "Which Reminder would you like to edit?", OptionList, Show_Cancel=True)
 
         if not response:
             return
@@ -7632,7 +8104,7 @@ class Remind:
 
         Description = "What would you like to change about this reminder?```md\n# " + RemindTimeString + "\nI say >> " + RemindMsg + "```"
 
-        response = await Helpers.UserChoice(Context.Channel, Context.Message.author, "Edit Reminder?", Options, description=Description, Show_Cancel=True)
+        response = await Interraction.UserChoice(Context.Channel, Context.Message.author, "Edit Reminder?", Options, description=Description, Show_Cancel=True)
 
         if not response or response == "Cancel":
             return
@@ -7679,7 +8151,7 @@ class Remind:
                     ]
 
 
-                    VerifyTime = await Helpers.UserChoice(Context.Channel, Context.Message.author, "I'll remind you: " + await Remind.GiveDateString(NewRemindTime, datetime.now()), VerifyTimeOptions, Show_Cancel=True )
+                    VerifyTime = await Interraction.UserChoice(Context.Channel, Context.Message.author, "I'll remind you: " + await Remind.GiveDateString(NewRemindTime, datetime.now()), VerifyTimeOptions, Show_Cancel=True )
 
                     if not VerifyTime or VerifyTime == "Cancel":
                         return
@@ -7924,7 +8396,7 @@ class Call:
             await Context.Message.channel.send(embed=em)
             return
 
-        confirmation = await Helpers.Confirmation(Context.Channel, Context.Message.author, "Delete this channel?")
+        confirmation = await Interraction.Confirmation(Context.Channel, Context.Message.author, "Delete this channel?")
         if confirmation:
             await Context.Message.channel.delete()
 
@@ -8060,4 +8532,6 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
-    await Timer.NightlyCheck()
+    bob = [i for i in "Hello hello there, how are you today? I am fine, thank you for asking."]
+
+    await Interraction.ListStrings(Context.Channel, bob, "Hello")
