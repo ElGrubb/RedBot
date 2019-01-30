@@ -4496,13 +4496,14 @@ class Other:
             try:
                 reaction, user = await Vars.Bot.wait_for('reaction_add', check=check, timeout=60)
             except asyncio.TimeoutError:
-                if not await Helpers.Deleted(message):
+                if not await Helpers.Deleted(message) and not Context.InDM:
                     await message.remove_reaction(Conversation.Emoji["link"], Vars.Bot.user)
                 return
 
             # Now that we know they wanted it shortened, our first order of business
             # is to delete the original
-            await message.delete()
+            if not Context.InDM:
+                await message.delete()
 
         # Now it's time to format what the bot will send
         NewContent = message.content
