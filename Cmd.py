@@ -3563,7 +3563,7 @@ class Quotes:
             guild_obj = message.guild
 
         # Prepare the Embed
-        em = discord.Embed(title=quote, timestamp=date, colour=Vars.Bot_Color)
+        em = discord.Embed(description=quote, timestamp=date, colour=Vars.Bot_Color)
         em.set_footer(text="Saved Quote", icon_url=guild_obj.icon_url)
         em.set_author(name=sender_obj.name, icon_url=sender_obj.avatar_url)
 
