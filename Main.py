@@ -12,7 +12,7 @@ class RedBot(discord.Client):
             return
 
         # Ok so let's see if it's starting in Safety_Mode
-        if Cmd.Vars.Safety_Mode:
+        if Cmd.Vars.Safety_Mode and message.content.startswith(("/", "?", ".")):
             if not message.author.id == Cmd.Vars.Creator.id:
                 await message.channel.send("I am currently in safety mode due to an error during the startup process")
                 return
@@ -117,6 +117,8 @@ class RedBot(discord.Client):
             return
 
         # If it was sent after bot was turned on / restarted
+        if not Cmd.Vars.start_time:
+            return
         if message.created_at >= Cmd.Vars.start_time:
             return
 
