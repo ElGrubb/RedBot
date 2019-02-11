@@ -2561,7 +2561,15 @@ class Admin:
         if restart_data["Restarted"]:
             channel = Vars.Bot.get_channel(restart_data["Channel_ID"])
             to_send = "Successfully Completed a `Full` " + restart_data["Type"]
-            await channel.send(to_send)
+            if channel:
+                await channel.send(to_send)
+            else:
+                Creator = Vars.Creator
+                if not Creator:
+                    Creator = Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
+
+                await Creator.send(to_send)
+
             restart_data["Restarted"] = False
             Helpers.SaveData(restart_data, type="System")
 
