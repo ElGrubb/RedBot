@@ -4511,7 +4511,12 @@ class Other:
             To_Replace = Shortened_Links[link]["Short"] + " *(" + Shortened_Links[link]["Partial"] + ")* "
             NewContent = NewContent.replace(link, To_Replace)
 
-        LinkSendEmbed = discord.Embed(description=NewContent, color=message.author.color)
+        if Context.InDM:
+            Color = 0xFFFFFF
+        else:
+            Color = message.author.color
+
+        LinkSendEmbed = discord.Embed(description=NewContent, color=Color)
         LinkSendEmbed.set_author(name=message.author.name + "#" + message.author.discriminator, icon_url=message.author.avatar_url)
         LinkSendEmbed.set_footer(text="RedBot Link Shortener")
 
