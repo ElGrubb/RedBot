@@ -3485,7 +3485,6 @@ class Timer:
         FileChannel = Vars.Bot.get_channel(Conversation.Channel_IDs["FileLog"])
         await FileChannel.send("**Nightly File Send: **" + DateStamp, file=newfile)
 
-
         # Other checks to do nightly!
         await Remind.CheckForOldReminders()
         await Poll.CleanData()
