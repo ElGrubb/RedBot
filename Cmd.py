@@ -2831,6 +2831,7 @@ class OnEvents:
         await Poll.CleanData()
 
         Vars.Ready = True
+        print("Ready!")
 
     @staticmethod
     async def On_Member_Join(member):
@@ -3428,8 +3429,9 @@ class Timer:
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
                 Timer.Ping = int(datetime.now().timestamp())
+                print(current_time)
 
-                if current_time == '06:30':
+                if current_time == '09:32':
                     try:
                         today = datetime.now().strftime("%B %d")
                         print("Good Morning! It is " + today)
@@ -3442,7 +3444,7 @@ class Timer:
 
                 await Remind.CheckForReminders()
 
-                if current_time.endswith(":01") or current_time.endswith(":31"):
+                if current_time.endswith(":01") or current_time.endswith(":40"):
                     if not Vars.Disabled:
                         await Other.StatusChange()  # NEvermind
 
