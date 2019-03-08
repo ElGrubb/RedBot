@@ -184,6 +184,8 @@ def Main():
     bot.loop.create_task(Cmd.Timer.TimeThread())
     bot.run(token)
 
+
+
 Main()
 
 CurrentTime = Cmd.Timer.DigitTime()

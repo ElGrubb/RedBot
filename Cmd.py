@@ -3444,9 +3444,12 @@ class Timer:
 
                 await Remind.CheckForReminders()
 
-                if current_time.endswith(":01") or current_time.endswith(":40"):
+                if current_time.endswith(":01") or current_time.endswith(":30"):
                     if not Vars.Disabled:
-                        await Other.StatusChange()  # NEvermind
+                        try:
+                            await Other.StatusChange()  # NEvermind
+                        except:
+                            print("OOF")
 
         Timer.Running = False
         print("TimeThread Terminated.")
@@ -4030,7 +4033,6 @@ class Other:
         # Let's add a bit of variance
         Variance = random.randrange(0, 200)
 
-
         ActivityType = discord.ActivityType.playing
         StatusPrefix = "v" + Vars.Version + " | "
 
@@ -4047,6 +4049,7 @@ class Other:
         if 100 < Variance < 200 and 8 < CurrentHour < 20:
             New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Up and running!", "Hello", "Hello, Human.", "Hello, Human", "Active", "Awaiting your Command...", "@Dom#2774"])
 
+        print(New_Status, Variance)
         game = discord.Activity(type=ActivityType, name=StatusPrefix + New_Status)
         await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
 
@@ -8547,6 +8550,6 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
-    bob = [i for i in "Hello hello there, how are you today? I am fine, thank you for asking."]
-
-    await Interraction.ListStrings(Context.Channel, bob, "Hello")
+    ActivityType = discord.ActivityType.watching
+    game = discord.Activity(type=ActivityType, name=Context.Message.content)
+    await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
