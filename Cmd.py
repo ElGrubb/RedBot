@@ -2478,6 +2478,7 @@ class Admin:
                     else:
                         return
 
+                await asyncio.sleep(2)
                 if not await Timer.IsRunning():
                     Started_Successfully = False
 
@@ -2603,6 +2604,16 @@ class Admin:
         await message.add_reaction(Conversation.Emoji["check"])
         print("Restarting RedBot for Requested Update")
         await Admin.BotRestart("Update", message.channel.id)
+
+    @staticmethod
+    async def InternalUpdate():
+        g = git.cmd.Git(os.getcwd())
+        output = g.pull()
+        if "Already" in output:
+            return
+        print("Restarting RedBot for Automagic Update")
+
+        await Admin.BotRestart("Update", 267071439109226496)
 
     @staticmethod
     @Command(Start="SaveData", Prefix=True, Admin=True)
@@ -2808,6 +2819,7 @@ class OnEvents:
         join = 'Logged on as {0}'.format(selfbot.user)
         print(join + "\n" + "=" * len(join))
         Vars.Creator = Vars.Bot.get_user(int(Sys.Read_Personal(data_type="Dom_ID")))
+        await Admin.InternalUpdate()
 
         await Other.StatusChange()
 
@@ -3451,6 +3463,9 @@ class Timer:
                         except:
                             print("OOF")
 
+                if current_time == '23:31':
+                    break
+
         Timer.Running = False
         print("TimeThread Terminated.")
 
@@ -3466,7 +3481,7 @@ class Timer:
         Now = int(datetime.now().timestamp())
         if not Timer.Ping:
             return "NoPing"
-        if Now - Timer.Ping >= 120:  # Two minutes since last ping:
+        if Now - Timer.Ping >= 90:  # Two minutes since last ping:
             return False
         return True
 
