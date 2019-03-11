@@ -2613,7 +2613,7 @@ class Admin:
             return
         print("Restarting RedBot for Automagic Update")
 
-        await Admin.BotRestart("Update", 267071439109226496)
+        await Admin.BotRestart("Automatic Update", 267071439109226496)
 
     @staticmethod
     @Command(Start="SaveData", Prefix=True, Admin=True)
@@ -3441,33 +3441,37 @@ class Timer:
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
                 Timer.Ping = int(datetime.now().timestamp())
-                print(current_time)
 
-                if current_time == '09:32':
-                    try:
-                        today = datetime.now().strftime("%B %d")
-                        print("Good Morning! It is " + today)
-                        await Other.T_Weather()
-                    except Exception as e:
-                        await Vars.Creator.send("Error during weather, error = " + str(e))
+                try:
+                    await Timer.TimeThreadRounds(current_time)
 
-                if current_time == '23:00':
-                    await Timer.NightlyCheck()
-
-                await Remind.CheckForReminders()
-
-                if current_time.endswith(":01") or current_time.endswith(":30"):
-                    if not Vars.Disabled:
-                        try:
-                            await Other.StatusChange()  # NEvermind
-                        except:
-                            print("OOF")
-
-                if current_time == '23:31':
-                    break
+                except:
+                    break  # todo FINISH
 
         Timer.Running = False
         print("TimeThread Terminated.")
+
+    @staticmethod
+    async def TimeThreadRounds(current_time):
+        if current_time == '06:30':
+            try:
+                today = datetime.now().strftime("%B %d")
+                print("Good Morning! It is " + today)
+                await Other.T_Weather()
+            except Exception as e:
+                await Vars.Creator.send("Error during weather, error = " + str(e))
+
+        if current_time == '23:00':
+            await Timer.NightlyCheck()
+
+        await Remind.CheckForReminders()
+
+        if current_time.endswith(":01") or current_time.endswith(":30"):
+            if not Vars.Disabled:
+                try:
+                    await Other.StatusChange()  # NEvermind
+                except:
+                    print("OOF")
 
     @staticmethod
     async def StartTimeThread():
