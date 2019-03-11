@@ -28,7 +28,7 @@ class RedBot(discord.Client):
         Context = ContextMessage(message)
 
         if Cmd.Vars.Disabled:
-            await Cmd.Log.LogSent(Context)
+            await Cmd.Log.LogSend(Context)
             Continue = await Cmd.Admin.Enable(Context)
             if not Continue:
                 return
