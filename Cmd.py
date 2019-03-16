@@ -8610,6 +8610,13 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
+    Confirmation = await Helpers.Confirmation(Context.Message.channel, Context.Message.author, "This will turn off the "
+                                                                                               "TimeThread. Continue?")
+
+    if not Confirmation:
+        return
+
+
     Timer.StopThreadTwo = True
 
 
