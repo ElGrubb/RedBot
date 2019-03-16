@@ -3441,11 +3441,52 @@ class Timer:
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
                 Timer.Ping = int(datetime.now().timestamp())
+                print(current_time)
 
                 try:
                     await Timer.TimeThreadRounds(current_time)
 
-                except:
+                except Exception as e:
+                    # Okay so now we have Context and Location. Let's figure out the Long_TraceBack and Short_Traceback
+                    Short_TraceBack = ""
+                    Long_TraceBack = ""
+
+                    # This will create a list of the system traceback
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
+                    tblist = tblist[2:]
+
+                    # Now let's work with the traceback a bit
+                    new_tblist = []
+                    for part in tblist:
+                        # Okay so these are some things to shorten the criteria
+                        part = part.replace("\\", "/").strip()
+                        part = part.replace("C:/Users/spong/Desktop/", "").replace("/home/pi/Desktop/", "")
+                        part = part.replace(
+                            "C:/Users/spong/AppData/Local/Programs/Python/Python36-32/lib/site-packages/", "")
+                        part = part.replace("During ", "# During ")
+                        part = part.replace("RedBot/", "").replace("GoldBot/", "")
+                        part = part.replace("File ", "")
+                        part = part.replace("    ", "\t")
+
+                        if part.startswith("\"discord/") or part.startswith("Traceback"):
+                            continue
+
+                        # After all that nonsense, we need to add it to new_tblist
+                        new_tblist.append(part)
+
+                    # Now let's set up the Short_TraceBack and Long_Traceback
+                    Short_TraceBack = new_tblist[-1]
+                    Long_TraceBack = '\n'.join(new_tblist)
+
+                    print(Long_TraceBack)
+
+                    try:
+                        await Vars.Creator.send("Just crashed now. Shutting RedBot Down. Beep boop.")
+                    except:
+                        pass
+                    quit()
+
                     break  # todo FINISH
 
         Timer.Running = False
@@ -3472,6 +3513,7 @@ class Timer:
                     await Other.StatusChange()  # NEvermind
                 except:
                     print("OOF")
+
 
     @staticmethod
     async def StartTimeThread():
@@ -4068,7 +4110,6 @@ class Other:
         if 100 < Variance < 200 and 8 < CurrentHour < 20:
             New_Status = random.choice(["Online", "Bot Active", "RedBot Active", "Up and running!", "Hello", "Hello, Human.", "Hello, Human", "Active", "Awaiting your Command...", "@Dom#2774"])
 
-        print(New_Status, Variance)
         game = discord.Activity(type=ActivityType, name=StatusPrefix + New_Status)
         await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
 
@@ -8569,6 +8610,10 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
-    ActivityType = discord.ActivityType.watching
-    game = discord.Activity(type=ActivityType, name=Context.Message.content)
-    await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
+    Timer.StopThreadTwo = True
+
+
+
+    #ActivityType = discord.ActivityType.watching
+    #game = discord.Activity(type=ActivityType, name=Context.Message.content)
+    #await Vars.Bot.change_presence(status=discord.Status.online, activity=game)
