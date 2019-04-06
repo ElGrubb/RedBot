@@ -1988,6 +1988,60 @@ class Log:
         await CommandLog.send(embed=em)
 
 
+class Connection:
+    # If connected to the wifi
+    IsConnected = True  # Default True until told otherwise.
+
+    TestChannel_ID = 563924823860838412
+
+    @staticmethod
+    async def Test():
+        # Returns True if it's connected, false if it's not
+        NetworkTestMsg = "Testing Connection on " + str(datetime.now())
+
+        try:
+            TestChannel = await Vars.Bot.get_channel(Connection.TestChannel_ID)
+            await TestChannel.send(NetworkTestMsg)
+            return True
+
+        except Exception as e:
+            return False
+
+    @staticmethod
+    async def Get_Connection():
+        """
+        Checks to see if the internet is connected. If so, Returns True. else, moves on to troubleshoot.
+        :return: True if/when connected.
+        """
+        Results = Connection.Test()
+        if Results:
+            return True  # Connected, return True
+
+        # If we're here, it's still not connected
+        Connection.IsConnected = False
+
+        print("Connection issues at " + str(datetime.now()))
+        TimeOut = 0
+        while TimeOut < 5:  # Waiting for 5 minutes
+            await asyncio.sleep(30)
+            TimeOut += 30
+            Results = Connection.Test()
+            if Results:
+                # If positive:
+                print("  Testing Connection # " + str(TimeOut) + ": Connecteded. ")
+                Connection.IsConnected = True
+                return True
+            # Else, still not connected, wait and retry
+            print("  Testing Connection # " + str(TimeOut) + ": Failed. ")
+
+        print("Testing Failed. Restarting")
+        # Okay so at this point we've been disconnected for 5 minutes. Let's restart and see if we're still not connected.
+        await Admin.BotRestart(type, Connection.TestChannel_ID, Log=True, System=True)
+        return
+
+
+
+
 class Admin:
     @staticmethod
     @Command(Start="Delete", Prefix=True, Admin=True, NoSpace=True, NotInclude="DeleteSince")
@@ -2520,7 +2574,7 @@ class Admin:
         #                               " the timethread since I've booted. ")
 
     @staticmethod
-    async def BotRestart(type, Channel_ID, Log=True):
+    async def BotRestart(type, Channel_ID, Log=True, System=False):
         if Log:
             info = {
                 "Restarted": True,
@@ -2538,8 +2592,12 @@ class Admin:
 
         await asyncio.sleep(5)
 
-        os.execv(sys.executable, ['python3'] + sys.argv)
-        return
+        if System == False:
+            os.execv(sys.executable, ['python3'] + sys.argv)
+            return
+        elif System == True:
+            os.system("sudo reboot")
+            return
 
     @staticmethod
     @Command(Start="Restart", Prefix=True, Admin=True, NoSpace=True)
@@ -3046,6 +3104,16 @@ class OnEvents:
         Traceback = None  # What lines of code stopped this
         Channel = None
 
+        # This will create a list of the system traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        tblist = tblist[2:]
+
+        # If it's a network error:
+        if str(exc_value).startswith("Cannot connect to host"):
+            Connected = await Connection.Get_Connection()
+            return
+
         Context, Location = None, None
         if args:  # Okay so if there's a message, or a reaction, sent along
             First_Argument = args[0]
@@ -3096,11 +3164,6 @@ class OnEvents:
         # Okay so now we have Context and Location. Let's figure out the Long_TraceBack and Short_Traceback
         Short_TraceBack = ""
         Long_TraceBack  = ""
-
-        # This will create a list of the system traceback
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        tblist = traceback.format_exception(exc_type, exc_value, exc_traceback)
-        tblist = tblist[2:]
 
         # Now let's work with the traceback a bit
         new_tblist = []
@@ -3440,8 +3503,9 @@ class Timer:
 
             # Morning Weather
             if current_time != old_time:  # Ensures this only runs on minute change
+
                 Timer.Ping = int(datetime.now().timestamp())
-                print(current_time)
+                await Connection.Get_Connection()
 
                 try:
                     await Timer.TimeThreadRounds(current_time)
@@ -8611,6 +8675,12 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
+
+    print("OOF")
+
+    await asyncio.sleep(10)
+
+    await Context.Channel.send("Hello")
 
     Confirmation = await Helpers.Confirmation(Context.Message.channel, Context.Message.author, "This will turn off the "
                                                                                                "TimeThread. Continue?")

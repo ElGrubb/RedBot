@@ -84,7 +84,24 @@ class RedBot(discord.Client):
         await Cmd.Log.LogEdit(BeforeContext, AfterContext)
 
     async def on_error(self, event_method, *args, **kwargs):
+        #try:
         await Cmd.OnEvents.On_Error(event_method, *args, **kwargs)
+        #except Exception as e:
+        #    print(e)
+        #    print("Intercepted! Turning off TimeThread...")
+        #    Cmd.Timer.StopThreadTwo = True
+        #    await asyncio.sleep(20)
+
+        #    print("Testing Network Compatability:")
+
+        #    try:
+        #        network_channel = bot.get_channel(563924823860838412)
+        #        await network_channel.send("Test 1")
+        #        print("Back online")
+        #        await Cmd.Timer.StartTimeThread()
+        #    except:
+        #        print("Still out. hm")
+
         return
 
     async def on_reaction_add(self, reaction, user):
@@ -191,3 +208,5 @@ Main()
 
 CurrentTime = Cmd.Timer.DigitTime()
 print("Main Loop Ended at " + CurrentTime)
+sleep(5*60)
+os.system("sudo reboot")
