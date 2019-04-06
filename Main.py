@@ -2,6 +2,7 @@ import Sys, Cmd, Conversation
 import discord, random, traceback, asyncio, sys, time
 from datetime import datetime, timedelta
 from Cmd import ContextMessage
+#from Commands import A
 
 class RedBot(discord.Client):
     async def on_ready(self):
@@ -109,7 +110,7 @@ class RedBot(discord.Client):
         channel = bot.get_channel(channel_id)
 
         try:
-            message = await channel.get_message(message_id)
+            message = await channel.fetch_message(message_id)
         except:
             return
 

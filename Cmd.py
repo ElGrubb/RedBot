@@ -79,7 +79,7 @@ class ContextMessage:
         id = self.Message.id
         channel = self.Message.channel
         try:
-            newmsg = await channel.get_message(id)
+            newmsg = await channel.fetch_message(id)
             self.Message = newmsg
             return self.Message
 
@@ -93,7 +93,7 @@ class ContextMessage:
         id = self.Message.id
         try:
             channel = self.Message.channel
-            newmsg = await channel.get_message(id)
+            newmsg = await channel.fetch_message(id)
         except discord.NotFound:
             self.Deleted = True
             return True
@@ -1046,7 +1046,7 @@ class Helpers:
         id = message.id
         channel = message.channel
         try:
-            newmsg = await channel.get_message(id)
+            newmsg = await channel.fetch_message(id)
             return newmsg
         except discord.NotFound:
             return None
@@ -1056,7 +1056,7 @@ class Helpers:
         id = message.id
         channel = message.channel
         try:
-            newmsg = await channel.get_message(id)
+            newmsg = await channel.fetch_message(id)
         except discord.NotFound:
             return True
         return False
@@ -1069,7 +1069,7 @@ class Helpers:
             return None
 
         try:
-            newmsg = await channel.get_message(int(messageID))
+            newmsg = await channel.fetch_message(int(messageID))
             return newmsg
         except discord.NotFound:
             return None
@@ -7804,6 +7804,7 @@ class Remind:
 
             SendChannel = Vars.Bot.get_channel(int(Reminder["Channel"]))
             RemindPerson = Vars.Bot.get_user(int(Reminder["RemindPerson"]))
+
             RemindPersonMention = RemindPerson.mention
 
             if not SendChannel:
@@ -7836,7 +7837,7 @@ class Remind:
                 continue
 
             try:
-                originalmsg = await SendChannel.get_message(int(Reminder["OriginalMessageID"]))
+                originalmsg = await SendChannel.fetch_message(int(Reminder["OriginalMessageID"]))
 
                 if not originalmsg:
                     return
@@ -8610,6 +8611,7 @@ class Call:
 
 @Command(Admin=True, Start="test", Prefix=True, NoSpace=True)
 async def test(Context):
+
     Confirmation = await Helpers.Confirmation(Context.Message.channel, Context.Message.author, "This will turn off the "
                                                                                                "TimeThread. Continue?")
 
