@@ -3694,7 +3694,7 @@ class Quotes:
         # Modify the Data a bit
         date = datetime.fromtimestamp(ChosenQuote["date"])
         quote = "**\"**" + ChosenQuote["quote"] + "**\"**"
-        sender_obj = await Vars.Bot.get_user_info(ChosenQuote["user_id"])
+        sender_obj = await Vars.Bot.get_user(ChosenQuote["user_id"])
         guild_obj = Vars.Bot.get_guild(int(GuildID))
         if not guild_obj:
             guild_obj = message.guild
