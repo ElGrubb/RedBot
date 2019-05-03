@@ -3678,7 +3678,6 @@ class Quotes:
             await message.add_reaction(Conversation.Emoji["x"])
             return
 
-
         QuoteList = data[GuildID]["Data"]
         Position = data[GuildID]["Position"]
 
@@ -3694,15 +3693,21 @@ class Quotes:
         # Modify the Data a bit
         date = datetime.fromtimestamp(ChosenQuote["date"])
         quote = "**\"**" + ChosenQuote["quote"] + "**\"**"
-        sender_obj = await Vars.Bot.get_user(ChosenQuote["user_id"])
+        sender_obj = Vars.Bot.get_user(int(ChosenQuote["user_id"]))
         guild_obj = Vars.Bot.get_guild(int(GuildID))
         if not guild_obj:
             guild_obj = message.guild
+        if sender_obj:
+            SenderName = sender_obj.name
+            SenderIcon = sender_obj.avatar_url
+        else:
+            SenderName = ChosenQuote["user_name"]
+            SenderIcon = discord.Embed.Empty
 
         # Prepare the Embed
         em = discord.Embed(description=quote, timestamp=date, colour=Vars.Bot_Color)
         em.set_footer(text="Saved Quote", icon_url=guild_obj.icon_url)
-        em.set_author(name=sender_obj.name, icon_url=sender_obj.avatar_url)
+        em.set_author(name=SenderName, icon_url=SenderIcon)
 
         await message.channel.send(embed=em)
 
