@@ -6816,7 +6816,8 @@ class Remind:
             if random.choice([0,0,0,0,1]):
                 RemindMsg += random.choice([" soon", " now"])
 
-        RemindMsg = Sys.FirstCap(RemindMsg).strip()
+        if not RemindMsg.lower().startswith("http"):
+            RemindMsg = Sys.FirstCap(RemindMsg).strip()
 
         # Find out if it ends with punctuation
         if not RemindMsg[len(RemindMsg)-1 : len(RemindMsg)] in [".", ",", "!", "?", " "]:
