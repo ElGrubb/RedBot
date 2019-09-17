@@ -2209,8 +2209,8 @@ class Admin:
 
         # timestamp = int(content)
 
-        # timestamp = 1461383520  # Beginnig of discord
-        timestamp = 1524525435  # when we left
+        timestamp = 1361383520  # Beginnig of discord
+        #timestamp = 1524525435  # when we left
         startreading = datetime.fromtimestamp(timestamp)
 
         Read_From = int(content)
