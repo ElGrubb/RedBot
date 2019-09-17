@@ -3562,7 +3562,7 @@ class Timer:
             try:
                 today = datetime.now().strftime("%B %d")
                 print("Good Morning! It is " + today)
-                await Other.T_Weather()
+                # await Other.T_Weather()
             except Exception as e:
                 await Vars.Creator.send("Error during weather, error = " + str(e))
 
